@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.statusvault.app",
+      "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -44,6 +45,13 @@
       ],
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-navigation-bar",
+        {
+          "position": "absolute",
+          "backgroundColor": "#00000000"
+        }
+      ],
       [
         "expo-media-library",
         {
