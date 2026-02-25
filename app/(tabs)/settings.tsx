@@ -1,0 +1,379 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  Linking,
+  Alert,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Device from 'expo-device';
+import { useMedia } from '@/contexts/MediaContext';
+import { AdBanner } from '@/components/AdBanner';
+import COLORS from '@/constants/colors';
+import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
+
+interface SettingRowProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconBg?: string;
+  label: string;
+  sublabel?: string;
+  value?: string;
+  onPress?: () => void;
+  showArrow?: boolean;
+  danger?: boolean;
+}
+
+function SettingRow({ icon, iconBg, label, sublabel, value, onPress, showArrow = true, danger }: SettingRowProps) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.settingRow}
+      activeOpacity={onPress ? 0.7 : 1}
+      disabled={!onPress}
+    >
+      <View style={[styles.settingIcon, { backgroundColor: iconBg || COLORS.SURFACE_2 }]}>
+        <Ionicons name={icon} size={18} color={danger ? COLORS.ACCENT_RED : COLORS.TEXT} />
+      </View>
+      <View style={styles.settingInfo}>
+        <Text style={[styles.settingLabel, danger && { color: COLORS.ACCENT_RED }]}>{label}</Text>
+        {sublabel && <Text style={styles.settingSubLabel}>{sublabel}</Text>}
+      </View>
+      {value ? (
+        <Text style={styles.settingValue}>{value}</Text>
+      ) : showArrow && onPress ? (
+        <Ionicons name="chevron-forward" size={16} color={COLORS.TEXT_MUTED} />
+      ) : null}
+    </TouchableOpacity>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <Text style={styles.sectionHeader}>{title}</Text>
+  );
+}
+
+export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+  const {
+    androidVersion,
+    storageMethod,
+    statuses,
+    savedItems,
+    hasPermission,
+    safGranted,
+    requestPermissions,
+    requestSAF,
+  } = useMedia();
+
+  const deviceName = Device.modelName || Device.deviceName || 'Unknown Device';
+  const osVersion = Platform.OS === 'android' ? `Android ${androidVersion}` : `iOS ${Platform.Version}`;
+
+  const storageMethodLabel = {
+    legacy: 'Legacy (Android < 10)',
+    scoped: 'Scoped Storage (Android 10+)',
+    saf: 'SAF (Android 11+)',
+    unknown: 'Unknown',
+  }[storageMethod];
+
+  const handleClearCache = () => {
+    Alert.alert(
+      'Clear Cache',
+      'This will clear temporarily cached files. Your saved statuses will not be affected.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear', onPress: () => {} },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
+        style={[styles.header, { paddingTop: insets.top + 8 }]}
+      >
+        <Text style={styles.headerTitle}>Settings</Text>
+      </LinearGradient>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
+            <Text style={styles.statNum}>{statuses.filter(s => s.type === 'image').length}</Text>
+            <Text style={styles.statLabel}>Images</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="video-outline" size={26} color={COLORS.ACCENT_BLUE} />
+            <Text style={styles.statNum}>{statuses.filter(s => s.type === 'video').length}</Text>
+            <Text style={styles.statLabel}>Videos</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Ionicons name="bookmark" size={26} color={COLORS.ACCENT_GOLD} />
+            <Text style={styles.statNum}>{savedItems.length}</Text>
+            <Text style={styles.statLabel}>Saved</Text>
+          </View>
+        </View>
+
+        <SectionHeader title="Storage & Permissions" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="phone-portrait-outline"
+            label="Device"
+            value={deviceName}
+            showArrow={false}
+          />
+          <SettingRow
+            icon="logo-android"
+            iconBg={COLORS.SUCCESS + '22'}
+            label="Android Version"
+            value={osVersion}
+            showArrow={false}
+          />
+          <SettingRow
+            icon="folder-open-outline"
+            label="Storage Method"
+            sublabel={storageMethod === 'saf' ? 'SAF folder access granted' : storageMethod === 'legacy' ? 'Direct file access' : 'Scoped storage'}
+            value={storageMethodLabel}
+            showArrow={false}
+          />
+          <SettingRow
+            icon={hasPermission ? 'shield-checkmark' : 'shield-outline'}
+            iconBg={hasPermission ? COLORS.PRIMARY + '22' : COLORS.SURFACE_2}
+            label="Media Permission"
+            sublabel={hasPermission ? 'Access granted' : 'Tap to grant'}
+            onPress={!hasPermission ? () => requestPermissions() : undefined}
+            showArrow={!hasPermission}
+          />
+          {Platform.OS === 'android' && androidVersion >= 30 && (
+            <SettingRow
+              icon={safGranted ? 'checkmark-circle' : 'folder-outline'}
+              iconBg={safGranted ? COLORS.PRIMARY + '22' : COLORS.SURFACE_2}
+              label="WhatsApp Folder Access"
+              sublabel={safGranted ? 'Folder access granted' : 'Required for Android 11+'}
+              onPress={!safGranted ? requestSAF : undefined}
+              showArrow={!safGranted}
+            />
+          )}
+        </View>
+
+        <SectionHeader title="Help & Guide" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="book-outline"
+            iconBg={COLORS.ACCENT_BLUE + '22'}
+            label="Setup Guide"
+            sublabel="Step-by-step setup instructions"
+            onPress={() => router.push('/guide')}
+          />
+          <SettingRow
+            icon="help-circle-outline"
+            iconBg={COLORS.ACCENT_GOLD + '22'}
+            label="How to Use"
+            sublabel="Learn all features"
+            onPress={() => router.push('/guide')}
+          />
+          <SettingRow
+            icon="folder-outline"
+            iconBg={COLORS.SURFACE_2}
+            label="WhatsApp Paths"
+            sublabel="View supported status locations"
+            onPress={() => router.push('/guide')}
+          />
+        </View>
+
+        <SectionHeader title="About" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="shield-outline"
+            iconBg={COLORS.PRIMARY + '22'}
+            label="Privacy Policy"
+            sublabel="GDPR, Play Store & Indus App Store compliant"
+            onPress={() => router.push('/privacy')}
+          />
+          <SettingRow
+            icon="information-circle-outline"
+            label="App Version"
+            value="1.0.0"
+            showArrow={false}
+          />
+          <SettingRow
+            icon="star-outline"
+            iconBg={COLORS.ACCENT_GOLD + '22'}
+            label="Rate StatusVault"
+            sublabel="Support us with a 5-star review"
+            onPress={() => Linking.openURL('market://details?id=com.statusvault.app').catch(() => {})}
+          />
+        </View>
+
+        <SectionHeader title="Data" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="trash-outline"
+            danger
+            label="Clear Cache"
+            sublabel="Remove temporary files"
+            onPress={handleClearCache}
+          />
+        </View>
+
+        <View style={styles.footer}>
+          <MaterialCommunityIcons name="shield-check" size={28} color={COLORS.PRIMARY} />
+          <Text style={styles.footerTitle}>StatusVault</Text>
+          <Text style={styles.footerSub}>
+            Your privacy-first WhatsApp Status Saver.{'\n'}
+            Works 100% offline. No data leaves your device.
+          </Text>
+          <Text style={styles.footerNote}>
+            This app is not affiliated with WhatsApp Inc. or Meta Platforms Inc.
+          </Text>
+        </View>
+      </ScrollView>
+
+      <AdBanner style={{ paddingBottom: insets.bottom + 60 }} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.BACKGROUND,
+  },
+  header: {
+    paddingHorizontal: SPACING.LG,
+    paddingBottom: SPACING.LG,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: SPACING.LG,
+    gap: SPACING.SM,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: SPACING.SM,
+    marginBottom: SPACING.SM,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    padding: SPACING.MD,
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  statNum: {
+    fontSize: FONT_SIZE.XXL,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  statLabel: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_600SemiBold',
+  },
+  sectionHeader: {
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_700Bold',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: SPACING.LG,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  section: {
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    overflow: 'hidden',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.MD,
+    gap: SPACING.MD,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  settingIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.SM,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  settingLabel: {
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '600',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_600SemiBold',
+  },
+  settingSubLabel: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+  },
+  settingValue: {
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+    maxWidth: 120,
+    textAlign: 'right',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: SPACING.XXL,
+    gap: SPACING.SM,
+    marginTop: SPACING.LG,
+  },
+  footerTitle: {
+    fontSize: FONT_SIZE.XL,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  footerSub: {
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Nunito_400Regular',
+  },
+  footerNote: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_MUTED,
+    textAlign: 'center',
+    fontFamily: 'Nunito_400Regular',
+    marginTop: SPACING.SM,
+  },
+});

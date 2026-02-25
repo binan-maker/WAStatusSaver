@@ -1,71 +1,76 @@
-// template
-import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs } from "expo-router";
-import { NativeTabs, Icon, Label } from "expo-router/unstable-native-tabs";
-import { BlurView } from "expo-blur";
-import { SymbolView } from "expo-symbols";
-import { Platform, StyleSheet, useColorScheme } from "react-native";
-import React from "react";
+import { Tabs } from 'expo-router';
+import { Platform, StyleSheet, View, useColorScheme } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import COLORS from '@/constants/colors';
 
-import Colors from "@/constants/colors";
-
-//IMPORTANT: iOS 26 Exists, feel free to use NativeTabs for native tabs with liquid glass support.
-function NativeTabLayout() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
+function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number }) {
+  return <Ionicons name={name} size={size} color={color} />;
 }
 
-function ClassicTabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+export default function TabLayout() {
+  const isAndroid = Platform.OS === 'android';
+  const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
-        tabBarInactiveTintColor: Colors.light.tabIconDefault,
-        headerShown: true,
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.PRIMARY,
+        tabBarInactiveTintColor: COLORS.TEXT_MUTED,
         tabBarStyle: {
-          position: "absolute",
-          backgroundColor: Platform.select({
-            ios: "transparent",
-            android: isDark ? "#000" : "#fff",
-          }),
-          borderTopWidth: 0,
-          elevation: 0,
+          position: 'absolute',
+          backgroundColor: isAndroid ? COLORS.TAB_BAR : 'transparent',
+          borderTopWidth: isWeb ? 1 : 0,
+          borderTopColor: COLORS.BORDER,
+          elevation: isAndroid ? 8 : 0,
+          shadowOpacity: 0,
+          height: isWeb ? 84 : Platform.OS === 'android' ? 60 : 50,
         },
         tabBarBackground: () =>
-          Platform.OS === "ios" ? (
+          Platform.OS === 'ios' ? (
             <BlurView
-              intensity={100}
-              tint={isDark ? "dark" : "light"}
+              intensity={95}
+              tint="dark"
               style={StyleSheet.absoluteFill}
             />
+          ) : isWeb ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.TAB_BAR }]} />
           ) : null,
+        tabBarLabelStyle: {
+          fontFamily: 'Nunito_600SemiBold',
+          fontSize: 11,
+          marginBottom: isAndroid ? 4 : 0,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => (
-            <SymbolView name="house" tintColor={color} size={24} />
+          title: 'Statuses',
+          tabBarIcon: ({ color, size }) => (
+            <TabBarIcon name="images-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="saved"
+        options={{
+          title: 'Saved',
+          tabBarIcon: ({ color, size }) => (
+            <TabBarIcon name="bookmark-outline" color={color} size={size} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, size }) => (
+            <TabBarIcon name="settings-outline" color={color} size={size} />
           ),
         }}
       />
     </Tabs>
   );
-}
-
-export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
-  return <ClassicTabLayout />;
 }
