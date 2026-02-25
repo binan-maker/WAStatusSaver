@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, View, useColorScheme } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import COLORS from '@/constants/colors';
 
 function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number }) {
@@ -9,8 +10,13 @@ function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMa
 }
 
 export default function TabLayout() {
+  const { bottom } = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
   const isWeb = Platform.OS === 'web';
+  const isIOS = Platform.OS === 'ios';
+
+  const TAB_HEIGHT = 54;
+  const tabBarHeight = isWeb ? 84 : TAB_HEIGHT + bottom;
 
   return (
     <Tabs
@@ -20,15 +26,17 @@ export default function TabLayout() {
         tabBarInactiveTintColor: COLORS.TEXT_MUTED,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isAndroid ? COLORS.TAB_BAR : 'transparent',
-          borderTopWidth: isWeb ? 1 : 0,
+          backgroundColor: isIOS ? 'transparent' : isWeb ? COLORS.TAB_BAR : COLORS.TAB_BAR,
+          borderTopWidth: 1,
           borderTopColor: COLORS.BORDER,
-          elevation: isAndroid ? 8 : 0,
+          elevation: 0,
           shadowOpacity: 0,
-          height: isWeb ? 84 : Platform.OS === 'android' ? 60 : 50,
+          height: tabBarHeight,
+          paddingBottom: isWeb ? 34 : bottom,
+          paddingTop: 6,
         },
         tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
+          isIOS ? (
             <BlurView
               intensity={95}
               tint="dark"
@@ -36,11 +44,16 @@ export default function TabLayout() {
             />
           ) : isWeb ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.TAB_BAR }]} />
-          ) : null,
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.TAB_BAR }]} />
+          ),
         tabBarLabelStyle: {
-          fontFamily: 'Nunito_600SemiBold',
-          fontSize: 11,
-          marginBottom: isAndroid ? 4 : 0,
+          fontFamily: 'Nunito_700Bold',
+          fontSize: 10,
+          letterSpacing: 0.3,
+        },
+        tabBarIconStyle: {
+          marginBottom: 0,
         },
       }}
     >
@@ -48,8 +61,12 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Statuses',
-          tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="images-outline" color={color} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon
+              name={focused ? 'images' : 'images-outline'}
+              color={color}
+              size={22}
+            />
           ),
         }}
       />
@@ -57,8 +74,12 @@ export default function TabLayout() {
         name="saved"
         options={{
           title: 'Saved',
-          tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="bookmark-outline" color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? 'bookmark' : 'bookmark-outline'}
+              color={color}
+              size={22}
+            />
           ),
         }}
       />
@@ -66,8 +87,12 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <TabBarIcon name="settings-outline" color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon
+              name={focused ? 'settings' : 'settings-outline'}
+              color={color}
+              size={22}
+            />
           ),
         }}
       />

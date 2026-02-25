@@ -1,15 +1,13 @@
-import React, { useRef, useCallback } from 'react';
+import React from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import COLORS from '@/constants/colors';
-import { CARD_SIZE, RADIUS, SHADOW } from '@/constants/theme';
+import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 
 interface MediaCardProps {
@@ -33,74 +31,70 @@ function MediaCardInner({
   showDeleteButton = false,
   onDelete,
 }: MediaCardProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const onPressIn = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 0.95, tension: 150, friction: 8, useNativeDriver: true }).start();
-  }, []);
-
-  const onPressOut = useCallback(() => {
-    Animated.spring(scaleAnim, { toValue: 1, tension: 150, friction: 8, useNativeDriver: true }).start();
-  }, []);
-
   const uri = 'localUri' in item ? item.localUri : item.uri;
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+    <View style={styles.container}>
       <TouchableOpacity
-        activeOpacity={1}
+        activeOpacity={0.82}
         onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
         style={styles.touchable}
       >
         <Image
           source={{ uri }}
           style={styles.image}
           contentFit="cover"
-          transition={200}
           cachePolicy="memory-disk"
+          recyclingKey={uri}
         />
 
         {item.type === 'video' && (
           <View style={styles.videoOverlay}>
             <View style={styles.playButton}>
-              <Ionicons name="play" size={18} color="#fff" />
+              <Ionicons name="play" size={16} color="#fff" />
             </View>
           </View>
         )}
 
         {item.source === 'whatsapp_business' && (
           <View style={styles.waBadge}>
-            <MaterialCommunityIcons name="briefcase" size={10} color="#fff" />
+            <MaterialCommunityIcons name="briefcase" size={9} color="#fff" />
           </View>
         )}
 
         <View style={styles.actions}>
           {showDeleteButton && onDelete && (
-            <TouchableOpacity style={styles.actionBtn} onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-              <Ionicons name="trash-outline" size={14} color="#fff" />
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={onDelete}
+              hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+            >
+              <Ionicons name="trash-outline" size={13} color="#fff" />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.actionBtn} onPress={onShare} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-            <Ionicons name="share-social-outline" size={14} color="#fff" />
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={onShare}
+            hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+          >
+            <Ionicons name="share-outline" size={13} color="#fff" />
           </TouchableOpacity>
           {showSaveButton && onSave && (
             <TouchableOpacity
               style={[styles.actionBtn, isSaved && styles.savedBtn]}
               onPress={onSave}
-              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+              hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
             >
               <Ionicons
-                name={isSaved ? 'checkmark-circle' : 'download-outline'}
-                size={14}
+                name={isSaved ? 'checkmark' : 'arrow-down'}
+                size={13}
                 color={isSaved ? COLORS.PRIMARY : '#fff'}
               />
             </TouchableOpacity>
           )}
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -124,44 +118,44 @@ const styles = StyleSheet.create({
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   playButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.8)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.75)',
   },
   waBadge: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 5,
+    left: 5,
     backgroundColor: COLORS.PRIMARY_DARK,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 3,
   },
   actions: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
+    bottom: 3,
+    right: 3,
     flexDirection: 'row',
-    gap: 4,
+    gap: 3,
   },
   actionBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   savedBtn: {
-    backgroundColor: 'rgba(0,196,140,0.25)',
+    backgroundColor: 'rgba(0,196,140,0.22)',
   },
 });

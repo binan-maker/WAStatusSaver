@@ -17,7 +17,7 @@ import * as Device from 'expo-device';
 import { useMedia } from '@/contexts/MediaContext';
 import { AdBanner } from '@/components/AdBanner';
 import COLORS from '@/constants/colors';
-import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
+import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -62,6 +62,7 @@ function SectionHeader({ title }: { title: string }) {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
   const {
     androidVersion,
     storageMethod,
@@ -98,14 +99,14 @@ export default function SettingsScreen() {
     <View style={styles.root}>
       <LinearGradient
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
-        style={[styles.header, { paddingTop: insets.top + 8 }]}
+        style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
       >
         <Text style={styles.headerTitle}>Settings</Text>
       </LinearGradient>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 70 + ADMOB.BANNER_HEIGHT }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.statsRow}>
@@ -241,7 +242,7 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      <AdBanner style={{ paddingBottom: insets.bottom + 60 }} />
+      <AdBanner />
     </View>
   );
 }

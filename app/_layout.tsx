@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -14,6 +14,7 @@ import {
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
+import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -22,11 +23,11 @@ function RootLayoutNav() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: COLORS.HEADER },
+        headerStyle: { backgroundColor: COLORS.SURFACE },
         headerTintColor: COLORS.TEXT,
         headerTitleStyle: {
           fontFamily: 'Nunito_700Bold',
-          fontSize: 18,
+          fontSize: 17,
           color: COLORS.TEXT,
         },
         headerShadowVisible: false,
@@ -72,14 +73,26 @@ export default function RootLayout() {
     Nunito_700Bold,
     Nunito_800ExtraBold,
   });
+  const [loadingDone, setLoadingDone] = useState(false);
+  const [splashHidden, setSplashHidden] = useState(false);
 
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync();
+      setSplashHidden(true);
     }
   }, [fontsLoaded]);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || !splashHidden) return null;
+
+  if (!loadingDone) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="light" backgroundColor="#030A06" />
+        <AppLoadingScreen onDone={() => setLoadingDone(true)} />
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
     <ErrorBoundary>

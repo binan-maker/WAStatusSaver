@@ -8,19 +8,26 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner } from '@/components/AdBanner';
 import { EmptyState } from '@/components/EmptyState';
 import COLORS from '@/constants/colors';
-import { SPACING, FONT_SIZE, GRID_COLUMNS } from '@/constants/theme';
+import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
+
+const { width: SW } = Dimensions.get('window');
+const ROW_HEIGHT = CARD_SIZE + 2;
+const TAB_BAR_APPROX = 60;
 
 type FilterType = 'all' | 'images' | 'videos';
+
+const FILTERS: FilterType[] = ['all', 'images', 'videos'];
 
 export default function SavedScreen() {
   const [filter, setFilter] = useState<FilterType>('all');
@@ -50,15 +57,11 @@ export default function SavedScreen() {
 
   const handleDelete = useCallback((item: SavedItem) => {
     Alert.alert(
-      'Delete Status',
-      'Remove this status from your saved collection?',
+      'Remove Status',
+      'Remove this from your saved collection?',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => deleteFromSaved(item),
-        },
+        { text: 'Remove', style: 'destructive', onPress: () => deleteFromSaved(item) },
       ]
     );
   }, [deleteFromSaved]);
@@ -67,50 +70,66 @@ export default function SavedScreen() {
     shareStatus(item);
   }, [shareStatus]);
 
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
+      length: ROW_HEIGHT,
+      offset: ROW_HEIGHT * Math.floor(index / GRID_COLUMNS),
+      index,
+    }),
+    []
+  );
+
+  const bottomPad = insets.bottom + TAB_BAR_APPROX + ADMOB.BANNER_HEIGHT + 4;
+  const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
+
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
-        style={[styles.header, { paddingTop: insets.top + 8 }]}
-      >
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Saved</Text>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerCount}>
-              {savedItems.length} {savedItems.length === 1 ? 'item' : 'items'}
-            </Text>
+      <View style={[styles.header, { paddingTop: headerPaddingTop + 6 }]}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>Saved</Text>
+            <Text style={styles.headerSub}>{savedItems.length} status{savedItems.length !== 1 ? 'es' : ''} saved</Text>
           </View>
         </View>
 
         <View style={styles.filterRow}>
-          {(['all', 'images', 'videos'] as FilterType[]).map(f => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
-              style={[styles.filterChip, filter === f && styles.filterChipActive]}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={f === 'all' ? 'grid-outline' : f === 'images' ? 'image-outline' : 'videocam-outline'}
-                size={13}
-                color={filter === f ? '#fff' : COLORS.TEXT_MUTED}
-              />
-              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {FILTERS.map(f => {
+            const cnt = f === 'all' ? savedItems.length :
+              savedItems.filter(s => s.type === (f === 'images' ? 'image' : 'video')).length;
+            return (
+              <TouchableOpacity
+                key={f}
+                onPress={() => setFilter(f)}
+                style={[styles.chip, filter === f && styles.chipActive]}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={f === 'all' ? 'grid-outline' : f === 'images' ? 'image-outline' : 'videocam-outline'}
+                  size={12}
+                  color={filter === f ? '#fff' : COLORS.TEXT_MUTED}
+                />
+                <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+                  {f === 'all' ? 'All' : f === 'images' ? 'Images' : 'Videos'}
+                </Text>
+                {cnt > 0 && (
+                  <Text style={[styles.chipCount, filter === f && styles.chipCountActive]}>
+                    {cnt}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      </LinearGradient>
+      </View>
 
       {filtered.length === 0 ? (
         <EmptyState
           icon="bookmark-outline"
-          title={filter === 'all' ? 'Nothing Saved Yet' : `No ${filter} saved`}
+          title={filter === 'all' ? 'Nothing saved yet' : `No ${filter} saved`}
           subtitle={
             filter === 'all'
-              ? 'Go to Statuses and tap the download icon to save WhatsApp statuses.'
-              : `No ${filter} have been saved yet.`
+              ? 'Go to Statuses tab and tap the download icon to save.'
+              : `No ${filter} have been saved. Switch to "All" to see everything.`
           }
           actionLabel={filter !== 'all' ? 'Show All' : undefined}
           onAction={filter !== 'all' ? () => setFilter('all') : undefined}
@@ -120,12 +139,14 @@ export default function SavedScreen() {
           data={filtered}
           keyExtractor={(item) => item.id + item.savedAt}
           numColumns={GRID_COLUMNS}
+          extraData={filter}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={refresh}
               tintColor={COLORS.PRIMARY}
               colors={[COLORS.PRIMARY]}
+              progressBackgroundColor={COLORS.SURFACE}
             />
           }
           renderItem={({ item }) => (
@@ -139,18 +160,21 @@ export default function SavedScreen() {
               showDeleteButton
             />
           )}
+          getItemLayout={getItemLayout}
           columnWrapperStyle={styles.row}
-          contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + 70 }]}
+          contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={!!filtered.length}
-          removeClippedSubviews
-          maxToRenderPerBatch={12}
-          windowSize={10}
-          initialNumToRender={12}
+          scrollEnabled
+          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={GRID_COLUMNS * 4}
+          updateCellsBatchingPeriod={50}
+          windowSize={5}
+          initialNumToRender={GRID_COLUMNS * 4}
+          decelerationRate="fast"
         />
       )}
 
-      <AdBanner style={{ paddingBottom: insets.bottom + 60 }} />
+      <AdBanner />
     </View>
   );
 }
@@ -161,64 +185,71 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.BACKGROUND,
   },
   header: {
+    backgroundColor: COLORS.SURFACE,
     paddingHorizontal: SPACING.LG,
     paddingBottom: SPACING.MD,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
     gap: SPACING.MD,
   },
-  headerRow: {
+  headerTop: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     color: COLORS.TEXT,
     fontFamily: 'Nunito_800ExtraBold',
+    lineHeight: 26,
   },
-  headerRight: {
-    backgroundColor: COLORS.SURFACE_2,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  headerCount: {
-    fontSize: FONT_SIZE.SM,
-    fontWeight: '600',
-    color: COLORS.TEXT_SECONDARY,
+  headerSub: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_MUTED,
     fontFamily: 'Nunito_600SemiBold',
+    lineHeight: 16,
   },
   filterRow: {
     flexDirection: 'row',
     gap: SPACING.SM,
   },
-  filterChip: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: COLORS.SURFACE_2,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
   },
-  filterChipActive: {
+  chipActive: {
     backgroundColor: COLORS.PRIMARY,
     borderColor: COLORS.PRIMARY,
   },
-  filterText: {
+  chipText: {
     fontSize: FONT_SIZE.SM,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_600SemiBold',
+    fontFamily: 'Nunito_700Bold',
   },
-  filterTextActive: {
+  chipTextActive: {
     color: '#fff',
   },
-  grid: {
-    paddingHorizontal: 2,
-    paddingTop: 2,
+  chipCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_700Bold',
+    backgroundColor: COLORS.SURFACE_3,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+  },
+  chipCountActive: {
+    color: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   row: {
     gap: 0,

@@ -21,84 +21,118 @@ import { AdInterstitial } from '@/components/AdInterstitial';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
 import COLORS from '@/constants/colors';
-import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS } from '@/constants/theme';
+import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
+const ROW_HEIGHT = CARD_SIZE + 2;
 
 type TabType = 'images' | 'videos';
 
-function StatusHeader() {
+const TAB_BAR_APPROX = 60;
+const BANNER_HEIGHT = ADMOB.BANNER_HEIGHT;
+
+function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
   const insets = useSafeAreaInsets();
   return (
-    <LinearGradient
-      colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
-      style={[styles.headerGradient, { paddingTop: insets.top + 8 }]}
-    >
-      <View style={styles.headerRow}>
+    <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 6 }]}>
+      <View style={styles.headerInner}>
         <View style={styles.logoRow}>
-          <View style={styles.logoIcon}>
-            <MaterialCommunityIcons name="shield-check" size={22} color={COLORS.PRIMARY} />
+          <LinearGradient
+            colors={[COLORS.PRIMARY_DARK, COLORS.PRIMARY]}
+            style={styles.logoIcon}
+          >
+            <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.logoText}>StatusVault</Text>
+            <Text style={styles.logoSub}>WhatsApp Status Saver</Text>
           </View>
-          <Text style={styles.logoText}>StatusVault</Text>
         </View>
         <TouchableOpacity
-          onPress={() => router.push('/permissions')}
+          onPress={onInfoPress}
           style={styles.headerBtn}
-          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
         >
-          <Ionicons name="information-circle-outline" size={24} color={COLORS.TEXT_SECONDARY} />
+          <Ionicons name="information-circle-outline" size={22} color={COLORS.TEXT_SECONDARY} />
         </TouchableOpacity>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
-function SubTab({ label, active, onPress, count }: { label: string; active: boolean; onPress: () => void; count: number }) {
-  const underlineWidth = useRef(new Animated.Value(active ? 1 : 0)).current;
+function SubTabBar({
+  activeTab,
+  onTabChange,
+  imageCnt,
+  videoCnt,
+}: {
+  activeTab: TabType;
+  onTabChange: (t: TabType) => void;
+  imageCnt: number;
+  videoCnt: number;
+}) {
+  const underlineAnim = useRef(new Animated.Value(activeTab === 'images' ? 0 : 1)).current;
 
-  useEffect(() => {
-    Animated.spring(underlineWidth, {
-      toValue: active ? 1 : 0,
-      tension: 200,
-      friction: 12,
-      useNativeDriver: false,
+  const handleTabChange = useCallback((tab: TabType) => {
+    onTabChange(tab);
+    Animated.timing(underlineAnim, {
+      toValue: tab === 'images' ? 0 : 1,
+      duration: 220,
+      useNativeDriver: true,
     }).start();
-  }, [active]);
+  }, [onTabChange]);
+
+  const translateX = underlineAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SW / 2],
+  });
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.subTab} activeOpacity={0.7}>
-      <View style={styles.subTabInner}>
-        <Text style={[styles.subTabText, active && styles.subTabTextActive]}>
-          {label}
+    <View style={styles.subTabBar}>
+      <Animated.View style={[styles.activeIndicator, { transform: [{ translateX }] }]} />
+      <TouchableOpacity
+        style={styles.subTab}
+        onPress={() => handleTabChange('images')}
+        activeOpacity={0.75}
+      >
+        <Ionicons
+          name={activeTab === 'images' ? 'image' : 'image-outline'}
+          size={16}
+          color={activeTab === 'images' ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
+        />
+        <Text style={[styles.subTabText, activeTab === 'images' && styles.subTabActive]}>
+          Images
         </Text>
-        {count > 0 && (
-          <View style={[styles.countBadge, active && styles.countBadgeActive]}>
-            <Text style={[styles.countText, active && styles.countTextActive]}>{count}</Text>
+        {imageCnt > 0 && (
+          <View style={[styles.badge, activeTab === 'images' && styles.badgeActive]}>
+            <Text style={[styles.badgeText, activeTab === 'images' && styles.badgeTextActive]}>
+              {imageCnt}
+            </Text>
           </View>
         )}
-      </View>
-      <Animated.View
-        style={[
-          styles.subTabUnderline,
-          {
-            width: underlineWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-          },
-        ]}
-      />
-    </TouchableOpacity>
-  );
-}
-
-function renderItem({ item, onPress, onSave, onShare, isSaved }: any) {
-  return (
-    <MediaCard
-      item={item}
-      isSaved={isSaved}
-      onPress={onPress}
-      onSave={onSave}
-      onShare={onShare}
-      showSaveButton
-    />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.subTab}
+        onPress={() => handleTabChange('videos')}
+        activeOpacity={0.75}
+      >
+        <Ionicons
+          name={activeTab === 'videos' ? 'videocam' : 'videocam-outline'}
+          size={16}
+          color={activeTab === 'videos' ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
+        />
+        <Text style={[styles.subTabText, activeTab === 'videos' && styles.subTabActive]}>
+          Videos
+        </Text>
+        {videoCnt > 0 && (
+          <View style={[styles.badge, activeTab === 'videos' && styles.badgeActive]}>
+            <Text style={[styles.badgeText, activeTab === 'videos' && styles.badgeTextActive]}>
+              {videoCnt}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -118,7 +152,6 @@ export default function StatusesScreen() {
     isStatusSaved,
     onVideoOpen,
     showInterstitial,
-    pendingVideoUri,
     dismissInterstitial,
   } = useMedia();
 
@@ -134,13 +167,11 @@ export default function StatusesScreen() {
     activeTab === 'images' ? s.type === 'image' : s.type === 'video'
   );
 
-  const images = statuses.filter(s => s.type === 'image');
-  const videos = statuses.filter(s => s.type === 'video');
+  const imageCnt = statuses.filter(s => s.type === 'image').length;
+  const videoCnt = statuses.filter(s => s.type === 'video').length;
 
   const handlePress = useCallback((item: StatusItem) => {
-    if (item.type === 'video') {
-      onVideoOpen(item.uri);
-    }
+    if (item.type === 'video') onVideoOpen(item.uri);
     router.push({
       pathname: '/viewer',
       params: { uri: item.uri, type: item.type, name: item.name, id: item.id },
@@ -155,33 +186,47 @@ export default function StatusesScreen() {
     shareStatus(item);
   }, [shareStatus]);
 
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
+      length: ROW_HEIGHT,
+      offset: ROW_HEIGHT * Math.floor(index / GRID_COLUMNS),
+      index,
+    }),
+    []
+  );
+
   const needsPermission = !hasPermission && Platform.OS === 'android';
   const needsSAF = Platform.OS === 'android' && androidVersion >= 30 && !safGranted;
+  const showPermScreen = needsPermission || (needsSAF && statuses.length === 0);
 
-  if (needsPermission || (needsSAF && statuses.length === 0)) {
+  const bottomPad = insets.bottom + TAB_BAR_APPROX + BANNER_HEIGHT + 4;
+
+  if (showPermScreen) {
     return (
       <View style={styles.root}>
-        <StatusHeader />
-        <View style={styles.permissionScreen}>
-          <View style={styles.permissionIcon}>
-            <MaterialCommunityIcons name="folder-lock-open-outline" size={64} color={COLORS.PRIMARY} />
+        <StatusHeader onInfoPress={() => router.push('/permissions')} />
+        <View style={styles.permScreen}>
+          <LinearGradient
+            colors={[COLORS.PRIMARY + '22', 'transparent']}
+            style={styles.permGlow}
+          />
+          <View style={styles.permIconWrap}>
+            <MaterialCommunityIcons name="folder-lock-open-outline" size={52} color={COLORS.PRIMARY} />
           </View>
-          <Text style={styles.permissionTitle}>Setup Required</Text>
-          <Text style={styles.permissionSub}>
-            To show WhatsApp statuses, StatusVault needs access to your storage.
+          <Text style={styles.permTitle}>Setup Required</Text>
+          <Text style={styles.permSub}>
+            Grant storage access to view WhatsApp statuses.{'\n'}Android {androidVersion} detected.
           </Text>
           <TouchableOpacity
-            style={styles.permissionBtn}
+            style={styles.permBtn}
             onPress={() => router.push('/permissions')}
             activeOpacity={0.85}
           >
-            <Ionicons name="shield-checkmark" size={18} color="#fff" />
-            <Text style={styles.permissionBtnText}>Grant Access</Text>
+            <Ionicons name="shield-checkmark" size={17} color="#fff" />
+            <Text style={styles.permBtnText}>Grant Access</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.guideLink}
-            onPress={() => router.push('/guide')}
-          >
+          <TouchableOpacity style={styles.guideLink} onPress={() => router.push('/guide')}>
+            <Ionicons name="book-outline" size={14} color={COLORS.PRIMARY} />
             <Text style={styles.guideLinkText}>View Setup Guide</Text>
           </TouchableOpacity>
         </View>
@@ -192,63 +237,67 @@ export default function StatusesScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusHeader />
+      <StatusHeader onInfoPress={() => router.push('/permissions')} />
 
-      <View style={styles.subTabBar}>
-        <SubTab label="Images" active={activeTab === 'images'} onPress={() => setActiveTab('images')} count={images.length} />
-        <SubTab label="Videos" active={activeTab === 'videos'} onPress={() => setActiveTab('videos')} count={videos.length} />
+      <SubTabBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        imageCnt={imageCnt}
+        videoCnt={videoCnt}
+      />
+
+      <View style={styles.listArea}>
+        {isLoading ? (
+          <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={activeTab === 'images' ? 'images-outline' : 'videocam-outline'}
+            title={`No ${activeTab === 'images' ? 'images' : 'videos'} found`}
+            subtitle={`Open WhatsApp, view some statuses, then pull down to refresh.`}
+            actionLabel="Refresh"
+            onAction={refresh}
+          />
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item.id}
+            numColumns={GRID_COLUMNS}
+            extraData={activeTab}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={refresh}
+                tintColor={COLORS.PRIMARY}
+                colors={[COLORS.PRIMARY]}
+                progressBackgroundColor={COLORS.SURFACE}
+              />
+            }
+            renderItem={({ item }) => (
+              <MediaCard
+                item={item}
+                isSaved={isStatusSaved(item.id)}
+                onPress={() => handlePress(item)}
+                onSave={() => handleSave(item)}
+                onShare={() => handleShare(item)}
+                showSaveButton
+              />
+            )}
+            getItemLayout={getItemLayout}
+            contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled
+            columnWrapperStyle={styles.row}
+            removeClippedSubviews={Platform.OS === 'android'}
+            maxToRenderPerBatch={GRID_COLUMNS * 4}
+            updateCellsBatchingPeriod={50}
+            windowSize={5}
+            initialNumToRender={GRID_COLUMNS * 4}
+            decelerationRate="fast"
+          />
+        )}
       </View>
 
-      {isLoading ? (
-        <View style={{ flex: 1, paddingTop: 4 }}>
-          <LoadingShimmer count={12} />
-        </View>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={activeTab === 'images' ? 'images-outline' : 'videocam-outline'}
-          title={`No ${activeTab === 'images' ? 'Images' : 'Videos'} Found`}
-          subtitle={`Open WhatsApp and view some statuses, then come back and pull to refresh.`}
-          actionLabel="Refresh"
-          onAction={refresh}
-        />
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          numColumns={GRID_COLUMNS}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={refresh}
-              tintColor={COLORS.PRIMARY}
-              colors={[COLORS.PRIMARY]}
-            />
-          }
-          renderItem={({ item }) => (
-            <MediaCard
-              item={item}
-              isSaved={isStatusSaved(item.id)}
-              onPress={() => handlePress(item)}
-              onSave={() => handleSave(item)}
-              onShare={() => handleShare(item)}
-              showSaveButton
-            />
-          )}
-          contentContainerStyle={[
-            styles.gridContent,
-            { paddingBottom: insets.bottom + 70 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={!!filtered.length}
-          columnWrapperStyle={filtered.length > 0 ? styles.row : undefined}
-          removeClippedSubviews
-          maxToRenderPerBatch={12}
-          windowSize={10}
-          initialNumToRender={12}
-        />
-      )}
-
-      <AdBanner style={{ paddingBottom: insets.bottom + 60 }} />
+      <AdBanner />
 
       <AdInterstitial
         visible={showInterstitial}
@@ -264,11 +313,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
   },
-  headerGradient: {
+  header: {
+    backgroundColor: COLORS.SURFACE,
     paddingHorizontal: SPACING.LG,
     paddingBottom: SPACING.MD,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
   },
-  headerRow: {
+  headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -276,27 +328,33 @@ const styles = StyleSheet.create({
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.SM,
+    gap: SPACING.SM + 2,
   },
   logoIcon: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    backgroundColor: COLORS.SURFACE_2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: COLORS.TEXT,
     fontFamily: 'Nunito_800ExtraBold',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
+    lineHeight: 22,
+  },
+  logoSub: {
+    fontSize: 10,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_600SemiBold',
+    lineHeight: 13,
   },
   headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: COLORS.SURFACE_2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -306,34 +364,35 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.SURFACE,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.BORDER,
+    position: 'relative',
+    height: 44,
   },
-  subTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  subTabInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  subTabText: {
-    fontSize: FONT_SIZE.MD,
-    fontWeight: '600',
-    color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_600SemiBold',
-  },
-  subTabTextActive: {
-    color: COLORS.PRIMARY,
-  },
-  subTabUnderline: {
+  activeIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: SW / 2,
     height: 2,
     backgroundColor: COLORS.PRIMARY,
     borderRadius: 1,
-    marginTop: 6,
-    alignSelf: 'center',
   },
-  countBadge: {
+  subTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  subTabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_700Bold',
+  },
+  subTabActive: {
+    color: COLORS.PRIMARY,
+  },
+  badge: {
     backgroundColor: COLORS.SURFACE_2,
     borderRadius: 10,
     paddingHorizontal: 6,
@@ -341,56 +400,65 @@ const styles = StyleSheet.create({
     minWidth: 20,
     alignItems: 'center',
   },
-  countBadgeActive: {
-    backgroundColor: COLORS.PRIMARY + '33',
+  badgeActive: {
+    backgroundColor: COLORS.PRIMARY + '30',
   },
-  countText: {
+  badgeText: {
     fontSize: 10,
     fontWeight: '700',
     color: COLORS.TEXT_MUTED,
     fontFamily: 'Nunito_700Bold',
   },
-  countTextActive: {
+  badgeTextActive: {
     color: COLORS.PRIMARY,
   },
-  gridContent: {
-    paddingHorizontal: 2,
-    paddingTop: 2,
+  listArea: {
+    flex: 1,
   },
   row: {
     gap: 0,
   },
-  permissionScreen: {
+  permScreen: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.XXL,
     gap: SPACING.MD,
   },
-  permissionIcon: {
-    width: 110,
-    height: 110,
-    borderRadius: 28,
+  permGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    borderRadius: 100,
+  },
+  permIconWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 26,
     backgroundColor: COLORS.SURFACE_2,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '44',
     marginBottom: SPACING.SM,
   },
-  permissionTitle: {
-    fontSize: FONT_SIZE.XXL,
+  permTitle: {
+    fontSize: 22,
     fontWeight: '800',
     color: COLORS.TEXT,
     textAlign: 'center',
     fontFamily: 'Nunito_800ExtraBold',
   },
-  permissionSub: {
+  permSub: {
     fontSize: FONT_SIZE.MD,
     color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
     lineHeight: 22,
     fontFamily: 'Nunito_400Regular',
   },
-  permissionBtn: {
+  permBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.SM,
@@ -400,19 +468,21 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.MD,
     borderRadius: 30,
   },
-  permissionBtnText: {
+  permBtnText: {
     fontSize: FONT_SIZE.LG,
     fontWeight: '700',
     color: '#fff',
     fontFamily: 'Nunito_700Bold',
   },
   guideLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     padding: SPACING.MD,
   },
   guideLinkText: {
     fontSize: FONT_SIZE.MD,
     color: COLORS.PRIMARY,
     fontFamily: 'Nunito_600SemiBold',
-    textDecorationLine: 'underline',
   },
 });
