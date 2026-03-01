@@ -142,14 +142,14 @@ export default function PermissionsScreen() {
               title="WhatsApp Folder Access"
               desc={
                 safGranted
-                  ? 'WhatsApp .Statuses folder access granted.'
-                  : 'On Android 11+, you must manually select the WhatsApp .Statuses folder using the system file picker.\n\nPath: WhatsApp › Media › .Statuses'
+                  ? 'WhatsApp Media folder access granted.'
+                  : 'On Android 11+, you must manually select the WhatsApp Media folder using the system file picker.\n\nPath: Android › media › com.whatsapp › WhatsApp › Media'
               }
               done={safGranted}
               action={
                 !safGranted
                   ? {
-                      label: 'Select Statuses Folder',
+                      label: 'Select Media Folder',
                       onPress: requestSAF,
                     }
                   : undefined

@@ -70,6 +70,13 @@ const WHATSAPP_LEGACY_PATHS = [
   '/storage/emulated/0/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses',
 ];
 
+const WHATSAPP_SAF_PATHS = [
+  'Android/media/com.whatsapp/WhatsApp/Media',
+  'WhatsApp/Media',
+  'Android/media/com.whatsapp.w4b/WhatsApp Business/Media',
+  'WhatsApp Business/Media',
+];
+
 const STORAGE_KEYS = {
   SAVED_ITEMS: '@statusvault_saved',
   SAF_URI: '@statusvault_saf_uri',
@@ -225,16 +232,37 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   async function readFromSAF(safDirUri: string): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
     try {
-      const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(safDirUri);
+      // Check if we are in a parent "Media" folder or directly in ".Statuses"
+      // If we are in Media, we need to find the .Statuses subfolder
+      const isMediaFolder = decodeURIComponent(safDirUri).toLowerCase().endsWith('/media');
+      let targetUri = safDirUri;
+
+      if (isMediaFolder) {
+        try {
+          const content = await FileSystem.StorageAccessFramework.readDirectoryAsync(safDirUri);
+          const statusFolder = content.find(uri => decodeURIComponent(uri).toLowerCase().endsWith('/.statuses'));
+          if (statusFolder) {
+            targetUri = statusFolder;
+          }
+        } catch (e) {
+          console.log('Error searching for .Statuses in Media folder:', e);
+        }
+      }
+
+      const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
+      const isBusiness = decodeURIComponent(targetUri).toLowerCase().includes('w4b') || 
+                        decodeURIComponent(targetUri).toLowerCase().includes('business');
+      const source = isBusiness ? 'whatsapp_business' : 'whatsapp';
+
       for (const fileUri of files) {
         const name = decodeURIComponent(fileUri.split('%2F').pop() || fileUri.split('/').pop() || '');
         if (!isValidStatusFile(name)) continue;
         items.push({
-          id: getFileId(fileUri),
+          id: getFileId(fileUri) + '_' + source,
           uri: fileUri,
           type: getMediaType(name),
           name,
-          source: 'whatsapp',
+          source,
         });
       }
     } catch (e) {
