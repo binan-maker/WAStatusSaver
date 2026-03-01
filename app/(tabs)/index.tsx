@@ -153,6 +153,7 @@ export default function StatusesScreen() {
     onVideoOpen,
     showInterstitial,
     dismissInterstitial,
+    prepareStatusForViewing,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -170,13 +171,17 @@ export default function StatusesScreen() {
   const imageCnt = statuses.filter(s => s.type === 'image').length;
   const videoCnt = statuses.filter(s => s.type === 'video').length;
 
-  const handlePress = useCallback((item: StatusItem) => {
+  const handlePress = useCallback(async (item: StatusItem) => {
     if (item.type === 'video') onVideoOpen(item.uri);
+    
+    // Prepare URI for viewing (caching if SAF)
+    const viewUri = await prepareStatusForViewing(item);
+    
     router.push({
       pathname: '/viewer',
-      params: { uri: item.uri, type: item.type, name: item.name, id: item.id },
+      params: { uri: viewUri, type: item.type, name: item.name, id: item.id },
     });
-  }, [onVideoOpen]);
+  }, [onVideoOpen, prepareStatusForViewing]);
 
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);

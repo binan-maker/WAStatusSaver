@@ -59,6 +59,7 @@ interface MediaContextValue {
   isStatusSaved: (id: string) => boolean;
   onVideoOpen: (uri: string) => void;
   dismissInterstitial: () => void;
+  prepareStatusForViewing: (item: StatusItem) => Promise<string>;
 }
 
 const MediaContext = createContext<MediaContextValue | null>(null);
@@ -415,6 +416,31 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     setPendingVideoUri(null);
   }, []);
 
+  const prepareStatusForViewing = useCallback(async (item: StatusItem): Promise<string> => {
+    if (!item.uri.startsWith('content://')) return item.uri;
+
+    try {
+      const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
+      const tempUri = `${FileSystem.cacheDirectory}view_${item.id}.${ext}`;
+      
+      // Check if already cached to avoid redundant copies
+      const info = await FileSystem.getInfoAsync(tempUri);
+      if (info.exists) return tempUri;
+
+      const content = await FileSystem.StorageAccessFramework.readAsStringAsync(item.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      await FileSystem.writeAsStringAsync(tempUri, content, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      return tempUri;
+    } catch (e) {
+      console.error('Error preparing status for viewing:', e);
+      return item.uri; // Fallback to original URI if copy fails
+    }
+  }, []);
+
   const value: MediaContextValue = {
     statuses,
     savedItems,
@@ -439,6 +465,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     isStatusSaved,
     onVideoOpen,
     dismissInterstitial,
+    prepareStatusForViewing,
   };
 
   return <MediaContext.Provider value={value}>{children}</MediaContext.Provider>;
