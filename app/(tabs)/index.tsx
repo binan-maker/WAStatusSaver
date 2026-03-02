@@ -74,26 +74,25 @@ function SubTabBar({
 }) {
   const underlineAnim = useRef(new Animated.Value(activeTab === 'images' ? 0 : 1)).current;
 
-  const handleTabChange = useCallback((tab: TabType) => {
-    onTabChange(tab);
-    Animated.timing(underlineAnim, {
-      toValue: tab === 'images' ? 0 : 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [onTabChange]);
-
   const translateX = underlineAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, SW / 2],
   });
+
+  useEffect(() => {
+    Animated.timing(underlineAnim, {
+      toValue: activeTab === 'images' ? 0 : 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab]);
 
   return (
     <View style={styles.subTabBar}>
       <Animated.View style={[styles.activeIndicator, { transform: [{ translateX }] }]} />
       <TouchableOpacity
         style={styles.subTab}
-        onPress={() => handleTabChange('images')}
+        onPress={() => onTabChange('images')}
         activeOpacity={0.75}
       >
         <Ionicons

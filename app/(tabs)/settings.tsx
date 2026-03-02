@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   Platform,
   Linking,
   Alert,
+  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Device from 'expo-device';
+import * as Haptics from 'expo-haptics';
 import { useMedia } from '@/contexts/MediaContext';
 import { AdBanner } from '@/components/AdBanner';
 import COLORS from '@/constants/colors';
@@ -73,6 +75,21 @@ export default function SettingsScreen() {
     requestPermissions,
     requestSAF,
   } = useMedia();
+
+  const [versionClickCount, setVersionClickCount] = useState(0);
+  const [showEasterEgg, setShowEasterEgg] = useState(false);
+
+  const handleVersionPress = () => {
+    const newCount = versionClickCount + 1;
+    if (newCount >= 3) {
+      setVersionClickCount(0);
+      setShowEasterEgg(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      setVersionClickCount(newCount);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
 
   const deviceName = Device.modelName || Device.deviceName || 'Unknown Device';
   const osVersion = Platform.OS === 'android' ? `Android ${androidVersion}` : `iOS ${Platform.Version}`;
@@ -208,6 +225,7 @@ export default function SettingsScreen() {
             label="App Version"
             value="1.0.0"
             showArrow={false}
+            onPress={handleVersionPress}
           />
           <SettingRow
             icon="star-outline"
@@ -242,10 +260,235 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
+      <Modal
+        visible={showEasterEgg}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEasterEgg(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setShowEasterEgg(false)}
+        >
+          <View style={styles.easterEggCard}>
+            <LinearGradient
+              colors={[COLORS.PRIMARY, COLORS.PRIMARY_DARK]}
+              style={styles.easterEggHeader}
+            >
+              <MaterialCommunityIcons name="crown" size={40} color="#fff" />
+            </LinearGradient>
+            <View style={styles.easterEggContent}>
+              <Text style={styles.easterEggName}>Binan</Text>
+              <Text style={styles.easterEggTitle}>The Creator of This App</Text>
+              <Text style={styles.easterEggBlessing}>May الله Bless Him & His Family</Text>
+              <TouchableOpacity 
+                style={styles.closeEggBtn} 
+                onPress={() => setShowEasterEgg(false)}
+              >
+                <Text style={styles.closeEggText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <AdBanner />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.BACKGROUND,
+  },
+  header: {
+    paddingHorizontal: SPACING.LG,
+    paddingBottom: SPACING.LG,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: SPACING.LG,
+    gap: SPACING.SM,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: SPACING.SM,
+    marginBottom: SPACING.SM,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    padding: SPACING.MD,
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  statNum: {
+    fontSize: FONT_SIZE.XXL,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  statLabel: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_600SemiBold',
+  },
+  sectionHeader: {
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_700Bold',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: SPACING.LG,
+    marginBottom: 4,
+    marginLeft: 4,
+  },
+  section: {
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    overflow: 'hidden',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.MD,
+    gap: SPACING.MD,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  settingIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.SM,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  settingLabel: {
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '600',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_600SemiBold',
+  },
+  settingSubLabel: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+  },
+  settingValue: {
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+    maxWidth: 120,
+    textAlign: 'right',
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: SPACING.XXL,
+    gap: SPACING.SM,
+    marginTop: SPACING.LG,
+  },
+  footerTitle: {
+    fontSize: FONT_SIZE.XL,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  footerSub: {
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: 'Nunito_400Regular',
+  },
+  footerNote: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_MUTED,
+    textAlign: 'center',
+    fontFamily: 'Nunito_400Regular',
+    marginTop: SPACING.SM,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.XL,
+  },
+  easterEggCard: {
+    width: '100%',
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.LG,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  easterEggHeader: {
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  easterEggContent: {
+    padding: SPACING.XL,
+    alignItems: 'center',
+    gap: SPACING.SM,
+  },
+  easterEggName: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: COLORS.PRIMARY,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  easterEggTitle: {
+    fontSize: FONT_SIZE.LG,
+    fontWeight: '700',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
+  },
+  easterEggBlessing: {
+    fontSize: FONT_SIZE.MD,
+    color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+    fontFamily: 'Nunito_600SemiBold',
+    fontStyle: 'italic',
+    marginTop: SPACING.XS,
+  },
+  closeEggBtn: {
+    marginTop: SPACING.LG,
+    backgroundColor: COLORS.PRIMARY + '22',
+    paddingHorizontal: SPACING.XXL,
+    paddingVertical: SPACING.MD,
+    borderRadius: RADIUS.FULL,
+  },
+  closeEggText: {
+    color: COLORS.PRIMARY,
+    fontWeight: '700',
+    fontFamily: 'Nunito_700Bold',
+  },
+});
 
 const styles = StyleSheet.create({
   root: {
