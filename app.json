@@ -44,6 +44,8 @@
         }
       ],
       "expo-font",
+      "expo-video",
+      "expo-audio",
       "expo-web-browser",
       [
         "expo-navigation-bar",
@@ -58,12 +60,6 @@
           "photosPermission": "Allow StatusVault to save WhatsApp statuses to your gallery.",
           "savePhotosPermission": "Allow StatusVault to save statuses.",
           "isAccessMediaLocationEnabled": true
-        }
-      ],
-      [
-        "expo-av",
-        {
-          "microphonePermission": false
         }
       ]
     ],

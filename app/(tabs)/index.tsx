@@ -177,14 +177,11 @@ export default function StatusesScreen() {
   const handlePress = useCallback(async (item: StatusItem) => {
     if (item.type === 'video') onVideoOpen(item.uri);
     
-    // Prepare URI for viewing (caching if SAF)
-    const viewUri = await prepareStatusForViewing(item);
-    
     router.push({
       pathname: '/viewer',
-      params: { uri: viewUri, type: item.type, name: item.name, id: item.id },
+      params: { id: item.id },
     });
-  }, [onVideoOpen, prepareStatusForViewing]);
+  }, [onVideoOpen]);
 
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);

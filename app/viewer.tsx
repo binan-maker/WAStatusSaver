@@ -16,7 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import COLORS from '@/constants/colors';
@@ -43,14 +43,6 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [videoStatus, setVideoStatus] = useState<AVPlaybackStatus | null>(null);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
-  const videoRef = useRef<Video>(null);
-
-  const isPlaying = videoStatus?.isLoaded && (videoStatus as any).isPlaying;
-  const duration = (videoStatus?.isLoaded && (videoStatus as any).durationMillis) || 0;
-  const position = (videoStatus?.isLoaded && (videoStatus as any).positionMillis) || 0;
-  const progress = duration > 0 ? position / duration : 0;
 
   useEffect(() => {
     async function prepare() {
@@ -66,31 +58,34 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
     prepare();
   }, [item.uri, item.id]);
 
+  const player = useVideoPlayer(displayUri || item.uri, (player) => {
+    player.loop = true;
+    if (isActive) {
+      player.play();
+    }
+  });
+
   useEffect(() => {
-    if (!isActive && videoRef.current && isPlaying) {
-      videoRef.current.pauseAsync();
-    }
-  }, [isActive, isPlaying]);
-
-  const togglePlayPause = useCallback(async () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      await videoRef.current.pauseAsync();
+    if (isActive) {
+      player.play();
     } else {
-      await videoRef.current.playAsync();
+      player.pause();
     }
-  }, [isPlaying]);
+  }, [isActive, player]);
 
-  const seek = useCallback(async (ratio: number) => {
-    if (!videoRef.current || !duration) return;
-    await videoRef.current.setPositionAsync(duration * ratio);
-  }, [duration]);
+  const togglePlayPause = useCallback(() => {
+    if (player.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
+  }, [player]);
 
-  const skip = useCallback(async (seconds: number) => {
-    if (!videoRef.current || !videoStatus?.isLoaded) return;
-    const newPos = Math.max(0, Math.min(duration, (videoStatus as any).positionMillis + seconds * 1000));
-    await videoRef.current.setPositionAsync(newPos);
-  }, [videoStatus, duration]);
+  const skip = useCallback((seconds: number) => {
+    player.currentTime += seconds;
+  }, [player]);
+
+  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
 
   return (
     <View style={styles.itemContainer}>
@@ -114,24 +109,14 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
           />
         ) : (
           <View style={styles.videoWrap}>
-            <Video
-              ref={videoRef}
-              source={{ uri: displayUri || item.uri }}
+            <VideoView
+              player={player}
               style={styles.video}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay={isActive}
-              isLooping
-              onPlaybackStatusUpdate={(status) => {
-                setVideoStatus(status);
-                if (status.isLoaded) setIsVideoLoading(false);
-              }}
-              onLoadStart={() => setIsVideoLoading(true)}
+              contentFit="contain"
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
+              showsPlaybackControls={false}
             />
-            {isVideoLoading && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-              </View>
-            )}
             {showControls && (
               <Animated.View style={[styles.videoOverlay, { opacity: controlsOpacity }]}>
                 <View style={styles.videoCenter}>
@@ -141,7 +126,7 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
                   
                   <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseBtn}>
                     <Ionicons
-                      name={isPlaying ? 'pause' : 'play'}
+                      name={player.playing ? 'pause' : 'play'}
                       size={42}
                       color="#fff"
                     />
@@ -153,20 +138,20 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
                 </View>
 
                 <View style={styles.progressContainer}>
-                  <Text style={styles.timeText}>{formatTime(position)}</Text>
+                  <Text style={styles.timeText}>{formatTime(player.currentTime * 1000)}</Text>
                   <TouchableOpacity 
                     style={styles.progressBarBg}
                     activeOpacity={1}
                     onPress={(e) => {
                       const { locationX } = e.nativeEvent;
                       const width = SW - 100; // Total width minus paddings
-                      seek(Math.max(0, Math.min(1, locationX / width)));
+                      player.currentTime = (player.duration * Math.max(0, Math.min(1, locationX / width)));
                     }}
                   >
                     <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
                     <View style={[styles.progressKnob, { left: `${progress * 100}%` }]} />
                   </TouchableOpacity>
-                  <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                  <Text style={styles.timeText}>{formatTime(player.duration * 1000)}</Text>
                 </View>
               </Animated.View>
             )}
@@ -326,20 +311,20 @@ export default function ViewerScreen() {
       />
 
       <Animated.View
-        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || currentItem.type === 'image') ? 'auto' : 'none' }]}
+        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none' }]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.topInfo}>
-          <Text style={styles.topTitle} numberOfLines={1}>{currentItem.name || 'Status'}</Text>
+          <Text style={styles.topTitle} numberOfLines={1}>{currentItem?.name || 'Status'}</Text>
           <Text style={styles.topCounter}>{currentIndex + 1} / {items.length}</Text>
         </View>
         <View style={{ width: 40 }} />
       </Animated.View>
 
       <Animated.View
-        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: (showControls || currentItem.type === 'image') ? 'auto' : 'none' }]}
+        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none' }]}
       >
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
