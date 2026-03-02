@@ -159,6 +159,8 @@ export default function StatusesScreen() {
 
   const insets = useSafeAreaInsets();
 
+    const scrollViewRef = useRef<ScrollView>(null);
+
   useEffect(() => {
     if (hasPermission || androidVersion < 30) {
       loadStatuses();
@@ -241,7 +243,7 @@ export default function StatusesScreen() {
     );
   }
 
-  const scrollViewRef = useRef<ScrollView>(null);
+
 
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
