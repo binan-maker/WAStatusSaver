@@ -51,7 +51,7 @@ export default function SavedScreen() {
     if (item.type === 'video') onVideoOpen(item.localUri);
     router.push({
       pathname: '/viewer',
-      params: { uri: item.localUri, type: item.type, name: item.name, id: item.id, isSaved: '1' },
+      params: { id: item.id, isSaved: '1' },
     });
   }, [onVideoOpen]);
 

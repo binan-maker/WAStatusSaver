@@ -45,24 +45,25 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function prepare() {
       try {
         const prepared = await prepareStatusForViewing(item);
-        setDisplayUri(prepared);
+        if (isMounted) setDisplayUri(prepared);
       } catch (e) {
         console.error('Viewer item preparation error:', e);
-        setError('Failed to load status');
-        setDisplayUri(item.uri);
+        if (isMounted) {
+          setError('Failed to load status');
+          setDisplayUri(item.uri);
+        }
       }
     }
     prepare();
+    return () => { isMounted = false; };
   }, [item.uri, item.id]);
 
   const player = useVideoPlayer(displayUri || item.uri, (player) => {
     player.loop = true;
-    if (isActive) {
-      player.play();
-    }
   });
 
   useEffect(() => {
@@ -70,6 +71,7 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
       player.play();
     } else {
       player.pause();
+      player.currentTime = 0;
     }
   }, [isActive, player]);
 
@@ -116,6 +118,7 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
               allowsFullscreen={false}
               allowsPictureInPicture={false}
               showsPlaybackControls={false}
+              nativeControls={false}
             />
             {showControls && (
               <Animated.View style={[styles.videoOverlay, { opacity: controlsOpacity }]}>
@@ -192,6 +195,12 @@ export default function ViewerScreen() {
   }, [items, id]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  
+  // Update currentIndex when initialIndex changes (e.g. on first load)
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
+
   const currentItem = items[currentIndex];
 
   const [showControls, setShowControls] = useState(true);
@@ -233,7 +242,7 @@ export default function ViewerScreen() {
     setShowControls(next);
     animateControls(next);
     if (next) scheduleHideControls();
-  }, [showControls]);
+  }, [showControls, currentItem]);
 
   const handleSave = useCallback(async () => {
     if (!currentItem || isSaved || isSaving) return;
@@ -277,6 +286,9 @@ export default function ViewerScreen() {
     const index = Math.round(offsetX / SW);
     if (index !== currentIndex && index >= 0 && index < items.length) {
       setCurrentIndex(index);
+      // Reset controls visibility when swiping to a new item
+      setShowControls(true);
+      controlsOpacity.setValue(1);
     }
   }, [currentIndex, items.length]);
 
