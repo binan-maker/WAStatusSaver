@@ -113,7 +113,7 @@ function SubTabBar({
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.subTab}
-        onPress={() => handleTabChange('videos')}
+        onPress={() => onTabChange('videos')}
         activeOpacity={0.75}
       >
         <Ionicons
