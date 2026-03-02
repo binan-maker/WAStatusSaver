@@ -43,10 +43,13 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPreparing, setIsPreparing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     async function prepare() {
+      if (isPreparing) return;
+      setIsPreparing(true);
       try {
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) setDisplayUri(prepared);
@@ -56,6 +59,8 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
           setError('Failed to load status');
           setDisplayUri(item.uri);
         }
+      } finally {
+        if (isMounted) setIsPreparing(false);
       }
     }
     prepare();
@@ -147,8 +152,11 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
                     activeOpacity={1}
                     onPress={(e) => {
                       const { locationX } = e.nativeEvent;
-                      const width = SW - 100; // Total width minus paddings
-                      player.currentTime = (player.duration * Math.max(0, Math.min(1, locationX / width)));
+                      const width = SW - 110; // Adjusted for padding and text
+                      if (player.duration > 0) {
+                        const newTime = (player.duration * Math.max(0, Math.min(1, locationX / width)));
+                        player.currentTime = newTime;
+                      }
                     }}
                   >
                     <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
@@ -182,10 +190,21 @@ export default function ViewerScreen() {
   const isSavedView = isSavedParam === '1';
   
   const items = useMemo(() => {
-    if (isSavedView) return savedItems;
-    // For home view, we need to determine if we're viewing images or videos based on the starting item
+    if (isSavedView) {
+      // For saved view, if a filter was active, we should respect it
+      // But we'll receive the items from the context, so we filter by type if needed
+      const startItem = savedItems.find(s => s.id === id);
+      if (!startItem) return savedItems;
+      
+      // If we came from a filtered list (images/videos), we only show that type
+      // We'll assume the user wants to swipe through the same type they were looking at
+      return savedItems.filter(s => s.type === startItem.type);
+    }
+    
+    // For home view, we definitely only show the same type (images or videos)
     const startItem = statuses.find(s => s.id === id);
-    if (!startItem) return statuses;
+    if (!startItem) return [];
+    
     return statuses.filter(s => s.type === startItem.type);
   }, [isSavedView, savedItems, statuses, id]);
 
@@ -195,11 +214,19 @@ export default function ViewerScreen() {
   }, [items, id]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const flatListRef = useRef<FlatList>(null);
   
-  // Update currentIndex when initialIndex changes (e.g. on first load)
+  // Update currentIndex and scroll to it when initialIndex changes (e.g. on first load)
   useEffect(() => {
-    setCurrentIndex(initialIndex);
-  }, [initialIndex]);
+    if (items.length > 0 && initialIndex >= 0) {
+      setCurrentIndex(initialIndex);
+      // Ensure FlatList is scrolled to the correct item
+      flatListRef.current?.scrollToIndex({
+        index: initialIndex,
+        animated: false,
+      });
+    }
+  }, [initialIndex, items.length]);
 
   const currentItem = items[currentIndex];
 
@@ -299,10 +326,11 @@ export default function ViewerScreen() {
       <StatusBar hidden />
 
       <FlatList
+        ref={flatListRef}
         data={items}
         horizontal
         pagingEnabled
-        initialScrollIndex={initialIndex}
+        initialScrollIndex={initialIndex > 0 ? initialIndex : undefined}
         getItemLayout={(_, index) => ({
           length: SW,
           offset: SW * index,
@@ -320,6 +348,12 @@ export default function ViewerScreen() {
             controlsOpacity={controlsOpacity}
           />
         )}
+        onScrollToIndexFailed={(info) => {
+          const wait = new Promise(resolve => setTimeout(resolve, 500));
+          wait.then(() => {
+            flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+          });
+        }}
       />
 
       <Animated.View
