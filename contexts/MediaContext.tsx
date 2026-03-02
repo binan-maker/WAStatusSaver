@@ -331,9 +331,17 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       if (hasPermission) {
         try {
+          // On Android 11+ (API 30+), we use MediaLibrary.createAssetAsync which 
+          // might trigger a "Allow StatusVault to modify this photo?" dialog if the app
+          // doesn't have "Manage External Storage" (which is restricted).
+          // However, for simply saving to the gallery, we can try to use a method
+          // that doesn't trigger the system prompt if possible, or at least ensure
+          // we're not calling it redundantly.
           const asset = await MediaLibrary.createAssetAsync(destUri);
           await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
-        } catch {}
+        } catch (err) {
+          console.log('MediaLibrary save error (expected on some Android versions):', err);
+        }
       }
 
       const newSaved: SavedItem = {

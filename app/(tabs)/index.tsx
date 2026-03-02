@@ -9,6 +9,7 @@ import {
   Animated,
   Platform,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -240,67 +241,134 @@ export default function StatusesScreen() {
     );
   }
 
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  const handleTabChange = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        x: tab === 'images' ? 0 : SW,
+        animated: true,
+      });
+    }
+  }, []);
+
+  const onScroll = useCallback((event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  }, [activeTab]);
+
   return (
     <View style={styles.root}>
       <StatusHeader onInfoPress={() => router.push('/permissions')} />
 
       <SubTabBar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         imageCnt={imageCnt}
         videoCnt={videoCnt}
       />
 
-      <View style={styles.listArea}>
-        {isLoading ? (
-          <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon={activeTab === 'images' ? 'images-outline' : 'videocam-outline'}
-            title={`No ${activeTab === 'images' ? 'images' : 'videos'} found`}
-            subtitle={`Open WhatsApp, view some statuses, then pull down to refresh.`}
-            actionLabel="Refresh"
-            onAction={refresh}
-          />
-        ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            numColumns={GRID_COLUMNS}
-            extraData={activeTab}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={refresh}
-                tintColor={COLORS.PRIMARY}
-                colors={[COLORS.PRIMARY]}
-                progressBackgroundColor={COLORS.SURFACE}
-              />
-            }
-            renderItem={({ item }) => (
-              <MediaCard
-                item={item}
-                isSaved={isStatusSaved(item.id)}
-                onPress={() => handlePress(item)}
-                onSave={() => handleSave(item)}
-                onShare={() => handleShare(item)}
-                showSaveButton
-              />
-            )}
-            getItemLayout={getItemLayout}
-            contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled
-            columnWrapperStyle={styles.row}
-            removeClippedSubviews={Platform.OS === 'android'}
-            maxToRenderPerBatch={GRID_COLUMNS * 4}
-            updateCellsBatchingPeriod={50}
-            windowSize={5}
-            initialNumToRender={GRID_COLUMNS * 4}
-            decelerationRate="fast"
-          />
-        )}
-      </View>
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScroll}
+        scrollEventThrottle={16}
+        style={styles.listArea}
+      >
+        <View style={{ width: SW }}>
+          {isLoading ? (
+            <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
+          ) : statuses.filter(s => s.type === 'image').length === 0 ? (
+            <EmptyState
+              icon="images-outline"
+              title="No images found"
+              subtitle="Open WhatsApp, view some statuses, then pull down to refresh."
+              actionLabel="Refresh"
+              onAction={refresh}
+            />
+          ) : (
+            <FlatList
+              data={statuses.filter(s => s.type === 'image')}
+              keyExtractor={(item) => item.id}
+              numColumns={GRID_COLUMNS}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={refresh}
+                  tintColor={COLORS.PRIMARY}
+                  colors={[COLORS.PRIMARY]}
+                  progressBackgroundColor={COLORS.SURFACE}
+                />
+              }
+              renderItem={({ item }) => (
+                <MediaCard
+                  item={item}
+                  isSaved={isStatusSaved(item.id)}
+                  onPress={() => handlePress(item)}
+                  onSave={() => handleSave(item)}
+                  onShare={() => handleShare(item)}
+                  showSaveButton
+                />
+              )}
+              getItemLayout={getItemLayout}
+              contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
+              showsVerticalScrollIndicator={false}
+              columnWrapperStyle={styles.row}
+              removeClippedSubviews={Platform.OS === 'android'}
+            />
+          )}
+        </View>
+
+        <View style={{ width: SW }}>
+          {isLoading ? (
+            <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
+          ) : statuses.filter(s => s.type === 'video').length === 0 ? (
+            <EmptyState
+              icon="videocam-outline"
+              title="No videos found"
+              subtitle="Open WhatsApp, view some statuses, then pull down to refresh."
+              actionLabel="Refresh"
+              onAction={refresh}
+            />
+          ) : (
+            <FlatList
+              data={statuses.filter(s => s.type === 'video')}
+              keyExtractor={(item) => item.id}
+              numColumns={GRID_COLUMNS}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={refresh}
+                  tintColor={COLORS.PRIMARY}
+                  colors={[COLORS.PRIMARY]}
+                  progressBackgroundColor={COLORS.SURFACE}
+                />
+              }
+              renderItem={({ item }) => (
+                <MediaCard
+                  item={item}
+                  isSaved={isStatusSaved(item.id)}
+                  onPress={() => handlePress(item)}
+                  onSave={() => handleSave(item)}
+                  onShare={() => handleShare(item)}
+                  showSaveButton
+                />
+              )}
+              getItemLayout={getItemLayout}
+              contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
+              showsVerticalScrollIndicator={false}
+              columnWrapperStyle={styles.row}
+              removeClippedSubviews={Platform.OS === 'android'}
+            />
+          )}
+        </View>
+      </ScrollView>
 
       <AdBanner />
 
