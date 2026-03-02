@@ -24,9 +24,9 @@ SplashScreen.preventAutoHideAsync();
 async function applyImmersiveMode() {
   if (Platform.OS !== 'android') return;
   try {
-    await NavigationBar.setVisibilityAsync('hidden');
-    await NavigationBar.setBehaviorAsync('overlay-swipe');
-    await NavigationBar.setBackgroundColorAsync('transparent');
+    await NavigationBar.setVisibilityAsync('visible');
+    await NavigationBar.setBehaviorAsync('inset-touch');
+    await NavigationBar.setBackgroundColorAsync(COLORS.BACKGROUND);
     await NavigationBar.setButtonStyleAsync('light');
   } catch {}
 }

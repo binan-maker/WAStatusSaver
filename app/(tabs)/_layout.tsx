@@ -25,7 +25,6 @@ export default function TabLayout() {
         tabBarActiveTintColor: COLORS.PRIMARY,
         tabBarInactiveTintColor: COLORS.TEXT_MUTED,
         tabBarStyle: {
-          position: 'absolute',
           backgroundColor: isIOS ? 'transparent' : isWeb ? COLORS.TAB_BAR : COLORS.TAB_BAR,
           borderTopWidth: 1,
           borderTopColor: COLORS.BORDER,
