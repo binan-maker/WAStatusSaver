@@ -317,7 +317,6 @@ export default function ViewerScreen() {
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.topInfo}>
-          <Text style={styles.topTitle} numberOfLines={1}>{currentItem?.name || 'Status'}</Text>
           <Text style={styles.topCounter}>{currentIndex + 1} / {items.length}</Text>
         </View>
         <View style={{ width: 40 }} />

@@ -232,7 +232,7 @@ export default function SettingsScreen() {
             iconBg={COLORS.ACCENT_GOLD + '22'}
             label="Rate StatusVault"
             sublabel="Support us with a 5-star review"
-            onPress={() => Linking.openURL('market://details?id=com.statusvault.app').catch(() => {})}
+            onPress={() => Linking.openURL('https://play.google.com/store/apps/details?id=com.binan.statussaver').catch(() => {})}
           />
         </View>
 
