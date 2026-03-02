@@ -4,14 +4,14 @@
 node_modules/
 
 # Expo
-# .expo/
+.expo/
 dist/
 web-build/
 expo-env.d.ts
 
 # Native
 ios/
-# android/
+android/
 *.orig.*
 *.jks
 *.p8
