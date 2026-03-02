@@ -32,6 +32,13 @@ interface ViewerItemProps {
   controlsOpacity: Animated.Value;
 }
 
+function formatTime(millis: number) {
+  const totalSeconds = millis / 1000;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+}
+
 function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
@@ -41,6 +48,9 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
   const videoRef = useRef<Video>(null);
 
   const isPlaying = videoStatus?.isLoaded && (videoStatus as any).isPlaying;
+  const duration = (videoStatus?.isLoaded && (videoStatus as any).durationMillis) || 0;
+  const position = (videoStatus?.isLoaded && (videoStatus as any).positionMillis) || 0;
+  const progress = duration > 0 ? position / duration : 0;
 
   useEffect(() => {
     async function prepare() {
@@ -70,6 +80,17 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
       await videoRef.current.playAsync();
     }
   }, [isPlaying]);
+
+  const seek = useCallback(async (ratio: number) => {
+    if (!videoRef.current || !duration) return;
+    await videoRef.current.setPositionAsync(duration * ratio);
+  }, [duration]);
+
+  const skip = useCallback(async (seconds: number) => {
+    if (!videoRef.current || !videoStatus?.isLoaded) return;
+    const newPos = Math.max(0, Math.min(duration, (videoStatus as any).positionMillis + seconds * 1000));
+    await videoRef.current.setPositionAsync(newPos);
+  }, [videoStatus, duration]);
 
   return (
     <View style={styles.itemContainer}>
@@ -112,14 +133,41 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
               </View>
             )}
             {showControls && (
-              <Animated.View style={[styles.videoCenter, { opacity: controlsOpacity }]}>
-                <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseBtn}>
-                  <Ionicons
-                    name={isPlaying ? 'pause' : 'play'}
-                    size={36}
-                    color="#fff"
-                  />
-                </TouchableOpacity>
+              <Animated.View style={[styles.videoOverlay, { opacity: controlsOpacity }]}>
+                <View style={styles.videoCenter}>
+                  <TouchableOpacity onPress={() => skip(-10)} style={styles.skipBtn}>
+                    <Ionicons name="play-back" size={28} color="#fff" />
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseBtn}>
+                    <Ionicons
+                      name={isPlaying ? 'pause' : 'play'}
+                      size={42}
+                      color="#fff"
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => skip(10)} style={styles.skipBtn}>
+                    <Ionicons name="play-forward" size={28} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.progressContainer}>
+                  <Text style={styles.timeText}>{formatTime(position)}</Text>
+                  <TouchableOpacity 
+                    style={styles.progressBarBg}
+                    activeOpacity={1}
+                    onPress={(e) => {
+                      const { locationX } = e.nativeEvent;
+                      const width = SW - 100; // Total width minus paddings
+                      seek(Math.max(0, Math.min(1, locationX / width)));
+                    }}
+                  >
+                    <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+                    <View style={[styles.progressKnob, { left: `${progress * 100}%` }]} />
+                  </TouchableOpacity>
+                  <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                </View>
               </Animated.View>
             )}
           </View>
@@ -371,19 +419,70 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   videoCenter: {
-    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 40,
+  },
+  skipBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   playPauseBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.7)',
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  progressContainer: {
+    position: 'absolute',
+    bottom: 120,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 2,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 2,
+  },
+  progressKnob: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: COLORS.PRIMARY,
+    marginLeft: -7,
+  },
+  timeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Nunito_600SemiBold',
+    minWidth: 35,
   },
   topBar: {
     position: 'absolute',
