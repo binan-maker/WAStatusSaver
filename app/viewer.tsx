@@ -28,7 +28,9 @@ export default function ViewerScreen() {
   const { uri, type, name, id, isSaved: isSavedParam } = params;
 
   const insets = useSafeAreaInsets();
-  const { saveStatus, shareStatus, isStatusSaved, deleteFromSaved, savedItems } = useMedia();
+  const { saveStatus, shareStatus, isStatusSaved, deleteFromSaved, savedItems, prepareStatusForViewing } = useMedia();
+  const [displayUri, setDisplayUri] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [showControls, setShowControls] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,6 +44,27 @@ export default function ViewerScreen() {
   const isSaved = isSavedView || isStatusSaved(id || '');
 
   const isPlaying = videoStatus?.isLoaded && (videoStatus as any).isPlaying;
+
+  useEffect(() => {
+    async function prepare() {
+      if (!uri) return;
+      try {
+        const prepared = await prepareStatusForViewing({
+          id: id || 'temp',
+          uri,
+          type: (type as any) || 'image',
+          name: name || 'status',
+          source: 'whatsapp'
+        });
+        setDisplayUri(prepared);
+      } catch (e) {
+        console.error('Viewer preparation error:', e);
+        setError('Failed to load status');
+        setDisplayUri(uri);
+      }
+    }
+    prepare();
+  }, [uri, id, type, name]);
 
   useEffect(() => {
     if (showControls && type === 'video') {
@@ -141,9 +164,14 @@ export default function ViewerScreen() {
         activeOpacity={1}
         onPress={type === 'video' ? toggleControls : undefined}
       >
-        {type === 'image' ? (
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={48} color={COLORS.ACCENT_RED} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : type === 'image' ? (
           <Image
-            source={{ uri }}
+            source={{ uri: displayUri || uri }}
             style={styles.image}
             contentFit="contain"
             transition={150}
@@ -153,7 +181,7 @@ export default function ViewerScreen() {
           <View style={styles.videoWrap}>
             <Video
               ref={videoRef}
-              source={{ uri: uri || '' }}
+              source={{ uri: displayUri || uri || '' }}
               style={styles.video}
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay
@@ -346,5 +374,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     fontFamily: 'Nunito_700Bold',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.MD,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: FONT_SIZE.MD,
+    fontFamily: 'Nunito_600SemiBold',
   },
 });

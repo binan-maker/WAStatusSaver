@@ -421,11 +421,17 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
     try {
       const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
-      const tempUri = `${FileSystem.cacheDirectory}view_${item.id}.${ext}`;
+      // Clean the ID of any problematic characters (like colons from SAF URIs)
+      const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
+      const tempUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
       
       // Check if already cached to avoid redundant copies
-      const info = await FileSystem.getInfoAsync(tempUri);
-      if (info.exists) return tempUri;
+      try {
+        const info = await FileSystem.getInfoAsync(tempUri);
+        if (info.exists) return tempUri;
+      } catch (e) {
+        // Continue if check fails
+      }
 
       const content = await FileSystem.StorageAccessFramework.readAsStringAsync(item.uri, {
         encoding: FileSystem.EncodingType.Base64,
