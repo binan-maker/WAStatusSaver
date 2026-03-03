@@ -143,10 +143,6 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
             {showControls && (
               <Animated.View style={[styles.videoOverlay, { opacity: controlsOpacity }]}>
                 <View style={styles.videoCenter}>
-                  <TouchableOpacity onPress={() => skip(-10)} style={styles.skipBtn}>
-                    <Ionicons name="play-back" size={28} color="#fff" />
-                  </TouchableOpacity>
-                  
                   <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseBtn}>
                     <Ionicons
                       name={player.playing ? 'pause' : 'play'}
@@ -154,31 +150,9 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
                       color="#fff"
                     />
                   </TouchableOpacity>
-
-                  <TouchableOpacity onPress={() => skip(10)} style={styles.skipBtn}>
-                    <Ionicons name="play-forward" size={28} color="#fff" />
-                  </TouchableOpacity>
                 </View>
 
-                <View style={styles.progressContainer}>
-                  <Text style={styles.timeText}>{formatTime(player.currentTime * 1000)}</Text>
-                  <TouchableOpacity 
-                    style={styles.progressBarBg}
-                    activeOpacity={1}
-                    onPress={(e) => {
-                      const { locationX } = e.nativeEvent;
-                      const width = SW - 110; // Adjusted for padding and text
-                      if (player.duration > 0) {
-                        const newTime = (player.duration * Math.max(0, Math.min(1, locationX / width)));
-                        player.currentTime = newTime;
-                      }
-                    }}
-                  >
-                    <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-                    <View style={[styles.progressKnob, { left: `${progress * 100}%` }]} />
-                  </TouchableOpacity>
-                  <Text style={styles.timeText}>{formatTime(player.duration * 1000)}</Text>
-                </View>
+                {/* Progress bar and skip buttons removed as requested */}
               </Animated.View>
             )}
           </View>
