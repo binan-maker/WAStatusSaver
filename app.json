@@ -2,7 +2,7 @@
   "expo": {
     "name": "StatusVault",
     "slug": "statusvault",
-    "version": "1.0.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "statusvault",
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.statusvault.app"
+      "bundleIdentifier": "com.binan.statussaver"
     },
     "android": {
-      "package": "com.statusvault.app",
+      "package": "com.binan.statussaver",
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
