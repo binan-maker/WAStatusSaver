@@ -428,6 +428,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const prepareStatusForViewing = useCallback(async (item: StatusItem): Promise<string> => {
+    // For local files (saved items), return the uri as is
     if (!item.uri.startsWith('content://')) return item.uri;
 
     try {
@@ -439,14 +440,28 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       // Check if already cached to avoid redundant copies
       try {
         const info = await FileSystem.getInfoAsync(tempUri);
-        if (info.exists) return tempUri;
+        if (info.exists && info.size > 0) return tempUri;
       } catch (e) {
         // Continue if check fails
+      }
+
+      // Ensure cache directory exists (extra safety)
+      const cacheDir = FileSystem.cacheDirectory;
+      if (cacheDir) {
+        const dirInfo = await FileSystem.getInfoAsync(cacheDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
+        }
       }
 
       const content = await FileSystem.StorageAccessFramework.readAsStringAsync(item.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+      
+      if (!content || content.length === 0) {
+        throw new Error('Empty content read from SAF');
+      }
+
       await FileSystem.writeAsStringAsync(tempUri, content, {
         encoding: FileSystem.EncodingType.Base64,
       });

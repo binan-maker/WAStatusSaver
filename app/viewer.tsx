@@ -48,9 +48,18 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
   useEffect(() => {
     let isMounted = true;
     async function prepare() {
-      if (isPreparing) return;
+      // Don't skip if already preparing, but we need to update if item changes
       setIsPreparing(true);
       try {
+        // Use localUri if it's a SavedItem, otherwise use uri
+        const sourceUri = 'localUri' in item ? (item as SavedItem).localUri : item.uri;
+        
+        // If it's already a local file, we can use it directly
+        if (!sourceUri.startsWith('content://')) {
+          if (isMounted) setDisplayUri(sourceUri);
+          return;
+        }
+
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) setDisplayUri(prepared);
       } catch (e) {
@@ -67,7 +76,9 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
     return () => { isMounted = false; };
   }, [item.uri, item.id]);
 
-  const player = useVideoPlayer(displayUri || item.uri, (player) => {
+  const mediaUri = displayUri || ('localUri' in item ? (item as SavedItem).localUri : item.uri);
+
+  const player = useVideoPlayer(mediaUri, (player) => {
     player.loop = true;
   });
 
@@ -101,14 +112,18 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
         activeOpacity={1}
         onPress={item.type === 'video' ? onToggleControls : undefined}
       >
-        {error ? (
+        {isPreparing && !displayUri ? (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+          </View>
+        ) : error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle" size={48} color={COLORS.ACCENT_RED} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : item.type === 'image' ? (
           <Image
-            source={{ uri: displayUri || item.uri }}
+            source={{ uri: mediaUri }}
             style={styles.image}
             contentFit="contain"
             transition={150}
