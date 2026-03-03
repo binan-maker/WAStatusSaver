@@ -21,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import COLORS from '@/constants/colors';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
+import { useEventListener } from 'expo';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -44,26 +45,23 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
+  
+  // Track playing state locally to ensure UI updates immediately
+  const [isPlaying, setIsPlaying] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
     async function prepare() {
-      // Don't skip if already preparing, but we need to update if item changes
       setIsPreparing(true);
       try {
-        // Use localUri if it's a SavedItem, otherwise use uri
         const sourceUri = 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-        
-        // If it's already a local file, we can use it directly
         if (!sourceUri.startsWith('content://')) {
           if (isMounted) setDisplayUri(sourceUri);
           return;
         }
-
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) setDisplayUri(prepared);
       } catch (e) {
-        console.error('Viewer item preparation error:', e);
         if (isMounted) {
           setError('Failed to load status');
           setDisplayUri(item.uri);
@@ -80,6 +78,12 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
 
   const player = useVideoPlayer(mediaUri, (player) => {
     player.loop = true;
+    if (isActive) player.play();
+  });
+
+  // Correct way to listen to play/pause changes
+  useEventListener(player, 'playingChange', (event) => {
+    setIsPlaying(event.isPlaying);
   });
 
   useEffect(() => {
@@ -99,66 +103,56 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
     }
   }, [player]);
 
-  const skip = useCallback((seconds: number) => {
-    player.currentTime += seconds;
-  }, [player]);
-
-  const progress = player.duration > 0 ? player.currentTime / player.duration : 0;
-
   return (
-    <View style={styles.itemContainer}>
-      <TouchableOpacity
-        style={styles.mediaArea}
-        activeOpacity={1}
-        onPress={item.type === 'video' ? onToggleControls : undefined}
-      >
-        {isPreparing && !displayUri ? (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={48} color={COLORS.ACCENT_RED} />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : item.type === 'image' ? (
-          <Image
-            source={{ uri: mediaUri }}
-            style={styles.image}
-            contentFit="contain"
-            transition={150}
-            cachePolicy="memory-disk"
-          />
-        ) : (
-          <View style={styles.videoWrap}>
-            <VideoView
-              player={player}
-              style={styles.video}
-              contentFit="contain"
-              allowsFullscreen={false}
-              allowsPictureInPicture={false}
-              showsPlaybackControls={false}
-              nativeControls={false}
-            />
-            {showControls && (
-              <Animated.View style={[styles.videoOverlay, { opacity: controlsOpacity }]}>
-                <View style={styles.videoCenter}>
-                  <TouchableOpacity onPress={togglePlayPause} style={styles.playPauseBtn}>
-                    <Ionicons
-                      name={player.playing ? 'pause' : 'play'}
-                      size={42}
-                      color="#fff"
-                    />
-                  </TouchableOpacity>
-                </View>
+   <View style={styles.itemContainer}>
+  {/* TouchableOpacity to toggle controls on tap for both image and video */}
+  <TouchableOpacity
+    style={[StyleSheet.absoluteFillObject, { top: 0, left: 0, right: 0, bottom: 50 }]} // Covers top and bottom areas
+    activeOpacity={1}
+    onPress={onToggleControls} // Toggle controls visibility
+  >
+    {item.type === 'image' ? (
+      <Image
+        source={{ uri: mediaUri }}
+        style={styles.image}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+      />
+    ) : (
+      <View style={styles.videoWrap}>
+     <VideoView
+  player={player}
+  style={styles.video}
+  contentFit="contain"
+  nativeControls={false} // If you want to handle controls yourself
+  // Remove fullscreenOptions since it's causing the issue
+/>
+      </View>
+    )}
+  </TouchableOpacity>
 
-                {/* Progress bar and skip buttons removed as requested */}
-              </Animated.View>
-            )}
-          </View>
-        )}
-      </TouchableOpacity>
+  {/* Video Controls Layer */}
+{item.type === 'video' && (
+  <Animated.View
+    style={[
+      styles.videoOverlay,
+      {
+        opacity: 1,  // Always visible
+        pointerEvents: 'auto',  // Ensure controls are always interactive
+      },
+    ]}
+  >
+    {/* Removed Play/Pause button */}
+  </Animated.View>
+)}
+
+  {/* Loading Overlay */}
+  {isPreparing && !displayUri && (
+    <View style={styles.loadingOverlay}>
+      <ActivityIndicator size="large" color={COLORS.PRIMARY} />
     </View>
+  )}
+</View>
   );
 }
 
@@ -226,39 +220,32 @@ export default function ViewerScreen() {
 
   const isSaved = isSavedView || (currentItem && isStatusSaved(currentItem.id));
 
-  useEffect(() => {
-    if (showControls && currentItem?.type === 'video') {
-      scheduleHideControls();
-    }
-    return () => {
-      if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
-    };
-  }, [showControls, currentIndex]);
+useEffect(() => {
+  // Just make sure controls are visible when video is active
+  if (currentItem?.type === 'video') {
+    setShowControls(true); // Always show controls for video
+    controlsOpacity.setValue(1); // Ensure opacity stays at 1 (visible)
+  }
+}, [currentIndex, currentItem]);
 
-  function scheduleHideControls() {
-    if (hideControlsTimer.current) clearTimeout(hideControlsTimer.current);
-    hideControlsTimer.current = setTimeout(() => {
-      if (currentItem?.type === 'video') {
-        animateControls(false);
-        setShowControls(false);
-      }
-    }, 3500);
+function animateControls(show: boolean) {
+  // No longer animating the opacity to hide controls.
+  // Controls are always visible, so no need for animation logic anymore.
+  controlsOpacity.setValue(1); // Ensure opacity is always 1
+}
+const toggleControls = useCallback(() => {
+  const next = !showControls; // Toggle the visibility
+  setShowControls(next);
+
+  // Reset opacity animation to show controls immediately when toggled
+  if (next) {
+    controlsOpacity.setValue(1); // Always show controls
   }
 
-  function animateControls(show: boolean) {
-    Animated.timing(controlsOpacity, {
-      toValue: show ? 1 : 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }
+  animateControls(next); // No need for hide logic
+}, [showControls, currentItem]);
 
-  const toggleControls = useCallback(() => {
-    const next = !showControls;
-    setShowControls(next);
-    animateControls(next);
-    if (next) scheduleHideControls();
-  }, [showControls, currentItem]);
+
 
   const handleSave = useCallback(async () => {
     if (!currentItem || isSaved || isSaving) return;
@@ -315,35 +302,35 @@ export default function ViewerScreen() {
       <StatusBar hidden />
 
       <FlatList
-        ref={flatListRef}
-        data={items}
-        horizontal
-        pagingEnabled
-        initialScrollIndex={initialIndex > 0 ? initialIndex : undefined}
-        getItemLayout={(_, index) => ({
-          length: SW,
-          offset: SW * index,
-          index,
-        })}
-        onMomentumScrollEnd={onScroll}
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <ViewerItem
-            item={item}
-            isActive={index === currentIndex}
-            onToggleControls={toggleControls}
-            showControls={showControls}
-            controlsOpacity={controlsOpacity}
-          />
-        )}
-        onScrollToIndexFailed={(info) => {
-          const wait = new Promise(resolve => setTimeout(resolve, 500));
-          wait.then(() => {
-            flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
-          });
-        }}
-      />
+  ref={flatListRef}
+  data={items}
+  horizontal
+  pagingEnabled
+  initialScrollIndex={initialIndex > 0 ? initialIndex : undefined}
+  getItemLayout={(_, index) => ({
+    length: SW,
+    offset: SW * index,
+    index,
+  })}
+  onMomentumScrollEnd={onScroll}
+  showsHorizontalScrollIndicator={false}
+  keyExtractor={(item) => item.id}
+  renderItem={({ item, index }) => (
+    <ViewerItem
+      item={item}
+      isActive={index === currentIndex}
+      onToggleControls={toggleControls}
+      showControls={showControls}
+      controlsOpacity={controlsOpacity}
+    />
+  )}
+  onScrollToIndexFailed={(info) => {
+    const wait = new Promise(resolve => setTimeout(resolve, 500));
+    wait.then(() => {
+      flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+    });
+  }}
+/>
 
       <Animated.View
         style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none' }]}
@@ -358,7 +345,7 @@ export default function ViewerScreen() {
       </Animated.View>
 
       <Animated.View
-        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none' }]}
+        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none' }]}
       >
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
@@ -584,4 +571,4 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.MD,
     fontFamily: 'Nunito_600SemiBold',
   },
-});
+}); 
