@@ -91,7 +91,7 @@ if (status.openPorts) {
 }
 ```
 
-### configureWorkflow(name, command, waitForPort, outputType, autoStart)
+### configureWorkflow({ name, command, waitForPort, outputType, autoStart, isCanvasWorkflow })
 
 Configure or create a workflow. This is the primary way to set up background processes.
 
@@ -102,6 +102,7 @@ Configure or create a workflow. This is the primary way to set up background pro
 - `waitForPort` (int, optional): Port the process listens on
 - `outputType` (str, default "webview"): "webview", "console", or "vnc"
 - `autoStart` (bool, default True): Auto-start after configuration
+- `isCanvasWorkflow` (bool, default false): Whether this workflow serves canvas iframe content
 
 **Output Type Rules:**
 
