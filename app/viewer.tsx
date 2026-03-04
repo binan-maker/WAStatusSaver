@@ -28,6 +28,7 @@ const { width: SW, height: SH } = Dimensions.get('window');
 interface ViewerItemProps {
   item: StatusItem | SavedItem;
   isActive: boolean;
+  isNearActive: boolean;
   onToggleControls: () => void;
   showControls: boolean;
   controlsOpacity: Animated.Value;
@@ -40,31 +41,54 @@ function formatTime(millis: number) {
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
-function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
+function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   
   // Track playing state locally to ensure UI updates immediately
   const [isPlaying, setIsPlaying] = useState(true);
 
+  // Stable initial source to avoid player recreation and "released shared object" errors
+  const initialSource = useMemo(() => {
+    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
+  }, [item.id]);
+
+  const player = useVideoPlayer(initialSource, (p) => {
+    p.loop = true;
+  });
+
+  // Handle source replacement when cache is ready without recreating the player
   useEffect(() => {
+    if (displayUri && displayUri !== initialSource) {
+      player.replace(displayUri);
+    }
+  }, [displayUri, initialSource, player]);
+
+  useEffect(() => {
+    if (!isNearActive) {
+      // If we move away, we can clear the displayUri to save memory
+      // but only if it's not the active one
+      if (!isActive) setDisplayUri(null);
+      return;
+    }
+
     let isMounted = true;
     async function prepare() {
+      if (displayUri) return; // Already prepared
+      
       setIsPreparing(true);
       try {
-        const sourceUri = 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-        if (!sourceUri.startsWith('content://')) {
-          if (isMounted) setDisplayUri(sourceUri);
+        if (!initialSource.startsWith('content://')) {
+          if (isMounted) setDisplayUri(initialSource);
           return;
         }
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) setDisplayUri(prepared);
       } catch (e) {
         if (isMounted) {
-          setError('Failed to load status');
-          setDisplayUri(item.uri);
+          // Fallback to original URI only if copy failed
+          setDisplayUri(initialSource);
         }
       } finally {
         if (isMounted) setIsPreparing(false);
@@ -72,14 +96,9 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
     }
     prepare();
     return () => { isMounted = false; };
-  }, [item.uri, item.id]);
+  }, [initialSource, item, isNearActive, isActive]);
 
-  const mediaUri = displayUri || ('localUri' in item ? (item as SavedItem).localUri : item.uri);
-
-  const player = useVideoPlayer(mediaUri, (player) => {
-    player.loop = true;
-    if (isActive) player.play();
-  });
+  const mediaUri = displayUri || initialSource;
 
   // Correct way to listen to play/pause changes
   useEventListener(player, 'playingChange', (event) => {
@@ -120,13 +139,16 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
       />
     ) : (
       <View style={styles.videoWrap}>
-     <VideoView
-  player={player}
-  style={styles.video}
-  contentFit="contain"
-  nativeControls={false} // If you want to handle controls yourself
-  // Remove fullscreenOptions since it's causing the issue
-/>
+        {isActive || isNearActive ? (
+          <VideoView
+            player={player}
+            style={styles.video}
+            contentFit="contain"
+            nativeControls={false}
+          />
+        ) : (
+          <View style={styles.videoPlaceholder} />
+        )}
       </View>
     )}
   </TouchableOpacity>
@@ -159,7 +181,7 @@ function ViewerItem({ item, isActive, onToggleControls, showControls, controlsOp
 export default function ViewerScreen() {
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
   const { id, isSaved: isSavedParam } = params;
-
+  
   const insets = useSafeAreaInsets();
   const { 
     statuses, 
@@ -167,32 +189,39 @@ export default function ViewerScreen() {
     saveStatus, 
     shareStatus, 
     isStatusSaved, 
-    deleteFromSaved 
+    deleteFromSaved,
+    loadStatuses,
+    hasPermission
   } = useMedia();
 
   const isSavedView = isSavedParam === '1';
+
+  // Safeguard: Load statuses if they are empty (e.g. on deep link or refresh)
+  useEffect(() => {
+    if (!isSavedView && statuses.length === 0 && hasPermission) {
+      loadStatuses();
+    }
+  }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
   
   const items = useMemo(() => {
     if (isSavedView) {
-      // For saved view, if a filter was active, we should respect it
-      // But we'll receive the items from the context, so we filter by type if needed
-      const startItem = savedItems.find(s => s.id === id);
+      const startItem = savedItems.find(s => s.id === id || decodeURIComponent(s.id) === id);
       if (!startItem) return savedItems;
-      
-      // If we came from a filtered list (images/videos), we only show that type
-      // We'll assume the user wants to swipe through the same type they were looking at
       return savedItems.filter(s => s.type === startItem.type);
     }
     
-    // For home view, we definitely only show the same type (images or videos)
-    const startItem = statuses.find(s => s.id === id);
-    if (!startItem) return [];
+    const startItem = statuses.find(s => s.id === id || decodeURIComponent(s.id) === id);
     
-    return statuses.filter(s => s.type === startItem.type);
+    if (!startItem) {
+      return [];
+    }
+    
+    const filtered = statuses.filter(s => s.type === startItem.type);
+    return filtered;
   }, [isSavedView, savedItems, statuses, id]);
 
   const initialIndex = useMemo(() => {
-    const idx = items.findIndex(item => item.id === id);
+    const idx = items.findIndex(item => item.id === id || decodeURIComponent(item.id) === id);
     return idx === -1 ? 0 : idx;
   }, [items, id]);
 
@@ -293,7 +322,7 @@ const toggleControls = useCallback(() => {
       setShowControls(true);
       controlsOpacity.setValue(1);
     }
-  }, [currentIndex, items.length]);
+  }, [currentIndex, items.length, items]);
 
   if (!currentItem) return null;
 
@@ -319,6 +348,7 @@ const toggleControls = useCallback(() => {
     <ViewerItem
       item={item}
       isActive={index === currentIndex}
+      isNearActive={Math.abs(index - currentIndex) <= 1}
       onToggleControls={toggleControls}
       showControls={showControls}
       controlsOpacity={controlsOpacity}

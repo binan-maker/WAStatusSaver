@@ -318,16 +318,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       const filename = `status_${Date.now()}.${ext}`;
       const destUri = `${savedDir}${filename}`;
 
-      if (item.uri.startsWith('content://')) {
-        const content = await FileSystem.StorageAccessFramework.readAsStringAsync(item.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        await FileSystem.writeAsStringAsync(destUri, content, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-      } else {
-        await FileSystem.copyAsync({ from: item.uri, to: destUri });
-      }
+      await FileSystem.copyAsync({ from: item.uri, to: destUri });
 
       if (hasPermission) {
         try {
@@ -387,12 +378,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       } else if (item.uri.startsWith('content://')) {
         const ext = item.name.split('.').pop() || 'jpg';
         const tempUri = `${FileSystem.cacheDirectory}share_${Date.now()}.${ext}`;
-        const content = await FileSystem.StorageAccessFramework.readAsStringAsync(item.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        await FileSystem.writeAsStringAsync(tempUri, content, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        await FileSystem.copyAsync({ from: item.uri, to: tempUri });
         shareUri = tempUri;
       }
 
@@ -454,21 +440,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const content = await FileSystem.StorageAccessFramework.readAsStringAsync(item.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      
-      if (!content || content.length === 0) {
-        throw new Error('Empty content read from SAF');
-      }
-
-      await FileSystem.writeAsStringAsync(tempUri, content, {
-        encoding: FileSystem.EncodingType.Base64,
+      await FileSystem.copyAsync({
+        from: item.uri,
+        to: tempUri
       });
       
       return tempUri;
     } catch (e) {
-      console.error('Error preparing status for viewing:', e);
       return item.uri; // Fallback to original URI if copy fails
     }
   }, []);

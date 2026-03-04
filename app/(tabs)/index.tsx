@@ -174,7 +174,9 @@ export default function StatusesScreen() {
   const videoCnt = statuses.filter(s => s.type === 'video').length;
 
   const handlePress = useCallback(async (item: StatusItem) => {
-    if (item.type === 'video') onVideoOpen(item.uri);
+    if (item.type === 'video') {
+      onVideoOpen(item.uri);
+    }
     
     router.push({
       pathname: '/viewer',
