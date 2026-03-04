@@ -36,6 +36,13 @@
     },
     "plugins": [
       [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-7313264435552019~3667341591",
+          "iosAppId": "ca-app-pub-7313264435552019~3667341591"
+        }
+      ],
+      [
         "expo-router",
         {
           "origin": "https://replit.com/"
