@@ -47,6 +47,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
+
+  const [isPlaying, setIsPlaying] = useState(false); 
   
   // Track playing state locally to ensure UI updates immediately
   const { onImageSwipe } = useMedia();
@@ -468,6 +470,12 @@ const styles = StyleSheet.create({
   video: {
     width: SW,
     height: SH,
+  },
+  videoPlaceholder: {
+    flex: 1,
+    backgroundColor: '#000', // Black background while video loads
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

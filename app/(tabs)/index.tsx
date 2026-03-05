@@ -140,6 +140,7 @@ export default function StatusesScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('images');
   const {
     statuses,
+    onImageSwipe,
     isLoading,
     isRefreshing,
     hasPermission,

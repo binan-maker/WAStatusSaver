@@ -48,7 +48,7 @@ export function useInterstitialAd() {
 }
 
 // Keep the component for backward compatibility if needed, but the hook is preferred
-export function AdInterstitial({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function AdInterstitial({ visible, onClose, countdown = 3 }: { visible: boolean; onClose:  () => void; countdown?: number; }) {
   const { loaded, showAd } = useInterstitialAd();
 
   useEffect(() => {
