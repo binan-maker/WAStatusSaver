@@ -186,8 +186,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const requestSAF = useCallback(async () => {
     if (Platform.OS !== 'android') return;
     try {
-      const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      // Use the specially encoded URI for Android/media/com.whatsapp/WhatsApp/Media
+      // This helps the SAF picker open directly to the correct folder
+      const initialUri = 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia';
+      const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+      
       if (result.granted) {
+        // The permission is automatically persisted by Expo's StorageAccessFramework
         await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
         setSafUri(result.directoryUri);
         setSafGranted(true);
@@ -196,7 +201,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       Alert.alert('Permission Error', 'Could not access storage. Please try again.');
     }
-  }, []);
+  }, [loadStatuses]);
 
   async function readFromLegacyPath(): Promise<StatusItem[]> {
     const items: StatusItem[] = [];

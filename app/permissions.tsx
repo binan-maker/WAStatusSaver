@@ -143,7 +143,7 @@ export default function PermissionsScreen() {
               desc={
                 safGranted
                   ? 'WhatsApp Media folder access granted.'
-                  : 'On Android 11+, you must manually select the WhatsApp Media folder using the system file picker.\n\nPath: Android › media › com.whatsapp › WhatsApp › Media'
+                  : 'On Android 11+, you must manually select the WhatsApp Media folder using the system file picker.\n\nClick "Use this folder" at the bottom of the screen.'
               }
               done={safGranted}
               action={
