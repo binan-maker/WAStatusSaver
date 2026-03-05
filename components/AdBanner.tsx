@@ -37,10 +37,9 @@ export function AdBanner({ style }: AdBannerProps) {
 const styles = StyleSheet.create({
   container: {
     minHeight: ADMOB.BANNER_HEIGHT,
-    backgroundColor: COLORS.SURFACE,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
   },
 });

@@ -58,6 +58,7 @@ interface MediaContextValue {
   shareStatus: (item: StatusItem | SavedItem) => Promise<void>;
   isStatusSaved: (id: string) => boolean;
   onVideoOpen: (uri: string) => void;
+  onImageSwipe: () => void;
   dismissInterstitial: () => void;
   prepareStatusForViewing: (item: StatusItem) => Promise<string>;
 }
@@ -111,6 +112,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [safUri, setSafUri] = useState<string | null>(null);
   const [permissionStatus, setPermissionStatus] = useState<MediaLibrary.PermissionStatus | null>(null);
   const [videoViewCount, setVideoViewCount] = useState(0);
+  const [imageSwipeCount, setImageSwipeCount] = useState(0);
   const [showInterstitial, setShowInterstitial] = useState(false);
   const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
 
@@ -413,6 +415,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     }
   }, [videoViewCount]);
 
+  const onImageSwipe = useCallback(() => {
+    const newCount = imageSwipeCount + 1;
+    setImageSwipeCount(newCount);
+    // Show interstitial every 7 swipes as requested
+    if (newCount >= 7) {
+      setShowInterstitial(true);
+      setImageSwipeCount(0);
+    }
+  }, [imageSwipeCount]);
+
   const dismissInterstitial = useCallback(() => {
     setShowInterstitial(false);
     setPendingVideoUri(null);
@@ -479,6 +491,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     shareStatus,
     isStatusSaved,
     onVideoOpen,
+    onImageSwipe,
     dismissInterstitial,
     prepareStatusForViewing,
   };

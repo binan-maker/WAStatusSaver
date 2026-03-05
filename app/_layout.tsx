@@ -24,9 +24,14 @@ SplashScreen.preventAutoHideAsync();
 async function applyImmersiveMode() {
   if (Platform.OS !== 'android') return;
   try {
-    await NavigationBar.setVisibilityAsync('visible');
-    await NavigationBar.setBehaviorAsync('inset-touch');
-    await NavigationBar.setBackgroundColorAsync(COLORS.BACKGROUND);
+    // Check if edge-to-edge is already handled by Expo (modern versions do this)
+    // We only apply these if they don't cause warnings on modern Android
+    const sdkVersion = Platform.Version as number;
+    if (sdkVersion < 30) {
+      await NavigationBar.setVisibilityAsync('visible');
+      await NavigationBar.setBehaviorAsync('inset-touch');
+      await NavigationBar.setBackgroundColorAsync(COLORS.BACKGROUND);
+    }
     await NavigationBar.setButtonStyleAsync('light');
   } catch {}
 }

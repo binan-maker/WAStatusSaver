@@ -23,6 +23,8 @@ import COLORS from '@/constants/colors';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 import { useEventListener } from 'expo';
 
+import { AdInterstitial } from '@/components/AdInterstitial';
+
 const { width: SW, height: SH } = Dimensions.get('window');
 
 interface ViewerItemProps {
@@ -47,7 +49,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [isPreparing, setIsPreparing] = useState(false);
   
   // Track playing state locally to ensure UI updates immediately
-  const [isPlaying, setIsPlaying] = useState(true);
+  const { onImageSwipe } = useMedia();
 
   // Stable initial source to avoid player recreation and "released shared object" errors
   const initialSource = useMemo(() => {
@@ -191,7 +193,10 @@ export default function ViewerScreen() {
     isStatusSaved, 
     deleteFromSaved,
     loadStatuses,
-    hasPermission
+    hasPermission,
+    onImageSwipe,
+    dismissInterstitial,
+    showInterstitial
   } = useMedia();
 
   const isSavedView = isSavedParam === '1';
@@ -227,11 +232,13 @@ export default function ViewerScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = useRef<FlatList>(null);
+  const prevIndex = useRef(initialIndex);
   
   // Update currentIndex and scroll to it when initialIndex changes (e.g. on first load)
   useEffect(() => {
     if (items.length > 0 && initialIndex >= 0) {
       setCurrentIndex(initialIndex);
+      prevIndex.current = initialIndex;
       // Ensure FlatList is scrolled to the correct item
       flatListRef.current?.scrollToIndex({
         index: initialIndex,
@@ -321,8 +328,16 @@ const toggleControls = useCallback(() => {
       // Reset controls visibility when swiping to a new item
       setShowControls(true);
       controlsOpacity.setValue(1);
+      
+      // Trigger image swipe ad logic if it's an image AND index changed
+      if (index !== prevIndex.current) {
+        if (items[index].type === 'image') {
+          onImageSwipe();
+        }
+        prevIndex.current = index;
+      }
     }
-  }, [currentIndex, items.length, items]);
+  }, [currentIndex, items.length, items, onImageSwipe]);
 
   if (!currentItem) return null;
 
@@ -375,7 +390,7 @@ const toggleControls = useCallback(() => {
       </Animated.View>
 
       <Animated.View
-        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none' }]}
+        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 100 }]}
       >
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
@@ -416,6 +431,12 @@ const toggleControls = useCallback(() => {
           </TouchableOpacity>
         )}
       </Animated.View>
+
+      <AdInterstitial
+        visible={showInterstitial}
+        onClose={dismissInterstitial}
+        countdown={5}
+      />
     </View>
   );
 }

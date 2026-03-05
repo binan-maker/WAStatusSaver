@@ -176,13 +176,16 @@ export default function StatusesScreen() {
   const handlePress = useCallback(async (item: StatusItem) => {
     if (item.type === 'video') {
       onVideoOpen(item.uri);
+    } else {
+      // Initialize image swipe count when opening viewer
+      onImageSwipe();
     }
     
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
     });
-  }, [onVideoOpen]);
+  }, [onVideoOpen, onImageSwipe]);
 
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);
