@@ -6,3 +6,9 @@
 [x] 6. Simplified video player controls: removed progress bar and skip buttons, leaving only a central play/pause toggle. Verified swipe functionality remains intact.
 [x] 7. Implemented direct SAF folder selection for Android 11+ by using a specially encoded initial URI for WhatsApp Media.
 [x] 8. Updated permission screen to guide users to click "Use this folder" directly without manual navigation.
+[x] 9. Auto-load images and videos on app start - removed dependency on permission state to trigger loading
+[x] 10. Memoized filtered image/video lists to prevent unnecessary re-renders during scrolling
+[x] 11. Added double-tap prevention (300ms debounce) to prevent duplicate opening of same image/video
+[x] 12. Fixed blank screen issue when opening images/videos by improving state management in ViewerItem
+[x] 13. Optimized memory management - only prepares items near the active item, prevents loading all items
+[x] 14. Fixed scrolling flicker - counter updates now smooth with proper state tracking

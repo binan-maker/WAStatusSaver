@@ -79,28 +79,33 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     let isMounted = true;
     async function prepare() {
-      if (displayUri) return; // Already prepared
-      
-      setIsPreparing(true);
       try {
         if (!initialSource.startsWith('content://')) {
-          if (isMounted) setDisplayUri(initialSource);
+          if (isMounted) {
+            setDisplayUri(initialSource);
+            setIsPreparing(false);
+          }
           return;
         }
+        setIsPreparing(true);
         const prepared = await prepareStatusForViewing(item);
-        if (isMounted) setDisplayUri(prepared);
+        if (isMounted) {
+          setDisplayUri(prepared);
+          setIsPreparing(false);
+        }
       } catch (e) {
         if (isMounted) {
-          // Fallback to original URI only if copy failed
           setDisplayUri(initialSource);
+          setIsPreparing(false);
         }
-      } finally {
-        if (isMounted) setIsPreparing(false);
       }
     }
-    prepare();
+    
+    if (!displayUri) {
+      prepare();
+    }
     return () => { isMounted = false; };
-  }, [initialSource, item, isNearActive, isActive]);
+  }, [initialSource, item, isNearActive, isActive, displayUri]);
 
   const mediaUri = displayUri || initialSource;
 
@@ -202,6 +207,7 @@ export default function ViewerScreen() {
   } = useMedia();
 
   const isSavedView = isSavedParam === '1';
+  const prevIdRef = useRef<string | null>(null);
 
   // Safeguard: Load statuses if they are empty (e.g. on deep link or refresh)
   useEffect(() => {
@@ -237,17 +243,22 @@ export default function ViewerScreen() {
   const prevIndex = useRef(initialIndex);
   
   // Update currentIndex and scroll to it when initialIndex changes (e.g. on first load)
+  // Prevent duplicate navigation
   useEffect(() => {
-    if (items.length > 0 && initialIndex >= 0) {
-      setCurrentIndex(initialIndex);
-      prevIndex.current = initialIndex;
-      // Ensure FlatList is scrolled to the correct item
-      flatListRef.current?.scrollToIndex({
-        index: initialIndex,
-        animated: false,
-      });
+    if (prevIdRef.current !== id) {
+      prevIdRef.current = id;
+      if (items.length > 0 && initialIndex >= 0) {
+        setCurrentIndex(initialIndex);
+        prevIndex.current = initialIndex;
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({
+            index: initialIndex,
+            animated: false,
+          });
+        }, 50);
+      }
     }
-  }, [initialIndex, items.length]);
+  }, [initialIndex, items.length, id]);
 
   const currentItem = items[currentIndex];
 

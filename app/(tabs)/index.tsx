@@ -159,26 +159,44 @@ export default function StatusesScreen() {
 
   const insets = useSafeAreaInsets();
 
-    const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const navigationRef = useRef<Map<string, number>>(new Map());
 
+  // Load statuses on mount and when permissions change
   useEffect(() => {
-    if (hasPermission || androidVersion < 30) {
+    loadStatuses();
+  }, []);
+
+  // Refresh when permissions are granted
+  useEffect(() => {
+    if (hasPermission || (androidVersion >= 30 && safGranted)) {
       loadStatuses();
     }
   }, [hasPermission, safGranted]);
 
-  const filtered = statuses.filter(s =>
-    activeTab === 'images' ? s.type === 'image' : s.type === 'video'
+  const imageCnt = useMemo(() => statuses.filter(s => s.type === 'image').length, [statuses]);
+  const videoCnt = useMemo(() => statuses.filter(s => s.type === 'video').length, [statuses]);
+
+  const filteredImages = useMemo(
+    () => statuses.filter(s => s.type === 'image'),
+    [statuses]
   );
 
-  const imageCnt = statuses.filter(s => s.type === 'image').length;
-  const videoCnt = statuses.filter(s => s.type === 'video').length;
+  const filteredVideos = useMemo(
+    () => statuses.filter(s => s.type === 'video'),
+    [statuses]
+  );
 
-  const handlePress = useCallback(async (item: StatusItem) => {
+  const handlePress = useCallback((item: StatusItem) => {
+    const now = Date.now();
+    const lastPress = navigationRef.current.get(item.id) || 0;
+    // Prevent double-tap navigation within 300ms
+    if (now - lastPress < 300) return;
+    navigationRef.current.set(item.id, now);
+
     if (item.type === 'video') {
       onVideoOpen(item.uri);
     } else {
-      // Initialize image swipe count when opening viewer
       onImageSwipe();
     }
     
@@ -298,7 +316,7 @@ export default function StatusesScreen() {
             />
           ) : (
             <FlatList
-              data={statuses.filter(s => s.type === 'image')}
+              data={filteredImages}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               refreshControl={
@@ -345,7 +363,7 @@ export default function StatusesScreen() {
             />
           ) : (
             <FlatList
-              data={statuses.filter(s => s.type === 'video')}
+              data={filteredVideos}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               refreshControl={
