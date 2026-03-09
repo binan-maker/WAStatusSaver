@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useMedia } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/AdBanner';
+import { RewardAdButton } from '@/components/RewardAdButton';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
@@ -224,6 +225,11 @@ export default function SettingsScreen() {
             sublabel="View supported status locations"
             onPress={() => router.push('/guide')}
           />
+        </View>
+
+        <SectionHeader title="Special Offer" />
+        <View style={{ paddingHorizontal: SPACING.LG, marginBottom: SPACING.MD }}>
+          <RewardAdButton variant="row" />
         </View>
 
         <SectionHeader title="About" />

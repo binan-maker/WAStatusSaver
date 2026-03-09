@@ -16,6 +16,10 @@ export const AD_UNIT_IDS = {
   NATIVE: Platform.OS === 'android'
     ? 'ca-app-pub-8785278012936203/5380582780'
     : 'ca-app-pub-8785278012936203/5380582780',
+
+  REWARDED: Platform.OS === 'android'
+    ? 'ca-app-pub-8785278012936203/7842561767'
+    : 'ca-app-pub-8785278012936203/7842561767',
 };
 
 export const VIDEO_AD_FREQUENCY = 10;

@@ -18,6 +18,7 @@ import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner } from '@/components/AdBanner';
 import { EmptyState } from '@/components/EmptyState';
+import { RewardAdButton } from '@/components/RewardAdButton';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
 
@@ -123,18 +124,23 @@ export default function SavedScreen() {
       </View>
 
       {filtered.length === 0 ? (
-        <EmptyState
-          icon="bookmark-outline"
-          title={filter === 'all' ? 'Nothing saved yet' : `No ${filter} saved`}
-          subtitle={
-            filter === 'all'
-              ? 'Go to Statuses tab and tap the download icon to save.'
-              : `No ${filter} have been saved. Switch to "All" to see everything.`
-          }
-          actionLabel={filter !== 'all' ? 'Show All' : undefined}
-          onAction={filter !== 'all' ? () => setFilter('all') : undefined}
-        />
+        <>
+          <RewardAdButton variant="full" />
+          <EmptyState
+            icon="bookmark-outline"
+            title={filter === 'all' ? 'Nothing saved yet' : `No ${filter} saved`}
+            subtitle={
+              filter === 'all'
+                ? 'Go to Statuses tab and tap the download icon to save.'
+                : `No ${filter} have been saved. Switch to "All" to see everything.`
+            }
+            actionLabel={filter !== 'all' ? 'Show All' : undefined}
+            onAction={filter !== 'all' ? () => setFilter('all') : undefined}
+          />
+        </>
       ) : (
+        <>
+          <RewardAdButton variant="full" />
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id + item.savedAt}
@@ -172,6 +178,7 @@ export default function SavedScreen() {
           initialNumToRender={GRID_COLUMNS * 4}
           decelerationRate="fast"
         />
+        </>
       )}
 
       <AdBanner />

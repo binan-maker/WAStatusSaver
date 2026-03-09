@@ -21,6 +21,7 @@ import { AdBanner } from '@/components/AdBanner';
 import { AdInterstitial } from '@/components/AdInterstitial';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
+import { RewardAdButton } from '@/components/RewardAdButton';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB } from '@/constants/theme';
 
@@ -328,16 +329,25 @@ export default function StatusesScreen() {
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item }) => (
-                <MediaCard
-                  item={item}
-                  isSaved={isStatusSaved(item.id)}
-                  onPress={() => handlePress(item)}
-                  onSave={() => handleSave(item)}
-                  onShare={() => handleShare(item)}
-                  showSaveButton
-                />
-              )}
+              renderItem={({ item, index }) => {
+                if (index > 0 && (index + 1) % (GRID_COLUMNS * 3) === 0) {
+                  return (
+                    <View style={{ width: '100%' }}>
+                      <RewardAdButton variant="grid" />
+                    </View>
+                  );
+                }
+                return (
+                  <MediaCard
+                    item={item}
+                    isSaved={isStatusSaved(item.id)}
+                    onPress={() => handlePress(item)}
+                    onSave={() => handleSave(item)}
+                    onShare={() => handleShare(item)}
+                    showSaveButton
+                  />
+                );
+              }}
               getItemLayout={getItemLayout}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
@@ -377,16 +387,25 @@ export default function StatusesScreen() {
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item }) => (
-                <MediaCard
-                  item={item}
-                  isSaved={isStatusSaved(item.id)}
-                  onPress={() => handlePress(item)}
-                  onSave={() => handleSave(item)}
-                  onShare={() => handleShare(item)}
-                  showSaveButton
-                />
-              )}
+              renderItem={({ item, index }) => {
+                if (index > 0 && (index + 1) % (GRID_COLUMNS * 3) === 0) {
+                  return (
+                    <View style={{ width: '100%' }}>
+                      <RewardAdButton variant="grid" />
+                    </View>
+                  );
+                }
+                return (
+                  <MediaCard
+                    item={item}
+                    isSaved={isStatusSaved(item.id)}
+                    onPress={() => handlePress(item)}
+                    onSave={() => handleSave(item)}
+                    onShare={() => handleShare(item)}
+                    showSaveButton
+                  />
+                );
+              }}
               getItemLayout={getItemLayout}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
