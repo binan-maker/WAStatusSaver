@@ -15,3 +15,6 @@
 [x] 15. Initialized Google Mobile Ads in layout.tsx - ads now initialize properly on app launch
 [x] 16. Removed all vibration feedback from the app - disabled all Haptics calls from buttons, saves, and interactions
 [x] 17. Optimized video loading and playback - improved state management and caching to prevent glitches
+[x] 18. **Fixed SAF Friction** - Improved permission screen with step-by-step navigation instructions (Android → media → com.whatsapp → WhatsApp → Media)
+[x] 19. **Reduced Ad Frequency** - Video ads: 3→10 views, Image swipes: 7→15 swipes (less intrusive user experience)
+[x] 20. **Optimized Resource Intensity** - Reduced FlatList batch rendering (8 items), narrowed viewport (windowSize=4), switched to disk-only caching for memory efficiency

@@ -18,5 +18,5 @@ export const AD_UNIT_IDS = {
     : 'ca-app-pub-8785278012936203/5380582780',
 };
 
-export const VIDEO_AD_FREQUENCY = 3;
+export const VIDEO_AD_FREQUENCY = 10;
 export const ADS_ENABLED = true;

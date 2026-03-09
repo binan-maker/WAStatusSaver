@@ -44,7 +44,7 @@ function MediaCardInner({
           source={{ uri }}
           style={styles.image}
           contentFit="cover"
-          cachePolicy="memory-disk"
+          cachePolicy="disk"
           recyclingKey={uri}
         />
 

@@ -343,9 +343,11 @@ export default function StatusesScreen() {
               showsVerticalScrollIndicator={false}
               columnWrapperStyle={styles.row}
               removeClippedSubviews={Platform.OS === 'android'}
-              maxToRenderPerBatch={10}
-              windowSize={5}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={4}
               initialNumToRender={12}
+              scrollEventThrottle={16}
             />
           )}
         </View>
@@ -390,9 +392,11 @@ export default function StatusesScreen() {
               showsVerticalScrollIndicator={false}
               columnWrapperStyle={styles.row}
               removeClippedSubviews={Platform.OS === 'android'}
-              maxToRenderPerBatch={10}
-              windowSize={5}
+              maxToRenderPerBatch={8}
+              updateCellsBatchingPeriod={50}
+              windowSize={4}
               initialNumToRender={12}
+              scrollEventThrottle={16}
             />
           )}
         </View>
