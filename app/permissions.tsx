@@ -99,7 +99,7 @@ export default function PermissionsScreen() {
           <View style={styles.heroIcon}>
             <MaterialCommunityIcons name="folder-key-network-outline" size={48} color={COLORS.PRIMARY} />
           </View>
-          <Text style={styles.heroTitle}>Grant Access</Text>
+          <Text style={styles.heroTitle}>{useLanguage().t('grant_access')}</Text>
           <Text style={styles.heroSub}>
             StatusVault needs storage access to show and save WhatsApp statuses.
             {'\n'}Android {androidVersion}

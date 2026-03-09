@@ -121,7 +121,7 @@ export default function SettingsScreen() {
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
         style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
       >
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>{language.t('settings')}</Text>
       </LinearGradient>
 
       <ScrollView
@@ -133,21 +133,21 @@ export default function SettingsScreen() {
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
             <Text style={styles.statNum}>{statuses.filter(s => s.type === 'image').length}</Text>
-            <Text style={styles.statLabel}>Images</Text>
+            <Text style={styles.statLabel}>{language.t('images')}</Text>
           </View>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="video-outline" size={26} color={COLORS.ACCENT_BLUE} />
             <Text style={styles.statNum}>{statuses.filter(s => s.type === 'video').length}</Text>
-            <Text style={styles.statLabel}>Videos</Text>
+            <Text style={styles.statLabel}>{language.t('videos')}</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="bookmark" size={26} color={COLORS.ACCENT_GOLD} />
             <Text style={styles.statNum}>{savedItems.length}</Text>
-            <Text style={styles.statLabel}>Saved</Text>
+            <Text style={styles.statLabel}>{language.t('saved')}</Text>
           </View>
         </View>
 
-        <SectionHeader title="Preferences" />
+        <SectionHeader title={language.t('preferences')} />
         <View style={styles.section}>
           <SettingRow
             icon="globe"

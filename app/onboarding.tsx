@@ -33,20 +33,14 @@ export default function OnboardingScreen() {
     router.replace('/(tabs)');
   };
 
-  const translations: Record<string, Record<string, string>> = {
-    en: { title: 'Welcome to StatusVault', subtitle: 'Your Privacy-First WhatsApp Status Saver', select: 'Select Your Language', continue: 'Continue' },
-    hi: { title: 'StatusVault में आपका स्वागत है', subtitle: 'आपकी गोपनीयता-पहली WhatsApp स्टेटस सेवर', select: 'अपनी भाषा चुनें', continue: 'जारी रखें' },
-    ml: { title: 'StatusVault-ലേക്ക് സ്വാഗതം', subtitle: 'നിങ്ങളുടെ ഗോപ്യതയ്ക്കുമാധ്യമ വാട്സഅപ്പ് സ്റ്റാറ്റസ് സേവർ', select: 'നിങ്ങളുടെ ഭാഷ തിരഞ്ഞെടുക്കുക', continue: 'തുടരുക' },
-    ru: { title: 'Добро пожаловать в StatusVault', subtitle: 'Ваш приватный сохранитель статусов WhatsApp', select: 'Выберите язык', continue: 'Продолжить' },
-    es: { title: 'Bienvenido a StatusVault', subtitle: 'Tu guardador de estados de WhatsApp que respeta la privacidad', select: 'Selecciona tu idioma', continue: 'Continuar' },
-    fr: { title: 'Bienvenue à StatusVault', subtitle: 'Votre enregistreur d\'états WhatsApp respectueux de la vie privée', select: 'Sélectionnez votre langue', continue: 'Continuer' },
-    pt: { title: 'Bem-vindo ao StatusVault', subtitle: 'Seu protetor de status do WhatsApp que respeita a privacidade', select: 'Selecione seu idioma', continue: 'Continuar' },
-    de: { title: 'Willkommen bei StatusVault', subtitle: 'Ihr datenschutzfreundlicher WhatsApp Status Saver', select: 'Wählen Sie Ihre Sprache', continue: 'Weiter' },
-    ja: { title: 'StatusVaultへようこそ', subtitle: 'プライバシーを重視するWhatsAppステータスセーバー', select: '言語を選択してください', continue: '続行' },
-    ar: { title: 'مرحبا بك في StatusVault', subtitle: 'محفوظ حالة WhatsApp الذي يحترم الخصوصية', select: 'اختر لغتك', continue: 'متابعة' },
+  const { t: translate } = useLanguage();
+  
+  const t = {
+    title: translate('onboarding_title'),
+    subtitle: translate('onboarding_subtitle'),
+    select: translate('select_language'),
+    continue: translate('continue'),
   };
-
-  const t = translations[selectedLang] || translations.en;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>

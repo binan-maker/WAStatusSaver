@@ -75,14 +75,14 @@ function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
       <Stack.Screen
         name="guide"
         options={{
-          title: 'How to Use',
+          title: 'Setup Guide',
           headerStyle: { backgroundColor: COLORS.SURFACE },
         }}
       />
       <Stack.Screen
         name="privacy"
         options={{
-          title: 'Privacy Policy',
+          title: 'Privacy',
           headerStyle: { backgroundColor: COLORS.SURFACE },
         }}
       />
