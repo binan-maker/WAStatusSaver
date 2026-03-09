@@ -19,7 +19,7 @@ interface RewardAdButtonProps {
 
 export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
   const { loaded, showAd } = useRewardedAd();
-  const { isFreeAds, setFreeAdsFor24Hours, timeRemaining, formatTimeRemaining } = useFreeAdsState();
+  const { isFreeAds, setFreeAdsFor5Hours, timeRemaining, formatTimeRemaining } = useFreeAdsState();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleWatchAd = async () => {
@@ -29,7 +29,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
     try {
       const rewarded = await showAd();
       if (rewarded) {
-        await setFreeAdsFor24Hours();
+        await setFreeAdsFor5Hours();
       }
     } catch (error) {
       console.error('Error showing reward ad:', error);
@@ -58,7 +58,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
             </LinearGradient>
             <View style={styles.content}>
               <Text style={styles.title}>Watch Ads</Text>
-              <Text style={styles.subtitle}>Free Ads for One Day</Text>
+              <Text style={styles.subtitle}>Free Ads for 5 Hours</Text>
               {isLoading && <ActivityIndicator color={COLORS.PRIMARY} size="small" style={styles.loader} />}
               {!isLoading && (
                 <TouchableOpacity
@@ -135,10 +135,10 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
           />
           <View style={styles.fullText}>
             <Text style={[styles.fullTitle, isFreeAds && { color: COLORS.PRIMARY }]}>
-              {isFreeAds ? 'Ads-Free for One Day' : 'Watch Ads - Free for One Day'}
+              {isFreeAds ? 'Ads-Free for 5 Hours' : 'Watch Ads - Free for 5 Hours'}
             </Text>
             <Text style={[styles.fullSubtitle, isFreeAds && { color: COLORS.TEXT_SECONDARY }]}>
-              {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads for 24 hours'}
+              {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads for 5 hours'}
             </Text>
           </View>
         </View>

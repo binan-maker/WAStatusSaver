@@ -37,12 +37,12 @@ export function useFreeAdsState() {
     }
   };
 
-  const setFreeAdsFor24Hours = async () => {
+  const setFreeAdsFor5Hours = async () => {
     try {
-      const freeUntil = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+      const freeUntil = Date.now() + 5 * 60 * 60 * 1000; // 5 hours
       await AsyncStorage.setItem(FREE_ADS_UNTIL_KEY, freeUntil.toString());
       setIsFreeAds(true);
-      setTimeRemaining(24 * 60 * 60);
+      setTimeRemaining(5 * 60 * 60);
     } catch (error) {
       console.error('Error setting free ads:', error);
     }
@@ -60,7 +60,7 @@ export function useFreeAdsState() {
   return {
     isFreeAds,
     timeRemaining,
-    setFreeAdsFor24Hours,
+    setFreeAdsFor5Hours,
     formatTimeRemaining,
   };
 }

@@ -20,6 +20,7 @@ import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
+import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -95,6 +96,9 @@ function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
 }
 
 export default function RootLayout() {
+  // Initialize app open ads
+  useAppOpenAd();
+
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
