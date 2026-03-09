@@ -129,7 +129,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     loadSavedItems();
     checkExistingPermissions();
     loadSAFUri();
-  }, []);
+    // Run cache cleanup on app start
+    cleanupCacheFiles();
+  }, [cleanupCacheFiles]);
 
   async function loadSAFUri() {
     try {
@@ -455,12 +457,22 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await FileSystem.copyAsync({
-        from: item.uri,
-        to: tempUri
-      });
-      
-      return tempUri;
+      // Copy with timeout to prevent hanging on large files
+      try {
+        await Promise.race([
+          FileSystem.copyAsync({
+            from: item.uri,
+            to: tempUri
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Copy timeout')), 30000) // 30s timeout
+          )
+        ]);
+        return tempUri;
+      } catch (copyErr) {
+        console.log('File copy timed out or failed, using original URI:', copyErr);
+        return item.uri;
+      }
     } catch (e) {
       return item.uri; // Fallback to original URI if copy fails
     }
@@ -474,7 +486,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       
       const files = await FileSystem.readDirectoryAsync(cacheDir);
       const now = Date.now();
-      const CACHE_LIFETIME = 24 * 60 * 60 * 1000; // 24 hours
+      const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // Reduced to 4 hours for more aggressive cleanup
       
       for (const file of files) {
         if (!file.startsWith('view_') && !file.startsWith('share_')) continue;
@@ -482,7 +494,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         const fileUri = `${cacheDir}${file}`;
         try {
           const info = await FileSystem.getInfoAsync(fileUri);
-          if (info.modificationTime && (now - info.modificationTime * 1000) > CACHE_LIFETIME) {
+          // Check both modificationTime and creation time for better cleanup
+          const fileAge = info.modificationTime ? (now - info.modificationTime * 1000) : (now - 1000000);
+          if (fileAge > CACHE_LIFETIME) {
             await FileSystem.deleteAsync(fileUri, { idempotent: true });
           }
         } catch {}

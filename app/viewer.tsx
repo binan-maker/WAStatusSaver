@@ -101,7 +101,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       }
     }
     
+    // Always show initial source immediately to avoid blank display
     if (!displayUri) {
+      setDisplayUri(initialSource);
       prepare();
     }
     return () => { isMounted = false; };
@@ -177,10 +179,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   </Animated.View>
 )}
 
-  {/* Loading Overlay */}
-  {isPreparing && !displayUri && (
+  {/* Loading Overlay - Show while preparing, even if displayUri exists (image preview) */}
+  {isPreparing && (
     <View style={styles.loadingOverlay}>
       <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      <Text style={styles.loadingText}>Loading...</Text>
     </View>
   )}
 </View>
@@ -446,6 +449,12 @@ const toggleControls = useCallback(() => {
 }
 
 const styles = StyleSheet.create({
+  loadingText: {
+    color: COLORS.PRIMARY,
+    marginTop: 12,
+    fontSize: 12,
+    fontWeight: '500',
+  },
   root: {
     flex: 1,
     backgroundColor: '#000',
