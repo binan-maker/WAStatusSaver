@@ -14,9 +14,11 @@ import {
 } from '@expo-google-fonts/nunito';
 import * as NavigationBar from 'expo-navigation-bar';
 import  mobileAds  from 'react-native-google-mobile-ads';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import COLORS from '@/constants/colors';
 
@@ -44,7 +46,7 @@ async function applyImmersiveMode() {
   } catch {}
 }
 
-function RootLayoutNav() {
+function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
   return (
     <Stack
       screenOptions={{
@@ -60,6 +62,7 @@ function RootLayoutNav() {
         animation: 'slide_from_right',
       }}
     >
+      {showOnboarding && <Stack.Screen name="onboarding" options={{ headerShown: false }} />}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="viewer"
@@ -100,6 +103,7 @@ export default function RootLayout() {
   });
   const [loadingDone, setLoadingDone] = useState(false);
   const [splashHidden, setSplashHidden] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
@@ -110,6 +114,7 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   useEffect(() => {
+    checkOnboarding();
     applyImmersiveMode();
 
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
@@ -124,6 +129,15 @@ export default function RootLayout() {
 
     return () => sub.remove();
   }, []);
+
+  const checkOnboarding = async () => {
+    try {
+      const completed = await AsyncStorage.getItem('onboarding_completed');
+      if (!completed) {
+        setShowOnboarding(true);
+      }
+    } catch {}
+  };
 
   if (!fontsLoaded || !splashHidden) return null;
 
@@ -140,10 +154,12 @@ export default function RootLayout() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <MediaProvider>
-            <StatusBar style="light" translucent backgroundColor="transparent" />
-            <RootLayoutNav />
-          </MediaProvider>
+          <LanguageProvider>
+            <MediaProvider>
+              <StatusBar style="light" translucent backgroundColor="transparent" />
+              <RootLayoutNav showOnboarding={showOnboarding} />
+            </MediaProvider>
+          </LanguageProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
