@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia } from '@/contexts/MediaContext';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface StepCardProps {
   step: number;
@@ -70,6 +71,8 @@ export default function PermissionsScreen() {
     requestSAF,
   } = useMedia();
 
+  const { t } = useLanguage();
+
   const [requesting, setRequesting] = useState(false);
 
   const needsSAF = Platform.OS === 'android' && androidVersion >= 30;
@@ -99,7 +102,7 @@ export default function PermissionsScreen() {
           <View style={styles.heroIcon}>
             <MaterialCommunityIcons name="folder-key-network-outline" size={48} color={COLORS.PRIMARY} />
           </View>
-          <Text style={styles.heroTitle}>{useLanguage().t('grant_access')}</Text>
+          <Text style={styles.heroTitle}>{t('grant_access')}</Text>
           <Text style={styles.heroSub}>
             StatusVault needs storage access to show and save WhatsApp statuses.
             {'\n'}Android {androidVersion}
