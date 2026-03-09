@@ -57,13 +57,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id]);
 
-  const player = useVideoPlayer(initialSource, (p) => {
-    p.loop = true;
+  // FIXED #2: Only create video player for active item to prevent memory exhaustion
+  const player = useVideoPlayer(isActive ? initialSource : null, (p) => {
+    if (p) p.loop = true;
   });
 
   // Handle source replacement when cache is ready without recreating the player
   useEffect(() => {
-    if (displayUri && displayUri !== initialSource) {
+    if (displayUri && displayUri !== initialSource && player) {
       player.replace(displayUri);
     }
   }, [displayUri, initialSource, player]);
@@ -147,7 +148,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       />
     ) : (
       <View style={styles.videoWrap}>
-        {isActive || isNearActive ? (
+        {isActive && player ? (
           <VideoView
             player={player}
             style={styles.video}
@@ -161,14 +162,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     )}
   </TouchableOpacity>
 
-  {/* Video Controls Layer */}
+  {/* Video Controls Layer - FIXED #5: Controls now properly toggle */}
 {item.type === 'video' && (
   <Animated.View
     style={[
       styles.videoOverlay,
       {
-        opacity: 1,  // Always visible
-        pointerEvents: 'auto',  // Ensure controls are always interactive
+        opacity: showControls ? 1 : 0,
+        pointerEvents: showControls ? 'auto' : 'none',
       },
     ]}
   >
@@ -269,29 +270,25 @@ export default function ViewerScreen() {
   const isSaved = isSavedView || (currentItem && isStatusSaved(currentItem.id));
 
 useEffect(() => {
-  // Just make sure controls are visible when video is active
-  if (currentItem?.type === 'video') {
-    setShowControls(true); // Always show controls for video
-    controlsOpacity.setValue(1); // Ensure opacity stays at 1 (visible)
-  }
+  // Show controls by default when switching items
+  setShowControls(true);
+  controlsOpacity.setValue(1);
 }, [currentIndex, currentItem]);
 
 function animateControls(show: boolean) {
-  // No longer animating the opacity to hide controls.
-  // Controls are always visible, so no need for animation logic anymore.
-  controlsOpacity.setValue(1); // Ensure opacity is always 1
+  // FIXED #5: Properly animate opacity when toggling controls
+  Animated.timing(controlsOpacity, {
+    toValue: show ? 1 : 0,
+    duration: 300,
+    useNativeDriver: true,
+  }).start();
 }
+
 const toggleControls = useCallback(() => {
-  const next = !showControls; // Toggle the visibility
+  const next = !showControls;
   setShowControls(next);
-
-  // Reset opacity animation to show controls immediately when toggled
-  if (next) {
-    controlsOpacity.setValue(1); // Always show controls
-  }
-
-  animateControls(next); // No need for hide logic
-}, [showControls, currentItem]);
+  animateControls(next);
+}, [showControls, controlsOpacity]);
 
 
 

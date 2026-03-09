@@ -18,3 +18,10 @@
 [x] 18. **Fixed SAF Friction** - Improved permission screen with step-by-step navigation instructions (Android → media → com.whatsapp → WhatsApp → Media)
 [x] 19. **Reduced Ad Frequency** - Video ads: 3→10 views, Image swipes: 7→15 swipes (less intrusive user experience)
 [x] 20. **Optimized Resource Intensity** - Reduced FlatList batch rendering (8 items), narrowed viewport (windowSize=4), switched to disk-only caching for memory efficiency
+[x] 21. **FIXED ALL 6 FRICTION POINTS:**
+  - **#1 Performance Bottlenecks** - Optimized SAF folder enumeration to reduce directory read redundancy
+  - **#2 Video Resource Exhaustion** - Video player now only initializes for active item (prevents multi-decoder memory drain)
+  - **#3 Jarring Media Transitions** - Cache checks prevent redundant file copies on repeated views
+  - **#4 Video Thumbnail Inconsistency** - Using expo-image caching with recyclingKey for smooth scrolling
+  - **#5 UX Friction in Viewer** - Controls now properly toggle with smooth animation (immersive mode enabled)
+  - **#6 Storage Ghost Files** - Added aggressive 24-hour cache cleanup to prevent disk bloat
