@@ -13,7 +13,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Haptics from 'expo-haptics';
 import { VIDEO_AD_FREQUENCY } from '@/constants/admob';
 
 export type MediaType = 'image' | 'video';
@@ -356,11 +355,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       setSavedItems(updated);
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return true;
     } catch (e) {
       console.error('Save error:', e);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return false;
     }
   }, [savedItems, hasPermission]);
@@ -373,7 +370,6 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     const updated = savedItems.filter(s => s.id !== item.id);
     setSavedItems(updated);
     await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [savedItems]);
 
   const shareStatus = useCallback(async (item: StatusItem | SavedItem) => {

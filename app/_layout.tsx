@@ -13,6 +13,7 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 import * as NavigationBar from 'expo-navigation-bar';
+import { mobileAds } from 'react-native-google-mobile-ads';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
@@ -20,6 +21,13 @@ import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
+
+// Initialize Google Mobile Ads
+if (Platform.OS !== 'web') {
+  mobileAds()
+    .initialize()
+    .catch((e) => console.log('Google Mobile Ads initialization error:', e));
+}
 
 async function applyImmersiveMode() {
   if (Platform.OS !== 'android') return;

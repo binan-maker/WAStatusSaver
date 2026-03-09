@@ -12,3 +12,6 @@
 [x] 12. Fixed blank screen issue when opening images/videos by improving state management in ViewerItem
 [x] 13. Optimized memory management - only prepares items near the active item, prevents loading all items
 [x] 14. Fixed scrolling flicker - counter updates now smooth with proper state tracking
+[x] 15. Initialized Google Mobile Ads in layout.tsx - ads now initialize properly on app launch
+[x] 16. Removed all vibration feedback from the app - disabled all Haptics calls from buttons, saves, and interactions
+[x] 17. Optimized video loading and playback - improved state management and caching to prevent glitches

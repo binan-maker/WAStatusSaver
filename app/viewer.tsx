@@ -17,7 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import * as Haptics from 'expo-haptics';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import COLORS from '@/constants/colors';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
@@ -299,17 +298,12 @@ const toggleControls = useCallback(() => {
   const handleSave = useCallback(async () => {
     if (!currentItem || isSaved || isSaving) return;
     setIsSaving(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await saveStatus(currentItem);
     setIsSaving(false);
-    if (success) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
   }, [currentItem, isSaved, isSaving, saveStatus]);
 
   const handleShare = useCallback(async () => {
     if (!currentItem) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await shareStatus(currentItem);
   }, [currentItem, shareStatus]);
 
