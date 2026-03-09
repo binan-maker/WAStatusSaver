@@ -77,7 +77,7 @@ export default function SettingsScreen() {
     requestPermissions,
     requestSAF,
   } = useMedia();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -121,7 +121,7 @@ export default function SettingsScreen() {
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
         style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
       >
-        <Text style={styles.headerTitle}>{language.t('settings')}</Text>
+        <Text style={styles.headerTitle}>{t('settings')}</Text>
       </LinearGradient>
 
       <ScrollView
@@ -133,21 +133,21 @@ export default function SettingsScreen() {
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
             <Text style={styles.statNum}>{statuses.filter(s => s.type === 'image').length}</Text>
-            <Text style={styles.statLabel}>{language.t('images')}</Text>
+            <Text style={styles.statLabel}>{t('images')}</Text>
           </View>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="video-outline" size={26} color={COLORS.ACCENT_BLUE} />
             <Text style={styles.statNum}>{statuses.filter(s => s.type === 'video').length}</Text>
-            <Text style={styles.statLabel}>{language.t('videos')}</Text>
+            <Text style={styles.statLabel}>{t('videos')}</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="bookmark" size={26} color={COLORS.ACCENT_GOLD} />
             <Text style={styles.statNum}>{savedItems.length}</Text>
-            <Text style={styles.statLabel}>{language.t('saved')}</Text>
+            <Text style={styles.statLabel}>{t('saved')}</Text>
           </View>
         </View>
 
-        <SectionHeader title={language.t('preferences')} />
+        <SectionHeader title={t('preferences')} />
         <View style={styles.section}>
           <SettingRow
             icon="globe"
