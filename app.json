@@ -2,12 +2,11 @@
   "expo": {
     "name": "StatusVault",
     "slug": "statusvault",
-    "version": "1.2.2",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "statusvault",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -20,11 +19,15 @@
     "android": {
       "package": "com.binan.statussaver",
       "softwareKeyboardLayoutMode": "pan",
+      "config": {
+    "googleMobileAdsAppId": "ca-app-pub-8785278012936203~2614818645"
+      },
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "permissions": [
+        "com.google.android.gms.permission.AD_ID",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
@@ -35,13 +38,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-8785278012936203~2614818645",
-          "iosAppId": "ca-app-pub-8785278012936203~2614818645"
-        }
-      ],
       [
         "expo-router",
         {
