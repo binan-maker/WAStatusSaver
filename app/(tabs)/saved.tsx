@@ -81,11 +81,12 @@ export default function SavedScreen() {
     []
   );
 
-  const bottomPad = insets.bottom + TAB_BAR_APPROX + ADMOB.BANNER_HEIGHT + 4;
+  const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
   const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
 
   return (
     <View style={styles.root}>
+      <AdBanner />
       <View style={[styles.header, { paddingTop: headerPaddingTop + 6 }]}>
         <View style={styles.headerTop}>
           <View>
@@ -156,9 +157,6 @@ export default function SavedScreen() {
             />
           }
           renderItem={({ item, index }) => {
-            if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
-              return <GridAd />;
-            }
             return (
               <MediaCard
                 item={item}
@@ -180,7 +178,6 @@ export default function SavedScreen() {
         </>
       )}
 
-      <AdBanner />
     </View>
   );
 }

@@ -21,6 +21,7 @@ import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
+import { useInterstitialAd } from '@/components/AdInterstitial';
 import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -102,6 +103,9 @@ export default function RootLayout() {
   // Initialize app open ads
   useAppOpenAd();
 
+  const { showAd: showInterstitial } = useInterstitialAd();
+  const [interstitialShown, setInterstitialShown] = useState(false);
+
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -145,6 +149,15 @@ export default function RootLayout() {
       }
     } catch {}
   };
+
+  useEffect(() => {
+    if (fontsLoaded && loadingDone && !interstitialShown) {
+      setTimeout(() => {
+        showInterstitial();
+      }, 500);
+      setInterstitialShown(true);
+    }
+  }, [fontsLoaded, loadingDone, interstitialShown]);
 
   if (!fontsLoaded || !splashHidden) return null;
 

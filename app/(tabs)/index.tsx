@@ -229,12 +229,13 @@ export default function StatusesScreen() {
   const needsSAF = Platform.OS === 'android' && androidVersion >= 30 && !safGranted;
   const showPermScreen = needsPermission || (needsSAF && statuses.length === 0);
 
-  const bottomPad = insets.bottom + TAB_BAR_APPROX + BANNER_HEIGHT + 4;
+  const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
   if (showPermScreen) {
     return (
       <View style={styles.root}>
-        <StatusHeader onInfoPress={() => router.push('/permissions')} />
+        <AdBanner />
+      <StatusHeader onInfoPress={() => router.push('/permissions')} />
         <View style={styles.permScreen}>
           <LinearGradient
             colors={[COLORS.PRIMARY + '22', 'transparent']}
@@ -287,6 +288,7 @@ export default function StatusesScreen() {
 
   return (
     <View style={styles.root}>
+      <AdBanner />
       <StatusHeader onInfoPress={() => router.push('/permissions')} />
 
       <SubTabBar
@@ -332,9 +334,6 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={({ item, index }) => {
-                if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
-                  return <GridAd />;
-                }
                 return (
                   <MediaCard
                     item={item}
@@ -381,9 +380,6 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={({ item, index }) => {
-                if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
-                  return <GridAd />;
-                }
                 return (
                   <MediaCard
                     item={item}
@@ -403,8 +399,6 @@ export default function StatusesScreen() {
           )}
         </View>
       </ScrollView>
-
-      <AdBanner />
     </View>
   );
 }

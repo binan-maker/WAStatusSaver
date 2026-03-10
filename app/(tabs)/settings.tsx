@@ -118,6 +118,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.root}>
+      <AdBanner />
       <LinearGradient
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
         style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
@@ -127,7 +128,7 @@ export default function SettingsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 70 + ADMOB.BANNER_HEIGHT }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 70 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.statsRow}>
@@ -349,9 +350,6 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      <View style={styles.stickyAd}>
-        <AdBanner />
-      </View>
     </View>
   );
 }
