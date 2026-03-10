@@ -182,11 +182,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       setPermissionStatus(status);
       const granted = status === 'granted';
       setHasPermission(granted);
+      if (granted) {
+        await loadStatuses();
+      }
       return granted;
     } catch {
       return false;
     }
-  }, []);
+  }, [loadStatuses]);
 
   const [isRequestingSAF, setIsRequestingSAF] = useState(false);
 
