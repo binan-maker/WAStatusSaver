@@ -70,14 +70,21 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Handle source replacement when cache is ready
   useEffect(() => {
     if (displayUri && displayUri !== initialSource && player) {
-      try {
-        // Only replace if it's actually a different valid URI
-        if (displayUri.startsWith('file://') || displayUri.startsWith('content://')) {
-          player.replace(displayUri);
+      const replaceSource = async () => {
+        try {
+          // Only replace if it's actually a different valid URI
+          if (displayUri.startsWith('file://') || displayUri.startsWith('content://')) {
+            if (Platform.OS === 'ios') {
+              await player.replaceAsync(displayUri);
+            } else {
+              player.replace(displayUri);
+            }
+          }
+        } catch (e) {
+          console.log('Player replace error:', e);
         }
-      } catch (e) {
-        console.log('Player replace error:', e);
-      }
+      };
+      replaceSource();
     }
   }, [displayUri, initialSource, player]);
 
@@ -159,8 +166,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           source={{ uri: mediaUri }}
           style={styles.image}
           contentFit="contain"
-          cachePolicy="memory-disk"
+          cachePolicy="disk"
           transition={0}
+          priority="high"
           recyclingKey={item.id}
         />
       ) : (
@@ -170,8 +178,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               player={player}
               style={styles.video}
               contentFit="contain"
-              nativeControls={false}
-              showsPlaybackControls={false}
+              nativeControls={true}
+              showsPlaybackControls={true}
             />
           ) : (
             <View style={styles.videoPlaceholder}>
