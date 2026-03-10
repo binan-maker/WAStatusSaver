@@ -38,3 +38,8 @@
 [x] 38. **LIGHTNING-FAST IMAGE/VIDEO PERFORMANCE:** Removed all loading indicators for instant display, images/videos appear instantly with zero latency.
 [x] 39. **IMAGE PINCH-TO-ZOOM:** Implemented 2-finger pinch-to-zoom gesture (scale 1x to 4x max) with smooth animations and auto-reset on release.
 [x] 40. **REMOVED DUPLICATE APP OPEN ADS:** Deleted unused AdAppOpen.tsx component, keeping only the single working implementation in useAppOpenAd hook.
+[x] 41. **AGGRESSIVE IMAGE CACHING:** Implemented 1.5s timeout for cache copies to prevent lag when swiping through images quickly - returns original URI if copy times out
+[x] 42. **REMOVED HOME PAGE ADS:** Removed top and bottom banner ads from home page to clean up UI and reduce clutter
+[x] 43. **FIXED DOUBLE ADS IN PERMISSIONS:** UI now hides when SAF folder selection overlay is visible, preventing double ad impressions
+[x] 44. **LOADING SKELETONS:** Grid skeletons with shimmer effect now display on app startup when loading images/videos (enhanced count for better coverage)
+[x] 45. **VIDEO VIEWER PROGRESS BAR:** Moved progress bar and time controls upward (bottom: 120px → bottom: 200px) to prevent overlap with action buttons, making save/share/WhatsApp buttons fully accessible

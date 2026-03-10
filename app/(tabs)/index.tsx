@@ -234,7 +234,6 @@ export default function StatusesScreen() {
   if (showPermScreen) {
     return (
       <View style={styles.root}>
-        <AdBanner />
       <StatusHeader onInfoPress={() => router.push('/permissions')} />
         <View style={styles.permScreen}>
           <LinearGradient
@@ -261,7 +260,6 @@ export default function StatusesScreen() {
             <Text style={styles.guideLinkText}>View Setup Guide</Text>
           </TouchableOpacity>
         </View>
-        <AdBanner />
       </View>
     );
   }
@@ -398,7 +396,6 @@ export default function StatusesScreen() {
           )}
         </View>
       </ScrollView>
-      <AdBanner />
     </View>
   );
 }

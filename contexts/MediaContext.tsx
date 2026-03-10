@@ -458,14 +458,25 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         return tempUri;
       }
 
-      // If it's a video, we might want to return the original URI as fallback 
-      // immediately if the copy takes too long, but let's try copying first.
-      await FileSystem.copyAsync({
+      // Aggressive caching with timeout - return original if copy takes too long
+      let copyCompleted = false;
+      const copyPromise = FileSystem.copyAsync({
         from: item.uri,
         to: tempUri
+      }).then(() => {
+        copyCompleted = true;
+        return tempUri;
+      }).catch(() => item.uri);
+
+      const timeoutPromise = new Promise<string>((resolve) => {
+        setTimeout(() => {
+          if (!copyCompleted) {
+            resolve(item.uri); // Return original URI if copy times out
+          }
+        }, 1500); // 1.5 second timeout
       });
-      
-      return tempUri;
+
+      return Promise.race([copyPromise, timeoutPromise]);
     } catch (e) {
       console.error('Prepare for viewing error:', e);
       return item.uri; // Fallback to original URI

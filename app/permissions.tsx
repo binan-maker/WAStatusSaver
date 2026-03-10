@@ -88,6 +88,7 @@ export default function PermissionsScreen() {
 
   return (
     <View style={styles.root}>
+      {!isRequestingSAF && (
       <LinearGradient
         colors={['#0A1F15', COLORS.BACKGROUND]}
         style={[styles.heroArea, { paddingTop: insets.top + 8 }]}
@@ -208,6 +209,7 @@ export default function PermissionsScreen() {
       </ScrollView>
 
       <SAFGuideOverlay visible={isRequestingSAF} />
+      )}
     </View>
   );
 }
