@@ -227,11 +227,6 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <SectionHeader title="Special Offer" />
-        <View style={{ paddingHorizontal: SPACING.LG, marginBottom: SPACING.MD }}>
-          <RewardAdButton variant="row" />
-        </View>
-
         <SectionHeader title="About" />
         <View style={styles.section}>
           <SettingRow

@@ -17,7 +17,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia, StatusItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
-import { AdBanner } from '@/components/AdBanner';
+import { AdBanner, GridAd } from '@/components/AdBanner';
 import { AdInterstitial } from '@/components/AdInterstitial';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
@@ -330,10 +330,10 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={({ item, index }) => {
-                if (index > 0 && (index + 1) % (GRID_COLUMNS * 3) === 0) {
+                if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
                   return (
-                    <View style={{ width: '100%' }}>
-                      <RewardAdButton variant="grid" />
+                    <View style={{ width: SW, marginVertical: 8 }}>
+                      <GridAd />
                     </View>
                   );
                 }
@@ -388,10 +388,10 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={({ item, index }) => {
-                if (index > 0 && (index + 1) % (GRID_COLUMNS * 3) === 0) {
+                if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
                   return (
-                    <View style={{ width: '100%' }}>
-                      <RewardAdButton variant="grid" />
+                    <View style={{ width: SW, marginVertical: 8 }}>
+                      <GridAd />
                     </View>
                   );
                 }
@@ -422,12 +422,6 @@ export default function StatusesScreen() {
       </ScrollView>
 
       <AdBanner />
-
-      <AdInterstitial
-        visible={showInterstitial}
-        onClose={dismissInterstitial}
-        countdown={5}
-      />
     </View>
   );
 }

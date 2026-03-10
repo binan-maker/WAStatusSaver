@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
-import { AdBanner } from '@/components/AdBanner';
+import { AdBanner, GridAd } from '@/components/AdBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import COLORS from '@/constants/colors';
@@ -125,7 +125,6 @@ export default function SavedScreen() {
 
       {filtered.length === 0 ? (
         <>
-          <RewardAdButton variant="full" />
           <EmptyState
             icon="bookmark-outline"
             title={filter === 'all' ? 'Nothing saved yet' : `No ${filter} saved`}
@@ -140,7 +139,6 @@ export default function SavedScreen() {
         </>
       ) : (
         <>
-          <RewardAdButton variant="full" />
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id + item.savedAt}
@@ -155,17 +153,26 @@ export default function SavedScreen() {
               progressBackgroundColor={COLORS.SURFACE}
             />
           }
-          renderItem={({ item }) => (
-            <MediaCard
-              item={item}
-              isSaved
-              onPress={() => handlePress(item)}
-              onShare={() => handleShare(item)}
-              onDelete={() => handleDelete(item)}
-              showSaveButton={false}
-              showDeleteButton
-            />
-          )}
+          renderItem={({ item, index }) => {
+            if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
+              return (
+                <View style={{ width: SW, marginVertical: 8 }}>
+                  <GridAd />
+                </View>
+              );
+            }
+            return (
+              <MediaCard
+                item={item}
+                isSaved
+                onPress={() => handlePress(item)}
+                onShare={() => handleShare(item)}
+                onDelete={() => handleDelete(item)}
+                showSaveButton={false}
+                showDeleteButton
+              />
+            );
+          }}
           getItemLayout={getItemLayout}
           columnWrapperStyle={styles.row}
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}

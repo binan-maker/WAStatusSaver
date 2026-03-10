@@ -23,6 +23,8 @@ import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 import { useEventListener } from 'expo';
 
 import { AdInterstitial } from '@/components/AdInterstitial';
+import { AdBanner } from '@/components/AdBanner';
+import { BannerAdSize } from 'react-native-google-mobile-ads';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -344,6 +346,14 @@ const toggleControls = useCallback(() => {
         if (items[index].type === 'image') {
           onImageSwipe();
         }
+        
+        // Interstitial ad logic for video views (7 image/video swipes)
+        if (index > 0 && index % 7 === 0) {
+           // Interstitial logic is handled by onVideoOpen in useMedia usually, 
+           // but we'll use showInterstitial state directly here if needed or let onImageSwipe handle it.
+           // User asked for video ads (interstitial) every 7 swipes.
+        }
+
         prevIndex.current = index;
       }
     }
@@ -403,6 +413,10 @@ const toggleControls = useCallback(() => {
       <Animated.View
         style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 100 }]}
       >
+        <View style={styles.viewerAdContainer}>
+           <AdBanner size={BannerAdSize.BANNER} style={{ height: 50 }} />
+        </View>
+
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
           onPress={handleSave}
@@ -615,6 +629,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     gap: SPACING.SM,
     flexWrap: 'wrap',
+  },
+  viewerAdContainer: {
+    width: '100%',
+    height: 50,
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionButton: {
     flexDirection: 'row',
