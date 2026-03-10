@@ -46,20 +46,21 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
-
   const [isPlaying, setIsPlaying] = useState(false); 
-  
-  // Track playing state locally to ensure UI updates immediately
-  const { onImageSwipe } = useMedia();
 
   // Stable initial source to avoid player recreation and "released shared object" errors
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id]);
 
-  // FIXED #2: Only create video player for active item to prevent memory exhaustion
-  const player = useVideoPlayer(isActive ? initialSource : null, (p) => {
-    if (p) p.loop = true;
+  // Create video player for all "near active" items to pre-buffer
+  // This drastically reduces delay when swiping
+  const player = useVideoPlayer(isNearActive ? initialSource : null, (p) => {
+    if (p) {
+      p.loop = true;
+      // Mute while pre-buffering but not active to avoid sound "cuts"
+      p.muted = !isActive;
+    }
   });
 
   // Handle source replacement when cache is ready without recreating the player
@@ -69,10 +70,24 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   }, [displayUri, initialSource, player]);
 
+  // Sync muted state and playback when active state changes
+  useEffect(() => {
+    if (!player) return;
+    
+    if (isActive) {
+      player.muted = false;
+      player.play();
+    } else {
+      player.muted = true;
+      if (!isNearActive) {
+        player.pause();
+        player.currentTime = 0;
+      }
+    }
+  }, [isActive, isNearActive, player]);
+
   useEffect(() => {
     if (!isNearActive) {
-      // If we move away, we can clear the displayUri to save memory
-      // but only if it's not the active one
       if (!isActive) setDisplayUri(null);
       return;
     }
@@ -101,7 +116,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       }
     }
     
-    // Always show initial source immediately to avoid blank display
     if (!displayUri) {
       setDisplayUri(initialSource);
       prepare();
@@ -111,19 +125,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const mediaUri = displayUri || initialSource;
 
-  // Correct way to listen to play/pause changes
   useEventListener(player, 'playingChange', (event) => {
     setIsPlaying(event.isPlaying);
   });
-
-  useEffect(() => {
-    if (isActive) {
-      player.play();
-    } else {
-      player.pause();
-      player.currentTime = 0;
-    }
-  }, [isActive, player]);
 
   const togglePlayPause = useCallback(() => {
     if (player.playing) {
@@ -150,7 +154,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       />
     ) : (
       <View style={styles.videoWrap}>
-        {isActive && player ? (
+        {isNearActive && player ? (
           <VideoView
             player={player}
             style={styles.video}
@@ -232,8 +236,7 @@ export default function ViewerScreen() {
       return [];
     }
     
-    const filtered = statuses.filter(s => s.type === startItem.type);
-    return filtered;
+    return statuses.filter(s => s.type === startItem.type);
   }, [isSavedView, savedItems, statuses, id]);
 
   const initialIndex = useMemo(() => {
@@ -344,7 +347,7 @@ const toggleControls = useCallback(() => {
         prevIndex.current = index;
       }
     }
-  }, [currentIndex, items.length, items, onImageSwipe]);
+  }, [currentIndex, items, onImageSwipe]);
 
   if (!currentItem) return null;
 
@@ -353,36 +356,37 @@ const toggleControls = useCallback(() => {
       <StatusBar hidden />
 
       <FlatList
-  ref={flatListRef}
-  data={items}
-  horizontal
-  pagingEnabled
-  initialScrollIndex={initialIndex > 0 ? initialIndex : undefined}
-  getItemLayout={(_, index) => ({
-    length: SW,
-    offset: SW * index,
-    index,
-  })}
-  onMomentumScrollEnd={onScroll}
-  showsHorizontalScrollIndicator={false}
-  keyExtractor={(item) => item.id}
-  renderItem={({ item, index }) => (
-    <ViewerItem
-      item={item}
-      isActive={index === currentIndex}
-      isNearActive={Math.abs(index - currentIndex) <= 1}
-      onToggleControls={toggleControls}
-      showControls={showControls}
-      controlsOpacity={controlsOpacity}
-    />
-  )}
-  onScrollToIndexFailed={(info) => {
-    const wait = new Promise(resolve => setTimeout(resolve, 500));
-    wait.then(() => {
-      flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
-    });
-  }}
-/>
+        ref={flatListRef}
+        data={items}
+        horizontal
+        pagingEnabled
+        initialScrollIndex={initialIndex > 0 ? initialIndex : undefined}
+        getItemLayout={(_, index) => ({
+          length: SW,
+          offset: SW * index,
+          index,
+        })}
+        onMomentumScrollEnd={onScroll}
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, index }) => (
+          <ViewerItem
+            item={item}
+            isActive={index === currentIndex}
+            isNearActive={Math.abs(index - currentIndex) <= 1}
+            onToggleControls={toggleControls}
+            showControls={showControls}
+            controlsOpacity={controlsOpacity}
+          />
+        )}
+        onScrollToIndexFailed={(info) => {
+          flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+        }}
+        windowSize={3}
+        initialNumToRender={3}
+        maxToRenderPerBatch={2}
+        removeClippedSubviews={Platform.OS === 'android'}
+      />
 
       <Animated.View
         style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none' }]}
