@@ -19,7 +19,6 @@ Use this skill when:
 - User needs database connections (PostgreSQL, MongoDB, etc.)
 - User needs payment processing (Stripe, etc.)
 - User needs third-party API integrations (OpenAI, Notion, GitHub, Linear, etc.)
-- User needs object storage or file handling
 - User asks about Replit-specific features and capabilities
 
 ## When NOT to Use
