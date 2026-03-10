@@ -4,6 +4,7 @@
 [x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
 [x] 5. Fixed blank media issue on Android 11+ and swiping in saved page by improving SAF caching and viewer item URI handling.
 [x] 46. **FIXED PERMISSION LOADING BUG:** Auto-load statuses immediately after permission grant instead of waiting for screen refresh
+[x] 47. **AUTO-GUIDED SAF SELECTION:** Enhanced guide overlay with crystal-clear instructions showing users exactly which button to tap ("USE THIS FOLDER" or "ALLOW"). Auto-opens file picker at Android > Media folder destination.
 [x] 6. Simplified video player controls: removed progress bar and skip buttons, leaving only a central play/pause toggle. Verified swipe functionality remains intact.
 [x] 7. Implemented direct SAF folder selection for Android 11+ by using a specially encoded initial URI for WhatsApp Media.
 [x] 8. Updated permission screen to guide users to click "Use this folder" directly without manual navigation.
