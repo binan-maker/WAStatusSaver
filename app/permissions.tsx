@@ -89,126 +89,111 @@ export default function PermissionsScreen() {
   return (
     <View style={styles.root}>
       {!isRequestingSAF && (
-      <LinearGradient
-        colors={['#0A1F15', COLORS.BACKGROUND]}
-        style={[styles.heroArea, { paddingTop: insets.top + 8 }]}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+      <><LinearGradient
+          colors={['#0A1F15', COLORS.BACKGROUND]}
+          style={[styles.heroArea, { paddingTop: insets.top + 8 }]}
         >
-          <Ionicons name="arrow-back" size={22} color={COLORS.TEXT} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <Ionicons name="arrow-back" size={22} color={COLORS.TEXT} />
+          </TouchableOpacity>
 
-        <View style={styles.heroContent}>
-          <View style={styles.heroIcon}>
-            <MaterialCommunityIcons name="folder-key-network-outline" size={48} color={COLORS.PRIMARY} />
+          <View style={styles.heroContent}>
+            <View style={styles.heroIcon}>
+              <MaterialCommunityIcons name="folder-key-network-outline" size={48} color={COLORS.PRIMARY} />
+            </View>
+            <Text style={styles.heroTitle}>{t('grant_access')}</Text>
+            <Text style={styles.heroSub}>
+              StatusVault needs storage access to show and save WhatsApp statuses.
+              {'\n'}Android {androidVersion}
+              {androidVersion >= 30 ? ' (Android 11+) requires folder access.' : ' – basic permissions required.'}
+            </Text>
           </View>
-          <Text style={styles.heroTitle}>{t('grant_access')}</Text>
-          <Text style={styles.heroSub}>
-            StatusVault needs storage access to show and save WhatsApp statuses.
-            {'\n'}Android {androidVersion}
-            {androidVersion >= 30 ? ' (Android 11+) requires folder access.' : ' – basic permissions required.'}
-          </Text>
-        </View>
-      </LinearGradient>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.stepsContainer}>
-          <StepCard
-            step={1}
-            icon={hasPermission ? 'shield-checkmark' : 'shield-outline'}
-            title="Media Permission"
-            desc={
-              hasPermission
-                ? 'Media library access has been granted.'
-                : 'Allow StatusVault to read and save media to your gallery.'
-            }
-            done={hasPermission}
-            action={
-              !hasPermission
-                ? {
+        </LinearGradient><ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+          showsVerticalScrollIndicator={false}
+        >
+            <View style={styles.stepsContainer}>
+              <StepCard
+                step={1}
+                icon={hasPermission ? 'shield-checkmark' : 'shield-outline'}
+                title="Media Permission"
+                desc={hasPermission
+                  ? 'Media library access has been granted.'
+                  : 'Allow StatusVault to read and save media to your gallery.'}
+                done={hasPermission}
+                action={!hasPermission
+                  ? {
                     label: requesting ? 'Requesting...' : 'Grant Media Access',
                     onPress: handleRequestPermission,
                   }
-                : undefined
-            }
-            tag={androidVersion >= 33 ? 'Android 13+' : androidVersion >= 29 ? 'Android 10+' : 'All versions'}
-          />
+                  : undefined}
+                tag={androidVersion >= 33 ? 'Android 13+' : androidVersion >= 29 ? 'Android 10+' : 'All versions'} />
 
-          {needsSAF && (
-            <StepCard
-              step={2}
-              icon={safGranted ? 'folder-open' : 'folder-outline'}
-              title="WhatsApp Folder Access"
-              desc={
-                safGranted
-                  ? 'WhatsApp Media folder access granted.'
-                  : 'On Android 11+, the system will open a folder picker.\n\n1. Navigate to Android → media → com.whatsapp → WhatsApp → Media\n2. Press "Use this folder" at the bottom\n3. Confirm with "Allow"\n\nThe app will then scan this folder for statuses.'
-              }
-              done={safGranted}
-              action={
-                !safGranted
-                  ? {
+              {needsSAF && (
+                <StepCard
+                  step={2}
+                  icon={safGranted ? 'folder-open' : 'folder-outline'}
+                  title="WhatsApp Folder Access"
+                  desc={safGranted
+                    ? 'WhatsApp Media folder access granted.'
+                    : 'On Android 11+, the system will open a folder picker.\n\n1. Navigate to Android → media → com.whatsapp → WhatsApp → Media\n2. Press "Use this folder" at the bottom\n3. Confirm with "Allow"\n\nThe app will then scan this folder for statuses.'}
+                  done={safGranted}
+                  action={!safGranted
+                    ? {
                       label: 'Select Media Folder',
                       onPress: requestSAF,
                     }
-                  : undefined
-              }
-              tag="Android 11+"
-            />
-          )}
+                    : undefined}
+                  tag="Android 11+" />
+              )}
 
-          <StepCard
-            step={needsSAF ? 3 : 2}
-            icon="images-outline"
-            title="Open WhatsApp & View Statuses"
-            desc="Go to WhatsApp, open the Status tab, and view the statuses you want to save. WhatsApp must write the status files before StatusVault can see them."
-            done={false}
-          />
-        </View>
-
-        {allDone && (
-          <View style={styles.successBanner}>
-            <Ionicons name="checkmark-circle" size={24} color={COLORS.PRIMARY} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.successTitle}>All set!</Text>
-              <Text style={styles.successSub}>StatusVault is ready to use.</Text>
+              <StepCard
+                step={needsSAF ? 3 : 2}
+                icon="images-outline"
+                title="Open WhatsApp & View Statuses"
+                desc="Go to WhatsApp, open the Status tab, and view the statuses you want to save. WhatsApp must write the status files before StatusVault can see them."
+                done={false} />
             </View>
+
+            {allDone && (
+              <View style={styles.successBanner}>
+                <Ionicons name="checkmark-circle" size={24} color={COLORS.PRIMARY} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.successTitle}>All set!</Text>
+                  <Text style={styles.successSub}>StatusVault is ready to use.</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => router.push('/')}
+                  style={styles.successBtn}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.successBtnText}>Open App</Text>
+                  <Ionicons name="arrow-forward" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.infoBox}>
+              <Ionicons name="lock-closed-outline" size={16} color={COLORS.PRIMARY} />
+              <Text style={styles.infoText}>
+                StatusVault works entirely offline. Your media never leaves your device.
+                We do not access your WhatsApp messages or contacts.
+              </Text>
+            </View>
+
             <TouchableOpacity
-              onPress={() => router.push('/')}
-              style={styles.successBtn}
-              activeOpacity={0.85}
+              onPress={() => router.push('/guide')}
+              style={styles.guideLink}
             >
-              <Text style={styles.successBtnText}>Open App</Text>
-              <Ionicons name="arrow-forward" size={14} color="#fff" />
+              <Ionicons name="book-outline" size={16} color={COLORS.PRIMARY} />
+              <Text style={styles.guideLinkText}>Read Full Setup Guide</Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={styles.infoBox}>
-          <Ionicons name="lock-closed-outline" size={16} color={COLORS.PRIMARY} />
-          <Text style={styles.infoText}>
-            StatusVault works entirely offline. Your media never leaves your device.
-            We do not access your WhatsApp messages or contacts.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={() => router.push('/guide')}
-          style={styles.guideLink}
-        >
-          <Ionicons name="book-outline" size={16} color={COLORS.PRIMARY} />
-          <Text style={styles.guideLinkText}>Read Full Setup Guide</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <SAFGuideOverlay visible={isRequestingSAF} />
+          </ScrollView><SAFGuideOverlay visible={isRequestingSAF} /></>
       )}
     </View>
   );
