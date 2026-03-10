@@ -155,11 +155,7 @@ export default function SavedScreen() {
           }
           renderItem={({ item, index }) => {
             if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
-              return (
-                <View style={{ width: SW, marginVertical: 8 }}>
-                  <GridAd />
-                </View>
-              );
+              return <GridAd />;
             }
             return (
               <MediaCard

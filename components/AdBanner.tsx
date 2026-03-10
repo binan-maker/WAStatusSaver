@@ -50,10 +50,10 @@ export function GridAd() {
   if (!ADS_ENABLED || Platform.OS === 'web') return null;
   
   return (
-    <View style={styles.gridContainer}>
+    <View style={styles.fullRowAdContainer}>
       <BannerAd
         unitId={adUnitId}
-        size={BannerAdSize.FULL_BANNER}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={{
           requestNonPersonalizedAdsOnly: true,
         }}
@@ -84,6 +84,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
+  },
+  fullRowAdContainer: {
+    width: '100%',
+    marginVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    // Ensure it spans full width by taking up the space of all columns
+    paddingHorizontal: 0,
   },
   gridAd: {
     width: '100%',

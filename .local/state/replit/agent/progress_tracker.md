@@ -28,3 +28,5 @@
 [x] 28. **IMPLEMENTED COMPLETE REWARDED ADS SYSTEM:** Reward ad unit, 24-hour tracking, RewardAdButton across all pages
 [x] 29. **UPDATED REWARD TIMER TO 5 HOURS:** Changed from 24h to 5 hours, updated all UI text
 [x] 30. **IMPLEMENTED APP OPEN ADS:** Shows on every app launch/resume (Ad unit: ca-app-pub-8785278012936203/8469780552)
+[x] 31. **OPTIMIZED GRID ADS:** Changed in-grid ads to full-row rectangle ads on Home and Saved pages.
+[x] 32. **SETTINGS AD BANNER:** Implemented sticky ad banner at the bottom of the Settings page.

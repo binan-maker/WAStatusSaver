@@ -349,7 +349,9 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      <AdBanner />
+      <View style={styles.stickyAd}>
+        <AdBanner />
+      </View>
     </View>
   );
 }
@@ -358,6 +360,16 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
+  },
+  stickyAd: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.BACKGROUND,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.BORDER,
+    paddingBottom: 4,
   },
   header: {
     paddingHorizontal: SPACING.LG,
