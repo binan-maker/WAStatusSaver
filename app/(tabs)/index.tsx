@@ -288,7 +288,6 @@ export default function StatusesScreen() {
 
   return (
     <View style={styles.root}>
-      <AdBanner />
       <StatusHeader onInfoPress={() => router.push('/permissions')} />
 
       <SubTabBar
@@ -399,6 +398,7 @@ export default function StatusesScreen() {
           )}
         </View>
       </ScrollView>
+      <AdBanner />
     </View>
   );
 }

@@ -86,7 +86,6 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.root}>
-      <AdBanner />
       <View style={[styles.header, { paddingTop: headerPaddingTop + 6 }]}>
         <View style={styles.headerTop}>
           <View>
@@ -177,7 +176,7 @@ export default function SavedScreen() {
         />
         </>
       )}
-
+      <AdBanner />
     </View>
   );
 }

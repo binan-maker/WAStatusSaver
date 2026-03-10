@@ -51,15 +51,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   
   // FIXED: Removed isPlaying state and simplified video source logic
   const initialSource = useMemo(() => {
-    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-  }, [item.id]);
+    const s = 'localUri' in item ? (item as SavedItem).localUri : item.uri;
+    // Ensure content:// URIs are handled correctly or fall back to original
+    return s;
+  }, [item.id, item.uri]);
 
-  // Create video player for all "near active" items to pre-buffer
-  const player = useVideoPlayer(isNearActive ? initialSource : null, (p) => {
+  // Use a simpler video player initialization to avoid binder issues
+  const player = useVideoPlayer(initialSource, (p) => {
     if (p) {
       p.loop = true;
       p.muted = !isActive;
-      // Aggressive buffering for Android
       if (Platform.OS === 'android') {
         p.staysActiveInBackground = true;
       }
@@ -69,24 +70,41 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Handle source replacement when cache is ready
   useEffect(() => {
     if (displayUri && displayUri !== initialSource && player) {
-      player.replace(displayUri);
+      try {
+        // Only replace if it's actually a different valid URI
+        if (displayUri.startsWith('file://') || displayUri.startsWith('content://')) {
+          player.replace(displayUri);
+        }
+      } catch (e) {
+        console.log('Player replace error:', e);
+      }
     }
   }, [displayUri, initialSource, player]);
 
-  // Sync muted state and playback
+  // Sync muted state and playback with extra safety
   useEffect(() => {
     if (!player) return;
     
-    if (isActive) {
-      player.muted = false;
-      player.play();
-    } else {
-      player.muted = true;
-      if (!isNearActive) {
-        player.pause();
-        player.currentTime = 0;
+    let isMounted = true;
+    const syncPlayback = async () => {
+      try {
+        if (isActive) {
+          player.muted = false;
+          player.play();
+        } else {
+          player.muted = true;
+          // Only pause if not near active to keep buffer
+          if (!isNearActive) {
+            player.pause();
+          }
+        }
+      } catch (e) {
+        if (isMounted) console.log('Player sync error:', e);
       }
-    }
+    };
+
+    syncPlayback();
+    return () => { isMounted = false; };
   }, [isActive, isNearActive, player]);
 
   useEffect(() => {
@@ -131,35 +149,38 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   return (
    <View style={styles.itemContainer}>
-  <TouchableOpacity
-    style={[StyleSheet.absoluteFillObject, { top: 0, left: 0, right: 0, bottom: 50 }]}
-    activeOpacity={1}
-    onPress={onToggleControls}
-  >
-    {item.type === 'image' ? (
-      <Image
-        source={{ uri: mediaUri }}
-        style={styles.image}
-        contentFit="contain"
-        cachePolicy="memory-disk"
-        transition={0} // Instant transition for images
-        recyclingKey={item.id}
-      />
-    ) : (
-      <View style={styles.videoWrap}>
-        {isNearActive && player ? (
-          <VideoView
-            player={player}
-            style={styles.video}
-            contentFit="contain"
-            nativeControls={false}
-          />
-        ) : (
-          <View style={styles.videoPlaceholder} />
-        )}
-      </View>
-    )}
-  </TouchableOpacity>
+    <TouchableOpacity
+      style={StyleSheet.absoluteFill}
+      activeOpacity={1}
+      onPress={onToggleControls}
+    >
+      {item.type === 'image' ? (
+        <Image
+          source={{ uri: mediaUri }}
+          style={styles.image}
+          contentFit="contain"
+          cachePolicy="memory-disk"
+          transition={0}
+          recyclingKey={item.id}
+        />
+      ) : (
+        <View style={styles.videoWrap}>
+          {player ? (
+            <VideoView
+              player={player}
+              style={styles.video}
+              contentFit="contain"
+              nativeControls={false}
+              showsPlaybackControls={false}
+            />
+          ) : (
+            <View style={styles.videoPlaceholder}>
+               <ActivityIndicator color={COLORS.PRIMARY} />
+            </View>
+          )}
+        </View>
+      )}
+    </TouchableOpacity>
 
   {/* Loading Overlay - Only show if it's taking more than 100ms to avoid flickers */}
   {isPreparing && (
@@ -224,6 +245,7 @@ export default function ViewerScreen() {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = useRef<FlatList>(null);
   const prevIndex = useRef(initialIndex);
+  const isScrollingRef = useRef(false);
   
   // Update currentIndex and scroll to it when initialIndex changes (e.g. on first load)
   // Prevent duplicate navigation
@@ -308,6 +330,7 @@ const toggleControls = useCallback(() => {
   }, [isSavedView, currentItem, savedItems, deleteFromSaved, items.length]);
 
   const onScroll = useCallback((event: any) => {
+    if (isScrollingRef.current) return;
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SW);
     if (index !== currentIndex && index >= 0 && index < items.length) {
@@ -334,6 +357,15 @@ const toggleControls = useCallback(() => {
     }
   }, [currentIndex, items, onImageSwipe]);
 
+  const onScrollBeginDrag = useCallback(() => {
+    isScrollingRef.current = true;
+  }, []);
+
+  const onScrollEndDrag = useCallback((event: any) => {
+    isScrollingRef.current = false;
+    onScroll(event);
+  }, [onScroll]);
+
   if (!currentItem) return null;
 
   return (
@@ -352,6 +384,8 @@ const toggleControls = useCallback(() => {
           index,
         })}
         onMomentumScrollEnd={onScroll}
+        onScrollBeginDrag={onScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (

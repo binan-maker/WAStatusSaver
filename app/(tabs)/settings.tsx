@@ -118,7 +118,6 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.root}>
-      <AdBanner />
       <LinearGradient
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
         style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
@@ -350,6 +349,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </Modal>
 
+      <AdBanner />
     </View>
   );
 }
