@@ -44,8 +44,10 @@ function MediaCardInner({
           source={{ uri }}
           style={styles.image}
           contentFit="cover"
-          cachePolicy="disk"
+          cachePolicy="memory-disk"
+          transition={150}
           recyclingKey={uri}
+          placeholderContentFit="cover"
         />
 
         {item.type === 'video' && (

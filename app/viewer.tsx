@@ -48,31 +48,32 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false); 
-
-  // Stable initial source to avoid player recreation and "released shared object" errors
+  
+  // FIXED: Removed isPlaying state and simplified video source logic
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id]);
 
   // Create video player for all "near active" items to pre-buffer
-  // This drastically reduces delay when swiping
   const player = useVideoPlayer(isNearActive ? initialSource : null, (p) => {
     if (p) {
       p.loop = true;
-      // Mute while pre-buffering but not active to avoid sound "cuts"
       p.muted = !isActive;
+      // Aggressive buffering for Android
+      if (Platform.OS === 'android') {
+        p.staysActiveInBackground = true;
+      }
     }
   });
 
-  // Handle source replacement when cache is ready without recreating the player
+  // Handle source replacement when cache is ready
   useEffect(() => {
     if (displayUri && displayUri !== initialSource && player) {
       player.replace(displayUri);
     }
   }, [displayUri, initialSource, player]);
 
-  // Sync muted state and playback when active state changes
+  // Sync muted state and playback
   useEffect(() => {
     if (!player) return;
     
@@ -105,14 +106,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           return;
         }
         
-        // Check if already cached before showing loading
-        const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
-        const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
-        const tempUri = `file:///data/user/0/host.exp.exponent/cache/view_${safeId}.${ext}`;
-        
-        // This is a bit hacky but we want to avoid the "Loading..." flicker if file exists
-        // The real path is in MediaContext, but we can try to guess it or just call prepare
-        
+        // Immediate check for prepared URI to avoid "Loading..." flicker
         setIsPreparing(true);
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) {
@@ -135,25 +129,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const mediaUri = displayUri || initialSource;
 
-  useEventListener(player, 'playingChange', (event) => {
-    setIsPlaying(event.isPlaying);
-  });
-
-  const togglePlayPause = useCallback(() => {
-    if (player.playing) {
-      player.pause();
-    } else {
-      player.play();
-    }
-  }, [player]);
-
   return (
    <View style={styles.itemContainer}>
-  {/* TouchableOpacity to toggle controls on tap for both image and video */}
   <TouchableOpacity
-    style={[StyleSheet.absoluteFillObject, { top: 0, left: 0, right: 0, bottom: 50 }]} // Covers top and bottom areas
+    style={[StyleSheet.absoluteFillObject, { top: 0, left: 0, right: 0, bottom: 50 }]}
     activeOpacity={1}
-    onPress={onToggleControls} // Toggle controls visibility
+    onPress={onToggleControls}
   >
     {item.type === 'image' ? (
       <Image
@@ -161,6 +142,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         style={styles.image}
         contentFit="contain"
         cachePolicy="memory-disk"
+        transition={0} // Instant transition for images
+        recyclingKey={item.id}
       />
     ) : (
       <View style={styles.videoWrap}>
@@ -178,26 +161,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     )}
   </TouchableOpacity>
 
-  {/* Video Controls Layer - FIXED #5: Controls now properly toggle */}
-{item.type === 'video' && (
-  <Animated.View
-    style={[
-      styles.videoOverlay,
-      {
-        opacity: showControls ? 1 : 0,
-        pointerEvents: showControls ? 'auto' : 'none',
-      },
-    ]}
-  >
-    {/* Removed Play/Pause button */}
-  </Animated.View>
-)}
-
-  {/* Loading Overlay - Show while preparing, even if displayUri exists (image preview) */}
+  {/* Loading Overlay - Only show if it's taking more than 100ms to avoid flickers */}
   {isPreparing && (
     <View style={styles.loadingOverlay}>
       <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-      <Text style={styles.loadingText}>Loading...</Text>
     </View>
   )}
 </View>
@@ -402,8 +369,9 @@ const toggleControls = useCallback(() => {
         }}
         windowSize={3}
         initialNumToRender={3}
-        maxToRenderPerBatch={2}
+        maxToRenderPerBatch={3}
         removeClippedSubviews={Platform.OS === 'android'}
+        updateCellsBatchingPeriod={10}
       />
 
       <Animated.View

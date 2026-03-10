@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FlashList } from '@shopify/flash-list';
 import { useMedia, StatusItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
@@ -316,10 +317,11 @@ export default function StatusesScreen() {
               onAction={refresh}
             />
           ) : (
-            <FlatList
+            <FlashList
               data={filteredImages}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
+              estimatedItemSize={CARD_SIZE}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -344,16 +346,10 @@ export default function StatusesScreen() {
                   />
                 );
               }}
-              getItemLayout={getItemLayout}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              columnWrapperStyle={styles.row}
               removeClippedSubviews={Platform.OS === 'android'}
-              maxToRenderPerBatch={8}
-              updateCellsBatchingPeriod={50}
-              windowSize={4}
-              initialNumToRender={12}
-              scrollEventThrottle={16}
+              drawDistance={500}
             />
           )}
         </View>
@@ -370,10 +366,11 @@ export default function StatusesScreen() {
               onAction={refresh}
             />
           ) : (
-            <FlatList
+            <FlashList
               data={filteredVideos}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
+              estimatedItemSize={CARD_SIZE}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -398,16 +395,10 @@ export default function StatusesScreen() {
                   />
                 );
               }}
-              getItemLayout={getItemLayout}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              columnWrapperStyle={styles.row}
               removeClippedSubviews={Platform.OS === 'android'}
-              maxToRenderPerBatch={8}
-              updateCellsBatchingPeriod={50}
-              windowSize={4}
-              initialNumToRender={12}
-              scrollEventThrottle={16}
+              drawDistance={500}
             />
           )}
         </View>

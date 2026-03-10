@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FlashList } from '@shopify/flash-list';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
@@ -139,11 +140,12 @@ export default function SavedScreen() {
         </>
       ) : (
         <>
-        <FlatList
+        <FlashList
           data={filtered}
           keyExtractor={(item) => item.id + item.savedAt}
           numColumns={GRID_COLUMNS}
           extraData={filter}
+          estimatedItemSize={CARD_SIZE}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -169,17 +171,11 @@ export default function SavedScreen() {
               />
             );
           }}
-          getItemLayout={getItemLayout}
-          columnWrapperStyle={styles.row}
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled
           removeClippedSubviews={Platform.OS === 'android'}
-          maxToRenderPerBatch={GRID_COLUMNS * 4}
-          updateCellsBatchingPeriod={50}
-          windowSize={5}
-          initialNumToRender={GRID_COLUMNS * 4}
-          decelerationRate="fast"
+          drawDistance={500}
         />
         </>
       )}
