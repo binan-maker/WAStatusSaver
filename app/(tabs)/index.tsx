@@ -23,7 +23,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import COLORS from '@/constants/colors';
-import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB } from '@/constants/theme';
+import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
 const ROW_HEIGHT = CARD_SIZE + 2;
