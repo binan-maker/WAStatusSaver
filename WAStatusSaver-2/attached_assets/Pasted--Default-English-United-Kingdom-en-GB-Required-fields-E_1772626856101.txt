@@ -1,0 +1,85 @@
+
+
+Default – English (United Kingdom) – en-GB
+* – Required fields. Enter all fields in English (United Kingdom) – en-GB
+
+Listing assets
+Check the Metadata policy and Help Centre guidance to avoid common issues with your Store Listing. Review all programme policies before submitting your app.
+
+If you're eligible to provide advance notice to the app review team, contact us before publishing your Store Listing.
+
+App name *
+Status Saver - WA Vault
+This is how your app will appear on Google Play 
+
+23 / 30
+Text is 23 characters out of 30
+Short description *
+Save and download status photos and videos easily. Fast status saver for WA.
+A short description for your app. Users can expand to view your full description. 
+
+76 / 80
+Text is 76 characters out of 80
+Full description *
+Save Status and Stories Instantly!
+Never miss your favorite moments again. With Status Saver - WA Vault, you can easily download status videos and photos directly to your gallery with just one tap. 
+
+Key Features:
+Instant Download: Save status updates from your contacts effortlessly.
+Media Gallery: View all saved photos and videos in a dedicated "Vault" for easy access.
+
+HD Quality: Download statuses in their original high-definition resolution.
+Built-in Player: Watch saved videos offline using our internal video player.
+Quick Share & Repost: Reshare your favorite statuses with friends or post them back to your own status.
+
+Lightweight & Fast: Small app size that won't slow down your device.
+ 
+How to Use:
+View the status you want to save in your original messenger app.
+Open Status Saver - WA Vault to see all available statuses.
+Select the photo or video and hit the Download button.
+Access your media anytime in your phone's gallery!. 
+
+Disclaimer:
+This app is an independent tool and is NOT affiliated with, sponsored by, or endorsed by WhatsApp LLC.
+"WhatsApp" is a trademark of WhatsApp, Inc..
+We respect the copyright of owners. Please do not download or repost media without permission from the original owner.
+ 
+
+1227 / 4000
+Text is 1227 characters out of 4000
+Graphics
+Manage your app icon, screenshots and videos to promote your app on Google Play. Review the content guidelines before uploading new graphics. If you add translations for your Store Listing without localised graphics, we will use the graphics from your default language.
+
+App icon *
+1/1
+Your app icon must be a PNG or JPEG, up to 1 MB, 512 px by 512 px, and meet our design specifications and metadata policy
+
+Feature graphic *
+1/1
+Your feature graphic must be a PNG or JPEG, up to 15 MB and 1,024 px by 500 px
+
+Video
+https://www.youtube.com/watch?v=
+Add a video by entering a YouTube URL. This video must be public or unlisted, ads must be turned off and it must not be age restricted. 
+
+Phone
+Phone screenshots *
+5/8
+Upload 2–8 phone screenshots. Screenshots must be PNG or JPEG, up to 8 MB each, 16:9 or 9:16 aspect ratio, with each side between 320 px and 3,840 px
+
+To be eligible for promotion, include at least 4 screenshots at a minimum of 1080 px on each side.
+Tablet
+7-inch tablet screenshots *
+Upload up to eight 7-inch tablet screenshots. Screenshots must be PNG or JPEG, up to 8 MB each, 16:9 or 9:16 aspect ratio, with each side between 320 px and 3,840 px
+
+10-inch tablet screenshots *
+Upload up to eight 10-inch tablet screenshots. Screenshots must be PNG or JPEG, up to 8 MB each, 16:9 or 9:16 aspect ratio, with each side between 1,080 px and 7,680 px
+
+Chromebook
+Chromebook screenshots
+Upload 4–8 screenshots. Screenshots must be PNG or JPEG, up to 8 MB each, 16:9 or 9:16 aspect ratio, with each side between 1,080 px and 7,680 px
+
+Android XR
+Android XR screenshots
+Upload 4–8 screenshots. Screenshots must be PNG or JPEG, up to 15 MB each, 16:9 or 9:16 aspect ratio, with each side between 720 px and 7,680 px

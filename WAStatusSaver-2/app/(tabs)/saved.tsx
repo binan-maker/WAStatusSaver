@@ -1,0 +1,271 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useMedia, SavedItem } from '@/contexts/MediaContext';
+import { MediaCard } from '@/components/MediaCard';
+import { AdBanner, GridAd } from '@/components/AdBanner';
+import { EmptyState } from '@/components/EmptyState';
+import { RewardAdButton } from '@/components/RewardAdButton';
+import COLORS from '@/constants/colors';
+import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
+
+const { width: SW } = Dimensions.get('window');
+const ROW_HEIGHT = CARD_SIZE + 2;
+const TAB_BAR_APPROX = 60;
+
+type FilterType = 'all' | 'images' | 'videos';
+
+const FILTERS: FilterType[] = ['all', 'images', 'videos'];
+
+export default function SavedScreen() {
+  const [filter, setFilter] = useState<FilterType>('all');
+  const {
+    savedItems,
+    isRefreshing,
+    refresh,
+    deleteFromSaved,
+    shareStatus,
+    onVideoOpen,
+  } = useMedia();
+  const insets = useSafeAreaInsets();
+
+  const filtered = savedItems.filter(item => {
+    if (filter === 'images') return item.type === 'image';
+    if (filter === 'videos') return item.type === 'video';
+    return true;
+  });
+
+  const handlePress = useCallback((item: SavedItem) => {
+    if (item.type === 'video') onVideoOpen(item.localUri);
+    router.push({
+      pathname: '/viewer',
+      params: { id: item.id, isSaved: '1' },
+    });
+  }, [onVideoOpen]);
+
+  const handleDelete = useCallback((item: SavedItem) => {
+    Alert.alert(
+      'Remove Status',
+      'Remove this from your saved collection?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => deleteFromSaved(item) },
+      ]
+    );
+  }, [deleteFromSaved]);
+
+  const handleShare = useCallback((item: SavedItem) => {
+    shareStatus(item);
+  }, [shareStatus]);
+
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
+      length: ROW_HEIGHT,
+      offset: ROW_HEIGHT * Math.floor(index / GRID_COLUMNS),
+      index,
+    }),
+    []
+  );
+
+  const bottomPad = insets.bottom + TAB_BAR_APPROX + ADMOB.BANNER_HEIGHT + 4;
+  const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
+
+  return (
+    <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: headerPaddingTop + 6 }]}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>Saved</Text>
+            <Text style={styles.headerSub}>{savedItems.length} status{savedItems.length !== 1 ? 'es' : ''} saved</Text>
+          </View>
+        </View>
+
+        <View style={styles.filterRow}>
+          {FILTERS.map(f => {
+            const cnt = f === 'all' ? savedItems.length :
+              savedItems.filter(s => s.type === (f === 'images' ? 'image' : 'video')).length;
+            return (
+              <TouchableOpacity
+                key={f}
+                onPress={() => setFilter(f)}
+                style={[styles.chip, filter === f && styles.chipActive]}
+                activeOpacity={0.75}
+              >
+                <Ionicons
+                  name={f === 'all' ? 'grid-outline' : f === 'images' ? 'image-outline' : 'videocam-outline'}
+                  size={12}
+                  color={filter === f ? '#fff' : COLORS.TEXT_MUTED}
+                />
+                <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+                  {f === 'all' ? 'All' : f === 'images' ? 'Images' : 'Videos'}
+                </Text>
+                {cnt > 0 && (
+                  <Text style={[styles.chipCount, filter === f && styles.chipCountActive]}>
+                    {cnt}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {filtered.length === 0 ? (
+        <>
+          <EmptyState
+            icon="bookmark-outline"
+            title={filter === 'all' ? 'Nothing saved yet' : `No ${filter} saved`}
+            subtitle={
+              filter === 'all'
+                ? 'Go to Statuses tab and tap the download icon to save.'
+                : `No ${filter} have been saved. Switch to "All" to see everything.`
+            }
+            actionLabel={filter !== 'all' ? 'Show All' : undefined}
+            onAction={filter !== 'all' ? () => setFilter('all') : undefined}
+          />
+        </>
+      ) : (
+        <>
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id + item.savedAt}
+          numColumns={GRID_COLUMNS}
+          extraData={filter}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refresh}
+              tintColor={COLORS.PRIMARY}
+              colors={[COLORS.PRIMARY]}
+              progressBackgroundColor={COLORS.SURFACE}
+            />
+          }
+          renderItem={({ item, index }) => {
+            if (index > 0 && (index + 1) % (GRID_COLUMNS * 4) === 0) {
+              return (
+                <View style={{ width: SW, marginVertical: 8 }}>
+                  <GridAd />
+                </View>
+              );
+            }
+            return (
+              <MediaCard
+                item={item}
+                isSaved
+                onPress={() => handlePress(item)}
+                onShare={() => handleShare(item)}
+                onDelete={() => handleDelete(item)}
+                showSaveButton={false}
+                showDeleteButton
+              />
+            );
+          }}
+          getItemLayout={getItemLayout}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled
+          removeClippedSubviews={Platform.OS === 'android'}
+          maxToRenderPerBatch={GRID_COLUMNS * 4}
+          updateCellsBatchingPeriod={50}
+          windowSize={5}
+          initialNumToRender={GRID_COLUMNS * 4}
+          decelerationRate="fast"
+        />
+        </>
+      )}
+
+      <AdBanner />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: COLORS.BACKGROUND,
+  },
+  header: {
+    backgroundColor: COLORS.SURFACE,
+    paddingHorizontal: SPACING.LG,
+    paddingBottom: SPACING.MD,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+    gap: SPACING.MD,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+    lineHeight: 26,
+  },
+  headerSub: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_600SemiBold',
+    lineHeight: 16,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: SPACING.SM,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.SURFACE_2,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  chipActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+  chipText: {
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_700Bold',
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+  chipCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_700Bold',
+    backgroundColor: COLORS.SURFACE_3,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+  },
+  chipCountActive: {
+    color: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  row: {
+    gap: 0,
+  },
+});
