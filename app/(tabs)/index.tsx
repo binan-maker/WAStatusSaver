@@ -92,7 +92,7 @@ function SubTabBar({
     <View style={styles.subTabBar}>
       <Animated.View style={[styles.activeIndicator, { transform: [{ translateX }] }]} />
       <TouchableOpacity
-        style={styles.subTab}
+        style={[styles.subTab, activeTab === 'images' && styles.subTabActive]}
         onPress={() => onTabChange('images')}
         activeOpacity={0.75}
       >
@@ -101,7 +101,7 @@ function SubTabBar({
           size={16}
           color={activeTab === 'images' ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
         />
-        <Text style={[styles.subTabText, activeTab === 'images' && styles.subTabActive]}>
+        <Text style={[styles.subTabText, activeTab === 'images' && { color: COLORS.PRIMARY }]}>
           Images
         </Text>
         {imageCnt > 0 && (
@@ -113,7 +113,7 @@ function SubTabBar({
         )}
       </TouchableOpacity>
       <TouchableOpacity
-        style={styles.subTab}
+        style={[styles.subTab, activeTab === 'videos' && styles.subTabActive]}
         onPress={() => onTabChange('videos')}
         activeOpacity={0.75}
       >
@@ -122,7 +122,7 @@ function SubTabBar({
           size={16}
           color={activeTab === 'videos' ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
         />
-        <Text style={[styles.subTabText, activeTab === 'videos' && styles.subTabActive]}>
+        <Text style={[styles.subTabText, activeTab === 'videos' && { color: COLORS.PRIMARY }]}>
           Videos
         </Text>
         {videoCnt > 0 && (
@@ -438,11 +438,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.BACKGROUND,
   },
   header: {
-    backgroundColor: COLORS.SURFACE,
+    backgroundColor: 'transparent',
     paddingHorizontal: SPACING.LG,
     paddingBottom: SPACING.MD,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   headerInner: {
     flexDirection: 'row',
@@ -455,19 +453,24 @@ const styles = StyleSheet.create({
     gap: SPACING.SM + 2,
   },
   logoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   logoText: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: COLORS.TEXT,
     fontFamily: 'Nunito_800ExtraBold',
-    letterSpacing: -0.3,
-    lineHeight: 22,
+    letterSpacing: -0.5,
+    lineHeight: 26,
   },
   logoSub: {
     fontSize: 10,
@@ -485,27 +488,26 @@ const styles = StyleSheet.create({
   },
   subTabBar: {
     flexDirection: 'row',
-    backgroundColor: COLORS.SURFACE,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-    position: 'relative',
-    height: 44,
+    backgroundColor: 'transparent',
+    paddingHorizontal: SPACING.LG,
+    gap: SPACING.MD,
+    height: 50,
+    alignItems: 'center',
   },
   activeIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: SW / 2,
-    height: 2,
-    backgroundColor: COLORS.PRIMARY,
-    borderRadius: 1,
+    display: 'none',
   },
   subTab: {
     flex: 1,
+    height: 38,
+    borderRadius: RADIUS.MD,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
+    backgroundColor: COLORS.SURFACE,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   subTabText: {
     fontSize: 13,
@@ -514,6 +516,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_700Bold',
   },
   subTabActive: {
+    backgroundColor: COLORS.PRIMARY + '15',
+    borderColor: COLORS.PRIMARY + '40',
     color: COLORS.PRIMARY,
   },
   badge: {

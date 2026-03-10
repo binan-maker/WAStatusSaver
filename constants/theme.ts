@@ -17,23 +17,23 @@ export const SPACING = {
 };
 
 export const RADIUS = {
-  XS: 4,
-  SM: 8,
-  MD: 12,
-  LG: 16,
-  XL: 24,
+  XS: 6,
+  SM: 10,
+  MD: 16,
+  LG: 24,
+  XL: 32,
   FULL: 999,
 };
 
 export const FONT_SIZE = {
-  XS: 10,
-  SM: 12,
-  MD: 14,
-  LG: 16,
-  XL: 18,
-  XXL: 22,
-  XXXL: 28,
-  DISPLAY: 34,
+  XS: 11,
+  SM: 13,
+  MD: 15,
+  LG: 17,
+  XL: 20,
+  XXL: 26,
+  XXXL: 32,
+  DISPLAY: 42,
 };
 
 export const HEADER_HEIGHT = Platform.OS === 'android' ? 56 : 44;

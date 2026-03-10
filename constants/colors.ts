@@ -1,42 +1,44 @@
 const COLORS = {
-  PRIMARY: '#00C48C',
-  PRIMARY_DARK: '#009E72',
-  PRIMARY_LIGHT: '#00E5A5',
+  // 2030 Neon & Cyber Palette
+  PRIMARY: '#00FFA3', // Hyper-vivid Spring Green
+  PRIMARY_DARK: '#00D185',
+  PRIMARY_LIGHT: '#60FFC8',
 
-  BACKGROUND: '#0A0E1A',
-  SURFACE: '#111827',
-  SURFACE_2: '#1E2A3E',
-  SURFACE_3: '#243347',
+  SECONDARY: '#7000FF', // Cyber Purple
+  ACCENT_BLUE: '#00E0FF', // Electric Cyan
+  ACCENT_PINK: '#FF00E5', // Neon Pink
 
-  TEXT: '#F0F4F8',
-  TEXT_SECONDARY: '#8896A8',
-  TEXT_MUTED: '#4A5568',
+  BACKGROUND: '#05070A', // Deepest Obsidian
+  SURFACE: '#0F131A', // Dark Slate
+  SURFACE_2: '#161D29', 
+  SURFACE_3: '#1F293B',
 
-  ACCENT: '#00C48C',
-  ACCENT_RED: '#FF4757',
-  ACCENT_BLUE: '#4A9EFF',
-  ACCENT_GOLD: '#FFB300',
+  TEXT: '#FFFFFF',
+  TEXT_SECONDARY: '#94A3B8',
+  TEXT_MUTED: '#475569',
 
-  TAB_BAR: '#0D1525',
-  HEADER: '#0D1525',
-  CARD: '#151E2E',
-  BORDER: '#1E2A3E',
+  BORDER: 'rgba(255, 255, 255, 0.08)',
+  BORDER_BRIGHT: 'rgba(0, 255, 163, 0.2)',
 
-  SUCCESS: '#00C48C',
-  WARNING: '#FFB300',
-  ERROR: '#FF4757',
+  SUCCESS: '#00FFA3',
+  WARNING: '#FDE047',
+  ERROR: '#FF4666',
 
-  OVERLAY: 'rgba(0,0,0,0.85)',
-  GLASS: 'rgba(255,255,255,0.05)',
-
-  WHATSAPP_GREEN: '#00C48C',
+  TAB_BAR: 'rgba(10, 15, 25, 0.85)',
+  HEADER: '#05070A',
+  
+  GLASS: 'rgba(255, 255, 255, 0.03)',
+  GLASS_STRONGER: 'rgba(255, 255, 255, 0.07)',
+  
+  GRADIENT_PRIMARY: ['#00FFA3', '#7000FF'],
+  GRADIENT_DARK: ['#0F131A', '#05070A'],
 
   light: {
-    text: '#F0F4F8',
-    background: '#0A0E1A',
-    tint: '#00C48C',
-    tabIconDefault: '#4A5568',
-    tabIconSelected: '#00C48C',
+    text: '#FFFFFF',
+    background: '#05070A',
+    tint: '#00FFA3',
+    tabIconDefault: '#475569',
+    tabIconSelected: '#00FFA3',
   },
 };
 

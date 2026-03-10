@@ -25,14 +25,17 @@ export default function TabLayout() {
         tabBarActiveTintColor: COLORS.PRIMARY,
         tabBarInactiveTintColor: COLORS.TEXT_MUTED,
         tabBarStyle: {
-          backgroundColor: isIOS ? 'transparent' : isWeb ? COLORS.TAB_BAR : COLORS.TAB_BAR,
-          borderTopWidth: 1,
-          borderTopColor: COLORS.BORDER,
+          backgroundColor: isIOS ? 'transparent' : COLORS.TAB_BAR,
+          borderTopWidth: 0,
           elevation: 0,
           shadowOpacity: 0,
           height: tabBarHeight,
-          paddingBottom: isWeb ? 34 : bottom,
-          paddingTop: 6,
+          paddingBottom: isWeb ? 34 : bottom + 4,
+          paddingTop: 8,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
         },
         tabBarBackground: () =>
           isIOS ? (
