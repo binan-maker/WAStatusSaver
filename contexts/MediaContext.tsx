@@ -449,45 +449,26 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
     try {
       const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
-      // Clean the ID of any problematic characters (like colons from SAF URIs)
       const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
       const tempUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
       
-      // FIXED #3: Check if already cached to avoid redundant copies (reduces transition delay)
-      try {
-        const info = await FileSystem.getInfoAsync(tempUri);
-        if (info.exists && info.size > 0) return tempUri;
-      } catch (e) {
-        // Continue if check fails
-      }
-
-      // Ensure cache directory exists (extra safety)
-      const cacheDir = FileSystem.cacheDirectory;
-      if (cacheDir) {
-        const dirInfo = await FileSystem.getInfoAsync(cacheDir);
-        if (!dirInfo.exists) {
-          await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true });
-        }
-      }
-
-      // Copy with timeout to prevent hanging on large files
-      try {
-        await Promise.race([
-          FileSystem.copyAsync({
-            from: item.uri,
-            to: tempUri
-          }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Copy timeout')), 30000) // 30s timeout
-          )
-        ]);
+      // FIXED: Immediate check for existence to avoid any delay
+      const info = await FileSystem.getInfoAsync(tempUri);
+      if (info.exists && info.size > 0) {
         return tempUri;
-      } catch (copyErr) {
-        console.log('File copy timed out or failed, using original URI:', copyErr);
-        return item.uri;
       }
+
+      // If it's a video, we might want to return the original URI as fallback 
+      // immediately if the copy takes too long, but let's try copying first.
+      await FileSystem.copyAsync({
+        from: item.uri,
+        to: tempUri
+      });
+      
+      return tempUri;
     } catch (e) {
-      return item.uri; // Fallback to original URI if copy fails
+      console.error('Prepare for viewing error:', e);
+      return item.uri; // Fallback to original URI
     }
   }, []);
 

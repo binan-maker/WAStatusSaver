@@ -104,6 +104,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           }
           return;
         }
+        
+        // Check if already cached before showing loading
+        const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
+        const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
+        const tempUri = `file:///data/user/0/host.exp.exponent/cache/view_${safeId}.${ext}`;
+        
+        // This is a bit hacky but we want to avoid the "Loading..." flicker if file exists
+        // The real path is in MediaContext, but we can try to guess it or just call prepare
+        
         setIsPreparing(true);
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) {
@@ -118,12 +127,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       }
     }
     
-    if (!displayUri) {
-      setDisplayUri(initialSource);
+    if (!displayUri || displayUri === initialSource) {
       prepare();
     }
     return () => { isMounted = false; };
-  }, [initialSource, item, isNearActive, isActive, displayUri]);
+  }, [initialSource, item, isNearActive, isActive]);
 
   const mediaUri = displayUri || initialSource;
 

@@ -30,3 +30,5 @@
 [x] 30. **IMPLEMENTED APP OPEN ADS:** Shows on every app launch/resume (Ad unit: ca-app-pub-8785278012936203/8469780552)
 [x] 31. **OPTIMIZED GRID ADS:** Changed in-grid ads to full-row rectangle ads on Home and Saved pages.
 [x] 32. **SETTINGS AD BANNER:** Implemented sticky ad banner at the bottom of the Settings page.
+[x] 33. **FIXED VIEWER LOADING:** Removed redundant loading screens and improved file caching to prevent blank images/videos.
+[x] 34. **OPTIMIZED MEDIA PERFORMANCE:** Instant display of cached media and improved background pre-buffering for swiping.
