@@ -51,7 +51,16 @@ export function GridAd() {
   
   return (
     <View style={styles.gridContainer}>
-      <AdBanner size={BannerAdSize.MEDIUM_RECTANGLE} style={styles.gridAd} />
+      <BannerAd
+        unitId={adUnitId}
+        size={BannerAdSize.FULL_BANNER}
+        requestOptions={{
+          requestNonPersonalizedAdsOnly: true,
+        }}
+        onAdFailedToLoad={(err) => {
+          console.error('Grid ad failed to load: ', err);
+        }}
+      />
     </View>
   );
 }
@@ -71,15 +80,14 @@ const styles = StyleSheet.create({
   },
   gridContainer: {
     width: '100%',
-    padding: 8,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   gridAd: {
-    width: 300,
-    height: 250,
+    width: '100%',
     backgroundColor: COLORS.SURFACE_2,
-    borderRadius: RADIUS.MD,
     overflow: 'hidden',
   }
 });

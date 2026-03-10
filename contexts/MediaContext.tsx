@@ -431,8 +431,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const onImageSwipe = useCallback(() => {
     const newCount = imageSwipeCount + 1;
     setImageSwipeCount(newCount);
-    // Show interstitial every 7 swipes
-    if (newCount >= 7) {
+    // Show interstitial every 15 swipes
+    if (newCount >= 15) {
       setShowInterstitial(true);
       setImageSwipeCount(0);
     }

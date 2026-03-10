@@ -29,6 +29,9 @@ SplashScreen.preventAutoHideAsync();
 if (Platform.OS !== 'web') {
   mobileAds()
     .initialize()
+    .then((adapterStatuses) => {
+      console.log('Ads initialized:', adapterStatuses);
+    })
     .catch((e) => console.log('Google Mobile Ads initialization error:', e));
 }
 

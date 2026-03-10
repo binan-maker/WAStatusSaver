@@ -17,7 +17,12 @@ export function useAppOpenAd() {
   useEffect(() => {
     if (!ADS_ENABLED || Platform.OS === 'web') return;
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        showAppOpenAd();
+      }
+      appState.current = nextState;
+    });
     
     if (!globalAppOpenAd) {
       loadAppOpenAd();
@@ -66,7 +71,10 @@ export function useAppOpenAd() {
   };
 
   const showAppOpenAd = async () => {
+    if (!ADS_ENABLED || Platform.OS === 'web') return;
+    
     if (!globalAppOpenAd || !isLoaded || isShowingAd) {
+      console.log('App open ad not ready:', { adExists: !!globalAppOpenAd, isLoaded, isShowingAd });
       if (!globalAppOpenAd) loadAppOpenAd();
       return;
     }
