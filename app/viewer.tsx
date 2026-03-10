@@ -11,6 +11,8 @@ import {
   Platform,
   ActivityIndicator,
   FlatList,
+  PanResponder,
+  GestureResponderEvent,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,7 +49,11 @@ function formatTime(millis: number) {
 function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
-  const [isPreparing, setIsPreparing] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const scaleRef = useRef(1);
+  const lastDistanceRef = useRef<number | null>(null);
   
   // FIXED: Removed isPlaying state and simplified video source logic
   const initialSource = useMemo(() => {
@@ -126,22 +132,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         if (!initialSource.startsWith('content://')) {
           if (isMounted) {
             setDisplayUri(initialSource);
-            setIsPreparing(false);
           }
           return;
         }
         
-        // Immediate check for prepared URI to avoid "Loading..." flicker
-        setIsPreparing(true);
         const prepared = await prepareStatusForViewing(item);
         if (isMounted) {
           setDisplayUri(prepared);
-          setIsPreparing(false);
         }
       } catch (e) {
         if (isMounted) {
           setDisplayUri(initialSource);
-          setIsPreparing(false);
         }
       }
     }
@@ -152,6 +153,36 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return () => { isMounted = false; };
   }, [initialSource, item, isNearActive, isActive]);
 
+  // Pinch-to-zoom gesture handler for images
+  const handleTouchMove = useCallback((e: GestureResponderEvent) => {
+    if (item.type !== 'image') return;
+    
+    const touches = e.nativeEvent.touches;
+    if (touches.length === 2) {
+      const dx = touches[0].pageX - touches[1].pageX;
+      const dy = touches[0].pageY - touches[1].pageY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (lastDistanceRef.current !== null) {
+        const scale = distance / lastDistanceRef.current;
+        const newScale = Math.min(Math.max(scaleRef.current * scale, 1), 4);
+        scaleRef.current = newScale;
+        setScale(newScale);
+      }
+      lastDistanceRef.current = distance;
+    }
+  }, [item.type]);
+
+  const handleTouchEnd = useCallback(() => {
+    lastDistanceRef.current = null;
+    if (scale < 1.2) {
+      scaleRef.current = 1;
+      setScale(1);
+      setPanX(0);
+      setPanY(0);
+    }
+  }, [scale]);
+
   const mediaUri = displayUri || initialSource;
 
   return (
@@ -160,17 +191,33 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       style={StyleSheet.absoluteFill}
       activeOpacity={1}
       onPress={onToggleControls}
+      onMoveShouldSetResponder={() => item.type === 'image' && scale > 1}
+      onResponderMove={handleTouchMove}
+      onResponderRelease={handleTouchEnd}
     >
       {item.type === 'image' ? (
-        <Image
-          source={{ uri: mediaUri }}
-          style={styles.image}
-          contentFit="contain"
-          cachePolicy="disk"
-          transition={0}
-          priority="high"
-          recyclingKey={item.id}
-        />
+        <Animated.View
+          style={[
+            styles.imageContainer,
+            {
+              transform: [
+                { scale: scale },
+                { translateX: panX },
+                { translateY: panY },
+              ],
+            },
+          ]}
+        >
+          <Image
+            source={{ uri: mediaUri }}
+            style={styles.image}
+            contentFit="contain"
+            cachePolicy="disk"
+            transition={0}
+            priority="high"
+            recyclingKey={item.id}
+          />
+        </Animated.View>
       ) : (
         <View style={styles.videoWrap}>
           {player ? (
@@ -189,13 +236,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         </View>
       )}
     </TouchableOpacity>
-
-  {/* Loading Overlay - Only show if it's taking more than 100ms to avoid flickers */}
-  {isPreparing && (
-    <View style={styles.loadingOverlay}>
-      <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-    </View>
-  )}
 </View>
   );
 }
@@ -485,12 +525,6 @@ const toggleControls = useCallback(() => {
 }
 
 const styles = StyleSheet.create({
-  loadingText: {
-    color: COLORS.PRIMARY,
-    marginTop: 12,
-    fontSize: 12,
-    fontWeight: '500',
-  },
   root: {
     flex: 1,
     backgroundColor: '#000',
@@ -499,8 +533,9 @@ const styles = StyleSheet.create({
     width: SW,
     height: SH,
   },
-  mediaArea: {
-    flex: 1,
+  imageContainer: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -523,12 +558,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#000', // Black background while video loads
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   videoCenter: {
     flexDirection: 'row',

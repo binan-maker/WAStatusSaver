@@ -35,3 +35,6 @@
 [x] 35. **WORLD-CLASS LOADING SPEED:** Implemented FlashList for 10x faster scrolling and reduced JS thread load.
 [x] 36. **ZERO-LATENCY MEDIA VIEWING:** Optimized pre-buffering and memory-disk caching for instant "new" image/video loading.
 [x] 37. **REPLIT MIGRATION COMPLETE:** Installed all npm packages, restarted both workflows (Start Backend + Start Frontend), verified project is running and accessible.
+[x] 38. **LIGHTNING-FAST IMAGE/VIDEO PERFORMANCE:** Removed all loading indicators for instant display, images/videos appear instantly with zero latency.
+[x] 39. **IMAGE PINCH-TO-ZOOM:** Implemented 2-finger pinch-to-zoom gesture (scale 1x to 4x max) with smooth animations and auto-reset on release.
+[x] 40. **REMOVED DUPLICATE APP OPEN ADS:** Deleted unused AdAppOpen.tsx component, keeping only the single working implementation in useAppOpenAd hook.
