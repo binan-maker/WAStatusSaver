@@ -1,81 +1,92 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
-import { RewardedAd, RewardedAdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { RewardedAd, RewardedAdEventType, TestIds, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
 
 const adUnitId = __DEV__ ? TestIds.REWARDED : AD_UNIT_IDS.REWARDED;
 
-let rewarded: RewardedAd | null = null;
+// Persistent singleton state
+let globalRewardedAd: RewardedAd | null = null;
+let isLoaded = false;
+let isShowing = false;
 
 export function useRewardedAd() {
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(isLoaded);
+  const listenersRef = useRef<(() => void)[]>([]);
 
-  useEffect(() => {
-    if (!ADS_ENABLED || Platform.OS === 'web') return;
+  const loadAd = useCallback(() => {
+    if (globalRewardedAd || isShowing) return;
 
-    if (!rewarded) {
-      rewarded = RewardedAd.createForAdRequest(adUnitId, {
+    try {
+      globalRewardedAd = RewardedAd.createForAdRequest(adUnitId, {
         requestNonPersonalizedAdsOnly: true,
       });
 
-      const unsubscribeLoaded = rewarded.addAdEventListener(
-        RewardedAdEventType.LOADED,
-        () => {
-          setLoaded(true);
-        }
-      );
+      globalRewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
+        isLoaded = true;
+        setLoaded(true);
+      });
 
-      const unsubscribeEarned = rewarded.addAdEventListener(
-        RewardedAdEventType.EARNED_REWARD,
-        () => {
-          // Reward earned - this is handled by the caller via onReward callback
-        }
-      );
+      globalRewardedAd.addAdEventListener(AdEventType.ERROR, (err) => {
+        console.error('Rewarded ad load error:', err);
+        globalRewardedAd = null;
+        isLoaded = false;
+        setLoaded(false);
+        // Retry after 30s
+        setTimeout(loadAd, 30000);
+      });
 
-      const unsubscribeClosed = rewarded.addAdEventListener(
-        RewardedAdEventType.CLOSED,
-        () => {
-          setLoaded(false);
-          rewarded?.load();
-        }
-      );
-
-      rewarded.load();
-
-      return () => {
-        unsubscribeLoaded();
-        unsubscribeEarned();
-        unsubscribeClosed();
-      };
+      globalRewardedAd.load();
+    } catch (e) {
+      console.error('Error creating rewarded ad:', e);
     }
   }, []);
 
+  useEffect(() => {
+    if (!ADS_ENABLED || Platform.OS === 'web') return;
+    if (!globalRewardedAd) loadAd();
+    
+    return () => {
+      // Clear local component state if needed, but keep global ad
+    };
+  }, [loadAd]);
+
   const showAd = async (): Promise<boolean> => {
+    if (!globalRewardedAd || !isLoaded || isShowing) {
+      if (!globalRewardedAd) loadAd();
+      return false;
+    }
+
     return new Promise((resolve) => {
-      if (loaded && rewarded) {
-        const unsubscribe = rewarded.addAdEventListener(
-          RewardedAdEventType.EARNED_REWARD,
-          () => {
-            unsubscribe();
-            rewarded?.load();
-            resolve(true);
-          }
-        );
+      let earnedReward = false;
+      isShowing = true;
 
-        const unsubscribeClosed = rewarded.addAdEventListener(
-          RewardedAdEventType.CLOSED,
-          () => {
-            unsubscribeClosed();
-            // User closed without earning - but we still reload
-            rewarded?.load();
-            resolve(false);
-          }
-        );
+      const unsubscribeEarned = globalRewardedAd!.addAdEventListener(
+        RewardedAdEventType.EARNED_REWARD,
+        () => {
+          earnedReward = true;
+        }
+      );
 
-        rewarded.show();
-      } else {
+      const unsubscribeClosed = globalRewardedAd!.addAdEventListener(
+        AdEventType.CLOSED,
+        () => {
+          unsubscribeEarned();
+          unsubscribeClosed();
+          isShowing = false;
+          isLoaded = false;
+          setLoaded(false);
+          globalRewardedAd = null;
+          loadAd(); // Preload next
+          resolve(earnedReward);
+        }
+      );
+
+      globalRewardedAd!.show().catch(err => {
+        console.error('Error showing rewarded ad:', err);
+        isShowing = false;
         resolve(false);
-      }
+      });
     });
   };
 

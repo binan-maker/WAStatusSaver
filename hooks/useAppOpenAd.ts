@@ -1,73 +1,91 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { AppOpenAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
 
 const adUnitId = __DEV__ ? TestIds.APP_OPEN : AD_UNIT_IDS.APP_OPEN;
 
-let appOpenAd: AppOpenAd | null = null;
+// Use global singleton to persist across hook mounts
+let globalAppOpenAd: AppOpenAd | null = null;
 let isShowingAd = false;
+let isLoaded = false;
 
 export function useAppOpenAd() {
   const appState = useRef(AppState.currentState);
-
-  let appOpenAd: AppOpenAd | null = null;
-let isShowingAd = false;
-let isLoaded = false;
+  const [loaded, setLoaded] = useState(isLoaded);
 
   useEffect(() => {
     if (!ADS_ENABLED || Platform.OS === 'web') return;
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    loadAppOpenAd();
+    
+    if (!globalAppOpenAd) {
+      loadAppOpenAd();
+    }
 
     return () => {
       subscription.remove();
     };
   }, []);
 
-  const loadAppOpenAd = async () => {
-    if (appOpenAd) return;
+  const loadAppOpenAd = () => {
+    if (globalAppOpenAd) return;
 
-    appOpenAd = AppOpenAd.createForAdRequest(adUnitId, {
-      requestNonPersonalizedAdsOnly: true,
-    });
+    try {
+      globalAppOpenAd = AppOpenAd.createForAdRequest(adUnitId, {
+        requestNonPersonalizedAdsOnly: true,
+      });
 
-   appOpenAd.addAdEventListener(AdEventType.LOADED, () => {
-  isLoaded = true;
-});
+      globalAppOpenAd.addAdEventListener(AdEventType.LOADED, () => {
+        isLoaded = true;
+        setLoaded(true);
+      });
 
-appOpenAd.addAdEventListener(AdEventType.CLOSED, () => {
-  isShowingAd = false;
-  isLoaded = false;
-  appOpenAd = null;
-  loadAppOpenAd();
-});
+      globalAppOpenAd.addAdEventListener(AdEventType.CLOSED, () => {
+        isShowingAd = false;
+        isLoaded = false;
+        setLoaded(false);
+        globalAppOpenAd = null;
+        // Preload next ad
+        loadAppOpenAd();
+      });
 
-appOpenAd.addAdEventListener(AdEventType.ERROR, () => {
-  appOpenAd = null;
-});
+      globalAppOpenAd.addAdEventListener(AdEventType.ERROR, (error) => {
+        console.log('App open ad failed to load:', error);
+        isLoaded = false;
+        setLoaded(false);
+        globalAppOpenAd = null;
+        // Retry after delay
+        setTimeout(loadAppOpenAd, 30000);
+      });
 
-    appOpenAd.load();
+      globalAppOpenAd.load();
+    } catch (e) {
+      console.error('Error creating AppOpenAd:', e);
+    }
   };
 
   const showAppOpenAd = async () => {
-  if (!appOpenAd || !isLoaded || isShowingAd) return;
+    if (!globalAppOpenAd || !isLoaded || isShowingAd) {
+      if (!globalAppOpenAd) loadAppOpenAd();
+      return;
+    }
 
-  try {
-    isShowingAd = true;
-    await appOpenAd.show();
-  } catch (error) {
-    console.log('App open ad error:', error);
-  }
-};
+    try {
+      isShowingAd = true;
+      await globalAppOpenAd.show();
+    } catch (error) {
+      console.log('App open ad show error:', error);
+      isShowingAd = false;
+    }
+  };
 
-  const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
     if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-      if (!isShowingAd && isLoaded && appOpenAd) {
-        showAppOpenAd();
-      }
+      showAppOpenAd();
     }
     appState.current = nextAppState;
   };
+
+  return { loaded };
 }

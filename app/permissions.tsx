@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia } from '@/contexts/MediaContext';
+import { SAFGuideOverlay } from '@/components/SAFGuideOverlay';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -69,6 +70,7 @@ export default function PermissionsScreen() {
     androidVersion,
     requestPermissions,
     requestSAF,
+    isRequestingSAF,
   } = useMedia();
 
   const { t } = useLanguage();
@@ -204,6 +206,8 @@ export default function PermissionsScreen() {
           <Text style={styles.guideLinkText}>Read Full Setup Guide</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <SAFGuideOverlay visible={isRequestingSAF} />
     </View>
   );
 }
