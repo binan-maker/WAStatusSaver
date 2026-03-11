@@ -424,9 +424,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // Share the media file only - no caption
       await Sharing.shareAsync(shareUri);
-      
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
       console.error('Share error:', e);
