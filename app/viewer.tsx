@@ -68,7 +68,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       p.loop = true;
       p.muted = !isActive;
       if (Platform.OS === 'android') {
-        p.staysActiveInBackground = true;
+        p.staysActiveInBackground = false;
       }
     }
   });
@@ -457,7 +457,7 @@ const toggleControls = useCallback(() => {
       />
 
       <Animated.View
-        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none' }]}
+        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none', zIndex: 150 }]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
@@ -469,7 +469,7 @@ const toggleControls = useCallback(() => {
       </Animated.View>
 
       <Animated.View
-        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 100 }]}
+        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 150 }]}
       >
         <View style={styles.viewerAdContainer}>
            <AdBanner size={BannerAdSize.BANNER} style={{ height: 50 }} />
@@ -591,12 +591,13 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     position: 'absolute',
-    bottom: 200,
+    top: 50,
     left: 20,
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    zIndex: 150,
   },
   progressBarBg: {
     flex: 1,

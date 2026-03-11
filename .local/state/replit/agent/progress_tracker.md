@@ -45,3 +45,7 @@
 [x] 43. **FIXED DOUBLE ADS IN PERMISSIONS:** UI now hides when SAF folder selection overlay is visible, preventing double ad impressions
 [x] 44. **LOADING SKELETONS:** Grid skeletons with shimmer effect now display on app startup when loading images/videos (enhanced count for better coverage)
 [x] 45. **VIDEO VIEWER PROGRESS BAR:** Moved progress bar and time controls upward (bottom: 120px → bottom: 200px) to prevent overlap with action buttons, making save/share/WhatsApp buttons fully accessible
+[x] 46. **FIXED VIDEO BACKGROUND AUDIO:** Disabled staysActiveInBackground flag to stop video audio from playing when user exits to home - videos now properly stop playing
+[x] 47. **REORGANIZED VIDEO PLAYER LAYOUT:** Moved progress bar to top of video (top: 50px) instead of bottom, increased z-index to 150 to prevent hiding behind ads
+[x] 48. **PINCH-TO-ZOOM FULLY ENABLED:** Image pinch-to-zoom feature (1x to 4x magnification) working in home, saved, and full-screen viewer
+[x] 49. **PRODUCTION ADMOB READY:** Verified all AdMob unit IDs are production-configured in constants/admob.ts with proper app ID from app.json
