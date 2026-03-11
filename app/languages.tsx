@@ -42,21 +42,21 @@ export default function LanguagesScreen() {
 
   return (
     <View style={styles.root}>
+      <View style={[styles.header, { paddingTop: headerPaddingTop + 12 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color={COLORS.TEXT} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Select Language</Text>
+          <Text style={styles.headerSub}>Choose your preferred language</Text>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.header, { paddingTop: headerPaddingTop + 12 }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color={COLORS.TEXT} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Select Language</Text>
-            <Text style={styles.headerSub}>Choose your preferred language</Text>
-          </View>
-        </View>
-
         <View style={styles.languageList}>
           {languageList.map((lang) => (
             <TouchableOpacity

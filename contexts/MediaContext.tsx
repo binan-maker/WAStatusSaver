@@ -8,7 +8,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform, Alert, Share } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
@@ -424,19 +424,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        // Fixed caption - always included
-        const fixedCaption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nInstall here:\nhttps://shorturl.at/j6l0B';
-        
-        await Sharing.shareAsync(shareUri, {
-          mimeType: item.type === 'video' ? 'video/*' : 'image/*',
-          dialogTitle: 'Share via...',
-          UTI: item.type === 'video' ? 'public.movie' : 'public.image',
-          message: Platform.OS === 'android' ? fixedCaption : undefined,
-        });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      // Fixed caption - always included
+      const fixedCaption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nInstall here:\nhttps://shorturl.at/j6l0B';
+      
+      // Use React Native Share API for better WhatsApp compatibility
+      await Share.share({
+        url: shareUri,
+        message: fixedCaption,
+        title: 'Share Status',
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
       console.error('Share error:', e);
     }

@@ -1,0 +1,31 @@
+
+> expo-app@1.0.0 server:dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0Knode:internal/modules/cjs/loader:1207
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module './routes/referral.routes'
+Require stack:
+- /home/runner/workspace/server/routes.ts
+- /home/runner/workspace/server/index.ts
+[90m    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)[39m
+    at nextResolveSimple [90m(/home/runner/workspace/[39mnode_modules/[4mtsx[24m/dist/register-D46fvsV_.cjs:4:1004[90m)[39m
+    at [90m/home/runner/workspace/[39mnode_modules/[4mtsx[24m/dist/register-D46fvsV_.cjs:3:2630
+    at [90m/home/runner/workspace/[39mnode_modules/[4mtsx[24m/dist/register-D46fvsV_.cjs:3:1542
+    at resolveTsPaths [90m(/home/runner/workspace/[39mnode_modules/[4mtsx[24m/dist/register-D46fvsV_.cjs:4:760[90m)[39m
+    at [90m/home/runner/workspace/[39mnode_modules/[4mtsx[24m/dist/register-D46fvsV_.cjs:4:1102
+    at m._resolveFilename [90m(file:///home/runner/workspace/[39mnode_modules/[4mtsx[24m/dist/register-B7jrtLTO.mjs:1:789[90m)[39m
+[90m    at Module._load (node:internal/modules/cjs/loader:1038:27)[39m
+[90m    at Module.require (node:internal/modules/cjs/loader:1289:19)[39m
+[90m    at require (node:internal/modules/helpers:182:18)[39m {
+  code: [32m'MODULE_NOT_FOUND'[39m,
+  requireStack: [
+    [32m'/home/runner/workspace/server/routes.ts'[39m,
+    [32m'/home/runner/workspace/server/index.ts'[39m
+  ]
+}
+
+Node.js v20.20.0
+[1G[0K⠙[1G[0K
