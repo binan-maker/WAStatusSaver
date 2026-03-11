@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Switch,
-  TouchableOpacity,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

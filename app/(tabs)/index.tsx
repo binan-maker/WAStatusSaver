@@ -25,6 +25,7 @@ import { LoadingShimmer } from '@/components/LoadingShimmer';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import { ReferralCard } from '@/components/ReferralCard';
 import { ReferralProgressBar } from '@/components/ReferralProgressBar';
+import { ReferralHeader } from '@/components/ReferralHeader';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
 
@@ -296,6 +297,8 @@ export default function StatusesScreen() {
         imageCnt={imageCnt}
         videoCnt={videoCnt}
       />
+
+      <ReferralHeader compact={true} />
 
       <ScrollView
         ref={scrollViewRef}
