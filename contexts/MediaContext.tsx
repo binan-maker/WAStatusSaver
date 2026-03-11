@@ -424,15 +424,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // Caption with download link
-      const shareMessage = 'Save Status WhatsApp Status Download App\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver';
-
-      // Share the file with caption and URL
-      await Share.share({
-        url: shareUri,
-        message: shareMessage,
-        title: 'Share Status',
-      });
+      // Share file only without caption
+      await Sharing.shareAsync(shareUri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
       console.error('Share error:', e);
