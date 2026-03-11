@@ -20,6 +20,7 @@ import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
+import { SupportDeveloperAd } from '@/components/SupportDeveloperAd';
 import * as Sharing from 'expo-sharing';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
@@ -86,10 +87,8 @@ export default function SettingsScreen() {
 
   const handleShareApp = async () => {
     try {
-      const shareText = 'Check out StatusVault - Save WhatsApp Statuses instantly!\n\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver';
-      await Sharing.shareAsync('', {
+      await Sharing.shareAsync('https://play.google.com/store/apps/details?id=com.binan.statussaver', {
         dialogTitle: 'Share StatusVault',
-        message: Platform.OS === 'android' ? shareText : undefined,
       });
     } catch (e) {
       console.log('Share error:', e);
@@ -218,6 +217,8 @@ export default function SettingsScreen() {
         <SectionHeader title="Get Free Ads Access" />
         <RewardAdButton variant="row" />
 
+        <SupportDeveloperAd />
+
         <SectionHeader title="Share" />
         <View style={styles.section}>
           <SettingRow
@@ -251,6 +252,13 @@ export default function SettingsScreen() {
             label="WhatsApp Paths"
             sublabel="View supported status locations"
             onPress={() => router.push('/guide')}
+          />
+          <SettingRow
+            icon="language-outline"
+            iconBg={COLORS.ACCENT_BLUE + '22'}
+            label="Select Language"
+            sublabel="Change app language"
+            onPress={() => router.push('/languages')}
           />
         </View>
 
@@ -303,50 +311,6 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      <Modal
-        visible={showLanguageModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLanguageModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity 
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowLanguageModal(false)}
-          />
-          <View style={[styles.languageModal, { paddingTop: SPACING.MD }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Language</Text>
-              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.languageList} showsVerticalScrollIndicator={false}>
-              {LANGUAGES.map((lang) => (
-                <TouchableOpacity
-                  key={lang.code}
-                  style={[styles.languageOption, language === lang.code && styles.languageOptionActive]}
-                  onPress={async () => {
-                    await setLanguage(lang.code);
-                    setShowLanguageModal(false);
-                  }}
-                >
-                  <View>
-                    <Text style={[styles.languageOptionName, language === lang.code && { color: COLORS.PRIMARY }]}>
-                      {lang.nativeName}
-                    </Text>
-                    <Text style={styles.languageOptionEnglish}>{lang.name}</Text>
-                  </View>
-                  {language === lang.code && (
-                    <Ionicons name="checkmark-circle" size={20} color={COLORS.PRIMARY} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showEasterEgg}
