@@ -23,7 +23,6 @@ import { AdInterstitial } from '@/components/AdInterstitial';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
 import { RewardAdButton } from '@/components/RewardAdButton';
-import { ReferralHeader } from '@/components/ReferralHeader';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
 
@@ -306,7 +305,6 @@ export default function StatusesScreen() {
         style={styles.listArea}
       >
         <View style={{ width: SW }}>
-          <ReferralHeader />
           {isLoading ? (
             <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
           ) : statuses.filter(s => s.type === 'image').length === 0 ? (

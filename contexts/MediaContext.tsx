@@ -426,73 +426,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        // Get default caption from filename
-        const defaultCaption = item.name.replace(/\.[^.]+$/, '');
-        
-        // Show caption dialog on Android
-        let userCaption = defaultCaption;
-        if (Platform.OS === 'android') {
-          await new Promise<void>((resolve) => {
-            Alert.alert(
-              'Add Caption',
-              'Add an optional caption to share with this image/video',
-              [
-                {
-                  text: 'Skip',
-                  onPress: () => {
-                    userCaption = '';
-                    resolve();
-                  },
-                },
-                {
-                  text: 'Use Default',
-                  onPress: () => {
-                    resolve();
-                  },
-                },
-                {
-                  text: 'Edit',
-                  onPress: () => {
-                    // Show text input for custom caption
-                    Alert.prompt(
-                      'Edit Caption',
-                      'Type your caption (leave empty to skip)',
-                      [
-                        {
-                          text: 'Cancel',
-                          onPress: () => {
-                            userCaption = '';
-                            resolve();
-                          },
-                        },
-                        {
-                          text: 'Share',
-                          onPress: (caption) => {
-                            userCaption = caption || '';
-                            resolve();
-                          },
-                        },
-                      ],
-                      'plain-text',
-                      defaultCaption
-                    );
-                  },
-                },
-              ]
-            );
-          });
-        }
-
-        // Build share message with caption
-        const appMessage = '\n\n📱 Saved with StatusVault - WhatsApp Status Saver\nDownload: https://play.google.com/store/apps/details?id=com.binan.statussaver';
-        const captionText = userCaption ? `${userCaption}\n` : '';
-        const finalMessage = Platform.OS === 'android' ? `${captionText}${appMessage}` : undefined;
+        // Fixed caption - always included
+        const fixedCaption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nInstall here:\nhttps://shorturl.at/j6l0B';
         
         await Sharing.shareAsync(shareUri, {
           mimeType: item.type === 'video' ? 'video/*' : 'image/*',
           dialogTitle: 'Share via...',
           UTI: item.type === 'video' ? 'public.movie' : 'public.image',
-          message: finalMessage,
+          message: Platform.OS === 'android' ? fixedCaption : undefined,
         });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }

@@ -16,10 +16,11 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
-import { useMedia } from '@/contexts/MediaContext';
+import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
+import * as Sharing from 'expo-sharing';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
@@ -82,6 +83,18 @@ export default function SettingsScreen() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
+
+  const handleShareApp = async () => {
+    try {
+      const shareText = 'Check out StatusVault - Save WhatsApp Statuses instantly!\n\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver';
+      await Sharing.shareAsync('', {
+        dialogTitle: 'Share StatusVault',
+        message: Platform.OS === 'android' ? shareText : undefined,
+      });
+    } catch (e) {
+      console.log('Share error:', e);
+    }
+  };
 
   const handleVersionPress = () => {
     const newCount = versionClickCount + 1;
@@ -204,6 +217,17 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Get Free Ads Access" />
         <RewardAdButton variant="row" />
+
+        <SectionHeader title="Share" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="share-social-outline"
+            iconBg={COLORS.PRIMARY + '22'}
+            label="Share StatusVault"
+            sublabel="Tell your friends about this app"
+            onPress={handleShareApp}
+          />
+        </View>
 
         <SectionHeader title="Help & Guide" />
         <View style={styles.section}>

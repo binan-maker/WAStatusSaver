@@ -20,7 +20,6 @@ import { MediaCard } from '@/components/MediaCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { RewardAdButton } from '@/components/RewardAdButton';
-import { ReferralHeader } from '@/components/ReferralHeader';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
 
