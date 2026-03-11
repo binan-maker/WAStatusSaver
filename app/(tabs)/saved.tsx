@@ -49,7 +49,14 @@ export default function SavedScreen() {
     return true;
   });
 
+  const lastPressRef = React.useRef<Map<string, number>>(new Map());
+
   const handlePress = useCallback((item: SavedItem) => {
+    const now = Date.now();
+    const lastPress = lastPressRef.current.get(item.id) || 0;
+    if (now - lastPress < 300) return;
+    lastPressRef.current.set(item.id, now);
+
     if (item.type === 'video') onVideoOpen(item.localUri);
     router.push({
       pathname: '/viewer',

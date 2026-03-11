@@ -49,3 +49,8 @@
 [x] 47. **REORGANIZED VIDEO PLAYER LAYOUT:** Moved progress bar to top of video (top: 50px) instead of bottom, increased z-index to 150 to prevent hiding behind ads
 [x] 48. **PINCH-TO-ZOOM FULLY ENABLED:** Image pinch-to-zoom feature (1x to 4x magnification) working in home, saved, and full-screen viewer
 [x] 49. **PRODUCTION ADMOB READY:** Verified all AdMob unit IDs are production-configured in constants/admob.ts with proper app ID from app.json
+[x] 50. **REWARD ADS BUTTON IN SETTINGS:** Added RewardAdButton with 'row' variant in Settings page to allow users to watch ads for 5-hour ad-free access
+[x] 51. **ADS HIDDEN WHEN FREE ADS ACTIVE:** AdBanner and GridAd components now check isFreeAds state and return null when user has free ads active
+[x] 52. **LANGUAGE SELECTION HALF-PAGE MODAL:** Fixed language selection to show as bottom sheet (50% max height) with transparent background instead of full page
+[x] 53. **FIXED DOUBLE-CLICK NAVIGATION IN SAVED:** Added 300ms debounce to handlePress in SavedScreen to prevent multiple tap openings
+[x] 54. **REFRESH BUTTON LOGIC VERIFIED:** Home and Saved pages correctly show refresh button only when no media exists, show media grid when content is available

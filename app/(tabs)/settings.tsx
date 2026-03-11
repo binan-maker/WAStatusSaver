@@ -202,6 +202,9 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <SectionHeader title="Get Free Ads Access" />
+        <RewardAdButton variant="row" />
+
         <SectionHeader title="Help & Guide" />
         <View style={styles.section}>
           <SettingRow
@@ -283,7 +286,12 @@ export default function SettingsScreen() {
         onRequestClose={() => setShowLanguageModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.languageModal, { paddingTop: insets.top + SPACING.MD }]}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowLanguageModal(false)}
+          />
+          <View style={[styles.languageModal, { paddingTop: SPACING.MD }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Language</Text>
               <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
@@ -496,10 +504,15 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.XL,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   easterEggCard: {
     width: '100%',
@@ -555,8 +568,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito_700Bold',
   },
   languageModal: {
-    flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    maxHeight: '50%',
+    backgroundColor: COLORS.SURFACE,
+    borderTopLeftRadius: RADIUS.LG,
+    borderTopRightRadius: RADIUS.LG,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

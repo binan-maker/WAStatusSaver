@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 import COLORS from '@/constants/colors';
 import { ADMOB, RADIUS } from '@/constants/theme';
 import { ADS_ENABLED, AD_UNIT_IDS } from '@/constants/admob';
@@ -20,8 +21,9 @@ const adUnitId = __DEV__ ? TestIds.ADAPTIVE_BANNER : AD_UNIT_IDS.BANNER;
 export function AdBanner({ style, size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER }: AdBannerProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const { isFreeAds } = useFreeAdsState();
 
-  if (!ADS_ENABLED || Platform.OS === 'web') return null;
+  if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return null;
 
   return (
     <View style={[styles.container, style]}>
@@ -47,7 +49,9 @@ export function AdBanner({ style, size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER }
 }
 
 export function GridAd() {
-  if (!ADS_ENABLED || Platform.OS === 'web') return null;
+  const { isFreeAds } = useFreeAdsState();
+  
+  if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return null;
   
   return (
     <View style={styles.fullRowAdContainer}>
