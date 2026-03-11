@@ -424,8 +424,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // Share file only without caption
-      await Sharing.shareAsync(shareUri);
+      // Share file with caption message
+      const caption = 'Whtasapp Status Saver -  https://shorturl.at/j6l0B';
+      await Share.share({
+        url: shareUri,
+        message: caption,
+        title: 'Share Status',
+      });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
       console.error('Share error:', e);
