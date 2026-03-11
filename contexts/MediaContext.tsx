@@ -424,10 +424,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // CRITICAL: Use Sharing.shareAsync() - this is the ONLY method that reliably sends the actual file on Android
-      // Share.share() is broken - it only sends captions, not the file
-      // This method guarantees the media file is shared
-      await Sharing.shareAsync(shareUri);
+      // For WhatsApp: Send ONLY caption (users click link to download)
+      // For other apps: Send the actual media file
+      const caption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nhttps://shorturl.at/j6l0B';
+      
+      // Try to share caption-only with WhatsApp first
+      try {
+        await Share.share({
+          message: caption,
+          title: 'StatusVault',
+        });
+      } catch (e) {
+        // If caption-only fails, fall back to sharing the media file
+        await Sharing.shareAsync(shareUri);
+      }
       
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
