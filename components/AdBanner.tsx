@@ -5,7 +5,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 import COLORS from '@/constants/colors';
 import { ADMOB, RADIUS } from '@/constants/theme';
@@ -16,34 +16,43 @@ interface AdBannerProps {
   size?: BannerAdSize | string;
 }
 
-const adUnitId = __DEV__ ? TestIds.ADAPTIVE_BANNER : AD_UNIT_IDS.BANNER;
+const adUnitId = AD_UNIT_IDS.BANNER;
 
 export function AdBanner({ style, size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER }: AdBannerProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const { isFreeAds } = useFreeAdsState();
 
   if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return null;
 
+  const handleAdFailedToLoad = (err: any) => {
+    console.error('Banner ad failed to load: ', err);
+    if (retryCount < 2) {
+      setTimeout(() => setRetryCount(retryCount + 1), 5000);
+    } else {
+      setError(true);
+    }
+  };
+
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style]} key={`banner-${retryCount}`}>
       {!loaded && !error && (
         <View style={styles.placeholder}>
           <ActivityIndicator size="small" color={COLORS.PRIMARY} />
         </View>
       )}
-      <BannerAd
-        unitId={adUnitId}
-        size={size as BannerAdSize}
-        requestOptions={{
-          requestNonPersonalizedAdsOnly: true,
-        }}
-        onAdLoaded={() => setLoaded(true)}
-        onAdFailedToLoad={(err) => {
-          console.error('Banner ad failed to load: ', err);
-          setError(true);
-        }}
-      />
+      {!error && (
+        <BannerAd
+          unitId={adUnitId}
+          size={size as BannerAdSize}
+          requestOptions={{
+            requestNonPersonalizedAdsOnly: true,
+          }}
+          onAdLoaded={() => setLoaded(true)}
+          onAdFailedToLoad={handleAdFailedToLoad}
+        />
+      )}
     </View>
   );
 }

@@ -1,18 +1,21 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
-import { RewardedAd, RewardedAdEventType, TestIds, AdEventType } from 'react-native-google-mobile-ads';
+import { RewardedAd, RewardedAdEventType, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
 
-const adUnitId = __DEV__ ? TestIds.REWARDED : AD_UNIT_IDS.REWARDED;
+const adUnitId = AD_UNIT_IDS.REWARDED;
 
 // Persistent singleton state
 let globalRewardedAd: RewardedAd | null = null;
 let isLoaded = false;
 let isShowing = false;
+let loadRetries = 0;
+const MAX_RETRIES = 3;
 
 export function useRewardedAd() {
   const [loaded, setLoaded] = useState(isLoaded);
   const listenersRef = useRef<(() => void)[]>([]);
+  const loadTimeoutRef = useRef<NodeJS.Timeout>();
 
   const loadAd = useCallback(() => {
     if (globalRewardedAd || isShowing) return;
@@ -24,6 +27,7 @@ export function useRewardedAd() {
 
       globalRewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
         isLoaded = true;
+        loadRetries = 0;
         setLoaded(true);
       });
 
@@ -32,13 +36,18 @@ export function useRewardedAd() {
         globalRewardedAd = null;
         isLoaded = false;
         setLoaded(false);
-        // Retry after 30s
-        setTimeout(loadAd, 30000);
+        
+        loadRetries++;
+        if (loadRetries < MAX_RETRIES) {
+          const retryDelay = Math.min(5000 * Math.pow(2, loadRetries), 30000);
+          loadTimeoutRef.current = setTimeout(loadAd, retryDelay);
+        }
       });
 
       globalRewardedAd.load();
     } catch (e) {
       console.error('Error creating rewarded ad:', e);
+      globalRewardedAd = null;
     }
   }, []);
 
@@ -47,7 +56,9 @@ export function useRewardedAd() {
     if (!globalRewardedAd) loadAd();
     
     return () => {
-      // Clear local component state if needed, but keep global ad
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
     };
   }, [loadAd]);
 
@@ -77,13 +88,30 @@ export function useRewardedAd() {
           isLoaded = false;
           setLoaded(false);
           globalRewardedAd = null;
+          loadRetries = 0;
           loadAd(); // Preload next
           resolve(earnedReward);
         }
       );
 
+      const unsubscribeError = globalRewardedAd!.addAdEventListener(
+        AdEventType.ERROR,
+        (error) => {
+          console.error('Error showing rewarded ad:', error);
+          unsubscribeEarned();
+          unsubscribeClosed();
+          unsubscribeError();
+          isShowing = false;
+          globalRewardedAd = null;
+          resolve(false);
+        }
+      );
+
       globalRewardedAd!.show().catch(err => {
         console.error('Error showing rewarded ad:', err);
+        unsubscribeEarned();
+        unsubscribeClosed();
+        unsubscribeError();
         isShowing = false;
         resolve(false);
       });

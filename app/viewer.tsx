@@ -225,8 +225,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               player={player}
               style={styles.video}
               contentFit="contain"
-              nativeControls={true}
-              showsPlaybackControls={true}
+              nativeControls={false}
+              showsPlaybackControls={false}
             />
           ) : (
             <View style={styles.videoPlaceholder}>

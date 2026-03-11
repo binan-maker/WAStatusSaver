@@ -58,7 +58,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
             </LinearGradient>
             <View style={styles.content}>
               <Text style={styles.title}>Watch Ads</Text>
-              <Text style={styles.subtitle}>Free Ads for 5 Hours</Text>
+              <Text style={styles.subtitle}>Free Ads for 30 Minutes</Text>
               {isLoading && <ActivityIndicator color={COLORS.PRIMARY} size="small" style={styles.loader} />}
               {!isLoading && (
                 <TouchableOpacity
@@ -100,7 +100,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
             {isFreeAds ? 'Ads-Free Active' : 'Watch Ads for Free Access'}
           </Text>
           <Text style={styles.rowSubtitle}>
-            {isFreeAds ? `${formatTimeRemaining(timeRemaining)} remaining` : 'Get 24 hours ad-free'}
+            {isFreeAds ? `${formatTimeRemaining(timeRemaining)} remaining` : 'Get 30 minutes ad-free'}
           </Text>
         </View>
         {isLoading && <ActivityIndicator color={COLORS.TEXT} size="small" />}
@@ -135,10 +135,10 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
           />
           <View style={styles.fullText}>
             <Text style={[styles.fullTitle, isFreeAds && { color: COLORS.PRIMARY }]}>
-              {isFreeAds ? 'Ads-Free for 5 Hours' : 'Watch Ads - Free for 5 Hours'}
+              {isFreeAds ? 'Ads-Free for 30 Minutes' : 'Watch Ads - Free for 30 Minutes'}
             </Text>
             <Text style={[styles.fullSubtitle, isFreeAds && { color: COLORS.TEXT_SECONDARY }]}>
-              {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads for 5 hours'}
+              {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads for 30 minutes'}
             </Text>
           </View>
         </View>

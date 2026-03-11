@@ -1,37 +1,72 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
-import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
 
-const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : AD_UNIT_IDS.INTERSTITIAL;
+const adUnitId = AD_UNIT_IDS.INTERSTITIAL;
 
 let interstitial: InterstitialAd | null = null;
+let loadRetries = 0;
+const MAX_RETRIES = 3;
 
 export function useInterstitialAd() {
   const [loaded, setLoaded] = useState(false);
+  const loadTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (!ADS_ENABLED || Platform.OS === 'web') return;
 
     if (!interstitial) {
-      interstitial = InterstitialAd.createForAdRequest(adUnitId, {
-        requestNonPersonalizedAdsOnly: true,
-      });
+      const loadAd = () => {
+        if (interstitial) return;
+        
+        try {
+          interstitial = InterstitialAd.createForAdRequest(adUnitId, {
+            requestNonPersonalizedAdsOnly: true,
+          });
 
-      const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
-        setLoaded(true);
-      });
+          const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
+            loadRetries = 0;
+            setLoaded(true);
+          });
 
-      const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
-        setLoaded(false);
-        interstitial?.load();
-      });
+          const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+            setLoaded(false);
+            interstitial = null;
+            loadRetries = 0;
+            loadAd();
+          });
 
-      interstitial.load();
+          const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, (error) => {
+            console.error('Interstitial ad error:', error);
+            interstitial = null;
+            setLoaded(false);
+            loadRetries++;
+            if (loadRetries < MAX_RETRIES) {
+              const retryDelay = Math.min(5000 * Math.pow(2, loadRetries), 30000);
+              loadTimeoutRef.current = setTimeout(loadAd, retryDelay);
+            }
+          });
 
+          interstitial.load();
+
+          return () => {
+            unsubscribeLoaded();
+            unsubscribeClosed();
+            unsubscribeError();
+          };
+        } catch (e) {
+          console.error('Error creating interstitial ad:', e);
+          interstitial = null;
+        }
+      };
+
+      const cleanup = loadAd();
       return () => {
-        unsubscribeLoaded();
-        unsubscribeClosed();
+        cleanup?.();
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current);
+        }
       };
     }
   }, []);

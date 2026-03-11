@@ -54,3 +54,10 @@
 [x] 52. **LANGUAGE SELECTION HALF-PAGE MODAL:** Fixed language selection to show as bottom sheet (50% max height) with transparent background instead of full page
 [x] 53. **FIXED DOUBLE-CLICK NAVIGATION IN SAVED:** Added 300ms debounce to handlePress in SavedScreen to prevent multiple tap openings
 [x] 54. **REFRESH BUTTON LOGIC VERIFIED:** Home and Saved pages correctly show refresh button only when no media exists, show media grid when content is available
+[x] 55. **PRODUCTION ADS FIXED:** Removed all TestIds usage, switched to production ad unit IDs only for all ad types
+[x] 56. **AGGRESSIVE AD RETRY LOGIC:** Added exponential backoff retry (max 3 retries, 5s-30s delays) for all ad types (App Open, Rewarded, Interstitial, Banner)
+[x] 57. **COMPLETE ERROR HANDLING:** AdEventType.ERROR now properly handled in all ad hooks with retry logic instead of silent failures
+[x] 58. **VIDEO PLAYER CONTROLS REMOVED:** Removed native controls and playback controls from VideoView in viewer - only custom play/pause toggle
+[x] 59. **REWARD TIMER REDUCED:** Changed from 5 hours to 30 minutes for ad-free period
+[x] 60. **UI TEXT UPDATED:** All reward ad button text and labels updated to reflect 30 minutes instead of 5 hours
+[x] 61. **REMOVED DUPLICATE ADMOB COMPONENT:** Deleted unused AdAppOpen.tsx, kept single useAppOpenAd hook for app open ads
