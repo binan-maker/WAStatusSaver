@@ -56,8 +56,6 @@
           "supportsPictureInPicture": true
         }
       ],
-      "expo-audio",
-      "expo-web-browser",
       [
         "expo-navigation-bar",
         {
