@@ -8,38 +8,49 @@ import {
   Clipboard,
   Alert,
   Platform,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
+import { REFERRAL_TIERS, getRewardForInvites, getNextTier } from '@/constants/referral';
 
 export function ReferralCard() {
   const [referralCode, setReferralCode] = useState<string>('');
+  const [inviteCount, setInviteCount] = useState(0);
 
   useEffect(() => {
     const initReferralCode = async () => {
       try {
         let code = await AsyncStorage.getItem('referralCode');
         if (!code) {
-          // Generate unique code (first 6 chars of random UUID)
           code = 'REF' + Math.random().toString(36).substring(2, 8).toUpperCase();
           await AsyncStorage.setItem('referralCode', code);
         }
         setReferralCode(code);
+
+        const count = await AsyncStorage.getItem('inviteCount');
+        setInviteCount(count ? parseInt(count, 10) : 0);
       } catch (e) {
-        console.log('Failed to load referral code:', e);
+        console.log('Failed to load referral data:', e);
       }
     };
     initReferralCode();
   }, []);
 
   const referralLink = `https://play.google.com/store/apps/details?id=com.binan.statussaver&referrer=${referralCode}`;
+  const currentReward = getRewardForInvites(inviteCount);
+  const nextTier = getNextTier(inviteCount);
 
   const handleShare = async () => {
     try {
+      const message = currentReward
+        ? `Join me on StatusVault! 📱 I'm inviting you to get ${currentReward.label} of ad-free access!\n\nUse my code: ${referralCode}\n\n${referralLink}`
+        : `Join me on StatusVault - the best WhatsApp Status Saver! 📱\n\nUse my code: ${referralCode}\n\n${referralLink}`;
+
       await Share.share({
-        message: `Join me on StatusVault - the best WhatsApp Status Saver! 📱\n\nInvite Code: ${referralCode}\nGet 30 Days of FREE ADS! 🎁\n\nDownload: ${referralLink}`,
+        message,
         title: 'StatusVault - Invite Friends',
         url: Platform.OS === 'ios' ? referralLink : undefined,
       });
@@ -61,20 +72,38 @@ export function ReferralCard() {
     <View style={styles.container}>
       <View style={styles.card}>
         <View style={styles.header}>
-          <Ionicons name="people" size={24} color={COLORS.PRIMARY} />
-          <Text style={styles.title}>Invite Friends</Text>
+          <View style={styles.headerLeft}>
+            <Ionicons name="people" size={24} color={COLORS.PRIMARY} />
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Invite Friends</Text>
+              <Text style={styles.inviteCount}>{inviteCount} invites</Text>
+            </View>
+          </View>
+          {currentReward && <Text style={styles.badge}>{currentReward.icon}</Text>}
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.subtitle}>Share and Earn</Text>
-          <Text style={styles.description}>
-            Each friend you invite gets 30 days of free ads. You get 30 days free too!
-          </Text>
-
           <View style={styles.codeBox}>
-            <Text style={styles.codeLabel}>Your Referral Code</Text>
+            <Text style={styles.codeLabel}>Your Code</Text>
             <Text style={styles.code}>{referralCode}</Text>
           </View>
+
+          {nextTier ? (
+            <View style={styles.nextRewardBox}>
+              <Text style={styles.nextRewardLabel}>Next Tier</Text>
+              <Text style={styles.nextRewardValue}>
+                {nextTier.icon} {nextTier.label}
+              </Text>
+              <Text style={styles.nextRewardTarget}>
+                Invite {nextTier.invites - inviteCount} more
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.maxedBox}>
+              <Text style={styles.maxedText}>🏆 Maximum Tier!</Text>
+              <Text style={styles.maxedSubtext}>You've unlocked all rewards</Text>
+            </View>
+          )}
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
@@ -90,20 +119,19 @@ export function ReferralCard() {
               onPress={handleCopyLink}
             >
               <Ionicons name="link" size={18} color={COLORS.PRIMARY} />
-              <Text style={[styles.buttonText, { color: COLORS.PRIMARY }]}>Copy Link</Text>
+              <Text style={[styles.buttonText, { color: COLORS.PRIMARY }]}>Link</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.stats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Friends Invited</Text>
-              <Text style={styles.statValue}>0</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Free Ads Earned</Text>
-              <Text style={styles.statValue}>0 days</Text>
-            </View>
+          <View style={styles.tiers}>
+            {REFERRAL_TIERS.map((tier) => {
+              const unlocked = inviteCount >= tier.invites;
+              return (
+                <View key={tier.invites} style={[styles.tierBadge, unlocked && styles.tierBadgeUnlocked]}>
+                  <Text style={styles.tierBadgeText}>{tier.icon}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
       </View>
@@ -126,32 +154,36 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: SPACING.PADDING,
     paddingHorizontal: SPACING.PADDING,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.PRIMARY + '11',
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerText: {
+    marginLeft: SPACING.PADDING,
+  },
   title: {
     fontSize: FONT_SIZE.LARGE,
     fontWeight: '600',
     color: COLORS.TEXT,
-    marginLeft: SPACING.PADDING,
+  },
+  inviteCount: {
+    fontSize: FONT_SIZE.SMALL,
+    color: COLORS.TEXT_SECONDARY,
+    marginTop: 2,
+  },
+  badge: {
+    fontSize: 24,
   },
   content: {
     paddingHorizontal: SPACING.PADDING,
     paddingVertical: SPACING.PADDING,
-  },
-  subtitle: {
-    fontSize: FONT_SIZE.MEDIUM,
-    fontWeight: '600',
-    color: COLORS.PRIMARY,
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: FONT_SIZE.SMALL,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: SPACING.PADDING,
-    lineHeight: 20,
   },
   codeBox: {
     backgroundColor: COLORS.BACKGROUND,
@@ -172,6 +204,49 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.PRIMARY,
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+  },
+  nextRewardBox: {
+    backgroundColor: COLORS.PRIMARY + '11',
+    borderRadius: RADIUS.BUTTON,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.PADDING,
+    marginBottom: SPACING.PADDING,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '33',
+  },
+  nextRewardLabel: {
+    fontSize: FONT_SIZE.SMALL,
+    color: COLORS.TEXT_SECONDARY,
+    marginBottom: 4,
+  },
+  nextRewardValue: {
+    fontSize: FONT_SIZE.MEDIUM,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    marginBottom: 4,
+  },
+  nextRewardTarget: {
+    fontSize: FONT_SIZE.SMALL,
+    color: COLORS.TEXT_SECONDARY,
+  },
+  maxedBox: {
+    backgroundColor: '#4CAF50' + '11',
+    borderRadius: RADIUS.BUTTON,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.PADDING,
+    marginBottom: SPACING.PADDING,
+    borderWidth: 1,
+    borderColor: '#4CAF50' + '33',
+  },
+  maxedText: {
+    fontSize: FONT_SIZE.MEDIUM,
+    fontWeight: '700',
+    color: '#4CAF50',
+    marginBottom: 4,
+  },
+  maxedSubtext: {
+    fontSize: FONT_SIZE.SMALL,
+    color: COLORS.TEXT_SECONDARY,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -200,29 +275,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  stats: {
+  tiers: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     backgroundColor: COLORS.BACKGROUND,
     borderRadius: RADIUS.BUTTON,
     paddingVertical: 12,
-    paddingHorizontal: SPACING.PADDING,
+    paddingHorizontal: 8,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  divider: {
-    width: 1,
+  tierBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.TEXT_SECONDARY + '22',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statLabel: {
-    fontSize: FONT_SIZE.SMALL,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: 4,
+  tierBadgeUnlocked: {
+    backgroundColor: COLORS.PRIMARY,
   },
-  statValue: {
-    fontSize: FONT_SIZE.MEDIUM,
-    fontWeight: '700',
-    color: COLORS.PRIMARY,
+  tierBadgeText: {
+    fontSize: 16,
   },
 });

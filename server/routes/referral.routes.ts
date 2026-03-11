@@ -31,18 +31,38 @@ router.post('/verify', (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Missing parameters' });
     }
 
-    const success = ReferralService.verifyReferral(deviceId, inviterCode);
-    if (!success) {
-      return res.status(400).json({ success: false, message: 'Invalid referral code' });
+    const result = ReferralService.verifyReferral(deviceId, inviterCode);
+    if (!result.success) {
+      return res.status(400).json(result);
     }
+
+    return res.json(result);
+  } catch (e) {
+    console.error('Verify referral error:', e);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/referrals/track-open - Track first app open and grant reward
+router.post('/track-open', (req: Request, res: Response) => {
+  try {
+    const { deviceId } = req.body;
+    if (!deviceId) {
+      return res.status(400).json({ success: false, message: 'Device ID required' });
+    }
+
+    const { rewardGranted, days, inviterCode } = ReferralService.trackFirstAppOpen(deviceId);
 
     return res.json({
       success: true,
-      message: 'Referral verified',
-      adFreeUntil: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      rewardGranted,
+      days,
+      message: rewardGranted 
+        ? `Congratulations! ${days} days of ad-free access unlocked` 
+        : 'App open tracked',
     });
   } catch (e) {
-    console.error('Verify referral error:', e);
+    console.error('Track open error:', e);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
