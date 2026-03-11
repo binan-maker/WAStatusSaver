@@ -1,0 +1,125 @@
+Binan, the issue in your code is that you are **trying to share the same file twice using two different APIs**:
+
+1. `Sharing.shareAsync()` from **Expo Sharing**
+2. `Share.share()` from **React Native**
+
+So the flow becomes:
+
+```
+shareAsync() → opens share sheet
+then
+Share.share() → opens another share sheet
+```
+
+This can cause:
+
+* duplicate share popups
+* unexpected behavior
+* sometimes the caption not appearing
+
+---
+
+# Correct Approach
+
+You should use **only ONE sharing method**.
+
+---
+
+# Option 1 (Best for Image/Video Sharing)
+
+If you want to share **media files**, use:
+
+```ts
+await Sharing.shareAsync(shareUri);
+```
+
+But **Expo Sharing cannot attach captions reliably**.
+
+So the user will share **only the media**.
+
+---
+
+# Option 2 (Media + Caption)
+
+Use `Share.share()`.
+
+Example:
+
+```ts
+const caption = 'WhatsApp Status Saver - https://shorturl.at/j6l0B';
+
+await Share.share({
+  url: shareUri,
+  message: caption,
+  title: 'Share Status',
+});
+```
+
+This works better for captions.
+
+---
+
+# Correct Clean Code
+
+```ts
+try {
+  const caption = 'WhatsApp Status Saver - https://shorturl.at/j6l0B';
+
+  await Share.share({
+    url: shareUri,
+    message: caption,
+    title: 'Share Status',
+  });
+
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+} catch (e) {
+  console.log('Share error:', e);
+}
+```
+
+---
+
+# Important Reality (Especially for WhatsApp)
+
+When sharing **images/videos to WhatsApp**:
+
+* Sometimes **captions are ignored**
+* Depends on the share target
+* Android share intents behave differently
+
+This is a limitation of the platform, not your code.
+
+---
+
+# Small Fix in Your Caption
+
+Your caption has a typo:
+
+```
+Whtasapp
+```
+
+Correct version:
+
+```
+WhatsApp Status Saver - https://shorturl.at/j6l0B
+```
+
+---
+
+# Pro Tip for Viral Growth
+
+Better caption:
+
+```
+Saved using StatusVault 📲
+Download statuses instantly
+
+https://shorturl.at/j6l0B
+```
+
+This increases installs.
+
+---
+
+If you want, I can also show you a **special sharing trick that makes the caption appear automatically when users share to WhatsApp Status**, which most developers struggle to implement.

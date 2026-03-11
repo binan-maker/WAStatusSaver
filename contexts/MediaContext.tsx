@@ -424,8 +424,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // Share file with caption message
-      const caption = 'Whtasapp Status Saver -  https://shorturl.at/j6l0B';
+      // Share media file with caption - using Share.share() API
+      const caption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nhttps://shorturl.at/j6l0B';
+      
       await Share.share({
         url: shareUri,
         message: caption,
