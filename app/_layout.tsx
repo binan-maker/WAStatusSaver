@@ -117,28 +117,6 @@ export default function RootLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const appState = useRef(AppState.currentState);
 
-  // Initialize device ID and referral code
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        let deviceId = await AsyncStorage.getItem('deviceId');
-        if (!deviceId) {
-          deviceId = 'device_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-          await AsyncStorage.setItem('deviceId', deviceId);
-        }
-
-        let referralCode = await AsyncStorage.getItem('referralCode');
-        if (!referralCode) {
-          referralCode = 'REF' + Math.random().toString(36).substring(2, 8).toUpperCase();
-          await AsyncStorage.setItem('referralCode', referralCode);
-        }
-      } catch (e) {
-        console.error('App initialization error:', e);
-      }
-    };
-
-    initializeApp();
-  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {
