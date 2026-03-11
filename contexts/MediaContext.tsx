@@ -424,13 +424,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // Fixed caption - always included
-      const fixedCaption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nInstall here:\nhttps://shorturl.at/j6l0B';
-      
-      // Use React Native Share API for better WhatsApp compatibility
+      // Caption with download link
+      const shareMessage = 'Save Status WhatsApp Status Download App\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver';
+
+      // Share the file with caption and URL
       await Share.share({
         url: shareUri,
-        message: fixedCaption,
+        message: shareMessage,
         title: 'Share Status',
       });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

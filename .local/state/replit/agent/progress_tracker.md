@@ -97,3 +97,6 @@
 [x] 59. **REWARD TIMER REDUCED:** Changed from 5 hours to 30 minutes for ad-free period
 [x] 60. **UI TEXT UPDATED:** All reward ad button text and labels updated to reflect 30 minutes instead of 5 hours
 [x] 61. **REMOVED DUPLICATE ADMOB COMPONENT:** Deleted unused AdAppOpen.tsx, kept single useAppOpenAd hook for app open ads
+[x] 62. **FIXED IMAGE/VIDEO SHARING:** Images and videos now share properly using React Native Share API with file URI and caption
+[x] 63. **UPDATED SHARE CAPTION:** Changed caption to "Save Status WhatsApp Status Download App\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver"
+[x] 64. **FIXED LANGUAGE PAGE HEADER:** Made the subtitle "Choose your preferred language" smaller (fontSize: 11) to reduce double heading appearance

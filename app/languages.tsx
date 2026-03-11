@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerSub: {
-    fontSize: FONT_SIZE.SMALL,
+    fontSize: 11,
     color: COLORS.TEXT_SECONDARY,
   },
   languageList: {
