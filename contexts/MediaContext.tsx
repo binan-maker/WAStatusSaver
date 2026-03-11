@@ -12,6 +12,7 @@ import { Platform, Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY } from '@/constants/admob';
 
@@ -425,9 +426,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
+        // Enhanced share with app branding
+        const appMessage = '\n\n📱 Saved with StatusVault - WhatsApp Status Saver\nDownload: https://play.google.com/store/apps/details?id=com.binan.statussaver';
+        
         await Sharing.shareAsync(shareUri, {
           mimeType: item.type === 'video' ? 'video/*' : 'image/*',
           dialogTitle: 'Share via...',
+          UTI: item.type === 'video' ? 'public.movie' : 'public.image',
+          message: Platform.OS === 'android' ? appMessage : undefined,
         });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
