@@ -424,13 +424,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         shareUri = tempUri;
       }
 
-      // Use Sharing API which properly handles file sharing on Android
-      // This ensures the actual media file is shared, not just the caption
-      const mimeType = item.type === 'image' ? 'image/*' : 'video/*';
+      // Share with both file and caption using file:// URIs
+      const caption = 'Saved using StatusVault 📲\nDownload statuses instantly\n\nhttps://shorturl.at/j6l0B';
       
-      await Sharing.shareAsync(shareUri, {
-        mimeType: mimeType,
-        UTType: item.type === 'image' ? 'public.image' : 'public.movie',
+      // Ensure file:// protocol for proper Android sharing
+      const fileUri = shareUri.startsWith('file://') ? shareUri : `file://${shareUri}`;
+      
+      await Share.share({
+        url: fileUri,
+        message: caption,
+        title: 'Share Status',
       });
       
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
