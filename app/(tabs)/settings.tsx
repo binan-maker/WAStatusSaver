@@ -21,7 +21,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import { SupportDeveloperAd } from '@/components/SupportDeveloperAd';
-import * as Sharing from 'expo-sharing';
+import { Share } from 'react-native';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
@@ -87,8 +87,10 @@ export default function SettingsScreen() {
 
   const handleShareApp = async () => {
     try {
-      await Sharing.shareAsync('https://play.google.com/store/apps/details?id=com.binan.statussaver', {
-        dialogTitle: 'Share StatusVault',
+      await Share.share({
+        message: 'Check out StatusVault - Save WhatsApp Statuses instantly!\n\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver',
+        title: 'Share StatusVault',
+        url: Platform.OS === 'ios' ? 'https://play.google.com/store/apps/details?id=com.binan.statussaver' : undefined,
       });
     } catch (e) {
       console.log('Share error:', e);

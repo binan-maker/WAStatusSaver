@@ -16,24 +16,23 @@ import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 export function SupportDeveloperAd() {
   const { loaded, showAd } = useRewardedAd('ca-app-pub-8785278012936203/8714198841');
   const [isLoading, setIsLoading] = useState(false);
-  const [thankYouShown, setThankYouShown] = useState(false);
+  const [watchCompleted, setWatchCompleted] = useState(false);
 
   const handleWatchAd = async () => {
-    if (isLoading || !loaded) return;
+    if (isLoading || !loaded || watchCompleted) return;
     
     setIsLoading(true);
     try {
       const rewarded = await showAd();
       if (rewarded) {
-        setThankYouShown(true);
-        // Show emotional thank you message
+        setWatchCompleted(true);
+        // Show emotional thank you message ONLY after watching
         Alert.alert(
           '🙏 Thank You!',
           'Your support means so much to us! This helps us keep building amazing features for StatusVault.\n\nYou\'ve made a real difference today.',
           [
             {
               text: 'Close',
-              onPress: () => setThankYouShown(false),
               style: 'default',
             },
           ]
@@ -70,13 +69,13 @@ export function SupportDeveloperAd() {
 
         <TouchableOpacity
           onPress={handleWatchAd}
-          disabled={!loaded || isLoading || thankYouShown}
-          style={[styles.button, (!loaded || isLoading || thankYouShown) && styles.buttonDisabled]}
+          disabled={!loaded || isLoading || watchCompleted}
+          style={[styles.button, (isLoading || watchCompleted) && styles.buttonDisabled]}
           activeOpacity={0.8}
         >
           <LinearGradient
             colors={
-              thankYouShown
+              watchCompleted
                 ? [COLORS.PRIMARY + '44', COLORS.PRIMARY + '33']
                 : [COLORS.ACCENT_GOLD, COLORS.ACCENT_GOLD + 'dd']
             }
@@ -87,16 +86,16 @@ export function SupportDeveloperAd() {
             {isLoading && <ActivityIndicator color="#fff" size="small" style={styles.loader} />}
             {!isLoading && (
               <>
-                <MaterialCommunityIcons name="play-circle" size={18} color="#fff" />
+                <MaterialCommunityIcons name={watchCompleted ? 'check-circle' : 'play-circle'} size={18} color="#fff" />
                 <Text style={styles.buttonText}>
-                  {thankYouShown ? 'Thank You!' : loaded ? 'Watch Ad' : 'Loading...'}
+                  {watchCompleted ? 'Thank You!' : loaded ? 'Watch Ad' : 'Loading...'}
                 </Text>
               </>
             )}
           </LinearGradient>
         </TouchableOpacity>
 
-        {thankYouShown && (
+        {watchCompleted && (
           <View style={styles.thankYouBox}>
             <MaterialCommunityIcons name="check-circle" size={20} color={COLORS.PRIMARY} />
             <Text style={styles.thankYouText}>Thanks for supporting us!</Text>

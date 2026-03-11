@@ -20,10 +20,24 @@ export default function LanguagesScreen() {
   const { language, setLanguage } = useLanguage();
   const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
 
-  const languageList = Object.entries(LANGUAGES).map(([code, name]) => ({
-    code,
-    name,
-    flag: code === 'en' ? '🇬🇧' : code === 'es' ? '🇪🇸' : code === 'fr' ? '🇫🇷' : code === 'de' ? '🇩🇪' : code === 'hi' ? '🇮🇳' : '🌐',
+  const flagMap: { [key: string]: string } = {
+    en: '🇬🇧',
+    es: '🇪🇸',
+    fr: '🇫🇷',
+    de: '🇩🇪',
+    hi: '🇮🇳',
+    ml: '🇮🇳',
+    ru: '🇷🇺',
+    pt: '🇵🇹',
+    ja: '🇯🇵',
+    ar: '🇸🇦',
+  };
+
+  const languageList = LANGUAGES.map((lang) => ({
+    code: lang.code,
+    name: lang.name,
+    nativeName: lang.nativeName,
+    flag: flagMap[lang.code] || '🌐',
   }));
 
   return (
@@ -51,15 +65,16 @@ export default function LanguagesScreen() {
                 styles.languageItem,
                 language === lang.code && styles.languageItemActive,
               ]}
-              onPress={() => setLanguage(lang.code as keyof typeof LANGUAGES)}
+              onPress={() => setLanguage(lang.code)}
               activeOpacity={0.7}
             >
               <View style={styles.languageItemLeft}>
                 <Text style={styles.languageFlag}>{lang.flag}</Text>
                 <View style={styles.languageInfo}>
                   <Text style={[styles.languageName, language === lang.code && styles.languageNameActive]}>
-                    {lang.name}
+                    {lang.nativeName}
                   </Text>
+                  <Text style={styles.languageSubtext}>{lang.name}</Text>
                 </View>
               </View>
               {language === lang.code && (
@@ -155,6 +170,11 @@ const styles = StyleSheet.create({
   languageNameActive: {
     color: COLORS.PRIMARY,
     fontWeight: '700',
+  },
+  languageSubtext: {
+    fontSize: FONT_SIZE.SMALL,
+    color: COLORS.TEXT_SECONDARY,
+    marginTop: 2,
   },
   checkmark: {
     marginLeft: 12,
