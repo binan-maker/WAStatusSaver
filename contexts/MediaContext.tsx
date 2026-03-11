@@ -116,6 +116,24 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [imageSwipeCount, setImageSwipeCount] = useState(0);
   const [showInterstitial, setShowInterstitial] = useState(false);
   const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
+  const swipeCountRef = useRef<number>(0);
+  
+  // Load swipe count from AsyncStorage on mount
+  useEffect(() => {
+    const loadSwipeCount = async () => {
+      try {
+        const saved = await AsyncStorage.getItem('swipeCountForAds');
+        if (saved) {
+          const count = parseInt(saved, 10);
+          swipeCountRef.current = count;
+          setImageSwipeCount(count);
+        }
+      } catch (e) {
+        console.log('Failed to load swipe count:', e);
+      }
+    };
+    loadSwipeCount();
+  }, []);
 
   const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
 
@@ -434,10 +452,19 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const onImageSwipe = useCallback(() => {
     const newCount = imageSwipeCount + 1;
     setImageSwipeCount(newCount);
-    // Show interstitial every 15 swipes
-    if (newCount >= 15) {
+    swipeCountRef.current = newCount;
+    
+    // Show interstitial every 7-10 swipes (randomized)
+    const adFrequency = Math.floor(Math.random() * 4) + 7; // 7-10
+    if (newCount >= adFrequency) {
       setShowInterstitial(true);
       setImageSwipeCount(0);
+      swipeCountRef.current = 0;
+      // Persist to AsyncStorage
+      AsyncStorage.setItem('swipeCountForAds', '0').catch(() => {});
+    } else {
+      // Persist current count
+      AsyncStorage.setItem('swipeCountForAds', String(newCount)).catch(() => {});
     }
   }, [imageSwipeCount]);
 

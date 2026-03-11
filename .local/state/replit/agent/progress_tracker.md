@@ -3,6 +3,7 @@
 [x] 3. Verify the project is working using the feedback tool
 [x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
 [x] Migration complete - tsx, expo, esbuild packages installed; Start Backend (port 5000) and Start Frontend (port 8081) workflows both running successfully
+[x] STEP 1 - INTERSTITIAL ADS ON 7-10 SWIPES: Implemented swipe tracking with AsyncStorage persistence; ads show every 7-10 swipes (randomized) in image/video viewer
 [x] 5. Fixed blank media issue on Android 11+ and swiping in saved page by improving SAF caching and viewer item URI handling.
 [x] 46. **FIXED PERMISSION LOADING BUG:** Auto-load statuses immediately after permission grant instead of waiting for screen refresh
 [x] 47. **AUTO-GUIDED SAF SELECTION:** Enhanced guide overlay with crystal-clear instructions showing users exactly which button to tap ("USE THIS FOLDER" or "ALLOW"). Auto-opens file picker at Android > Media folder destination.
