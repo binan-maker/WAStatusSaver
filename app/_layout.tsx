@@ -23,7 +23,6 @@ import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
 import COLORS from '@/constants/colors';
-import { v4 as uuidv4 } from 'uuid';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -124,7 +123,7 @@ export default function RootLayout() {
       try {
         let deviceId = await AsyncStorage.getItem('deviceId');
         if (!deviceId) {
-          deviceId = uuidv4();
+          deviceId = 'device_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
           await AsyncStorage.setItem('deviceId', deviceId);
         }
 
