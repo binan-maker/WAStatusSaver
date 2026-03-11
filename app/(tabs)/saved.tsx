@@ -94,7 +94,6 @@ export default function SavedScreen() {
 
   return (
     <View style={styles.root}>
-      <ReferralHeader compact={true} />
       <View style={[styles.header, { paddingTop: headerPaddingTop + 6 }]}>
         <View style={styles.headerTop}>
           <View>

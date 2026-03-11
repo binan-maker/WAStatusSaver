@@ -20,8 +20,6 @@ import { useMedia } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
-import { NotificationToggle } from '@/components/NotificationToggle';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
@@ -84,22 +82,6 @@ export default function SettingsScreen() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
-  const [inviteCount, setInviteCount] = useState(0);
-  const [referralCode, setReferralCode] = useState('');
-
-  useEffect(() => {
-    const loadReferralData = async () => {
-      try {
-        const code = await AsyncStorage.getItem('referralCode');
-        const count = await AsyncStorage.getItem('inviteCount');
-        if (code) setReferralCode(code);
-        if (count) setInviteCount(parseInt(count, 10));
-      } catch (e) {
-        console.log('Failed to load referral data:', e);
-      }
-    };
-    loadReferralData();
-  }, []);
 
   const handleVersionPress = () => {
     const newCount = versionClickCount + 1;
@@ -219,34 +201,6 @@ export default function SettingsScreen() {
             />
           )}
         </View>
-
-        <SectionHeader title="Referral & Rewards" />
-        <View style={styles.section}>
-          <SettingRow
-            icon="people-outline"
-            iconBg={COLORS.PRIMARY + '22'}
-            label="Your Referral Code"
-            value={referralCode}
-            showArrow={false}
-          />
-          <SettingRow
-            icon="star-outline"
-            iconBg={COLORS.ACCENT_GOLD + '22'}
-            label="Friends Invited"
-            value={`${inviteCount}`}
-            showArrow={false}
-          />
-          <SettingRow
-            icon="gift-outline"
-            iconBg={COLORS.PRIMARY + '22'}
-            label="Share & Earn"
-            sublabel="Invite friends and get up to 1 year ad-free"
-            showArrow={false}
-          />
-        </View>
-
-        <SectionHeader title="Notifications & Preferences" />
-        <NotificationToggle />
 
         <SectionHeader title="Get Free Ads Access" />
         <RewardAdButton variant="row" />

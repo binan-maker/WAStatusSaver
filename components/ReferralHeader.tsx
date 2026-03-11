@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Share, Clipboard, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Share,
+  Clipboard,
+  Alert,
+  LinearGradient,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
-interface ReferralHeaderProps {
-  compact?: boolean;
-}
-
-export function ReferralHeader({ compact = false }: ReferralHeaderProps) {
+export function ReferralHeader() {
   const [inviteCount, setInviteCount] = useState(0);
   const [referralCode, setReferralCode] = useState('');
 
@@ -43,69 +48,136 @@ export function ReferralHeader({ compact = false }: ReferralHeaderProps) {
   const handleCopyLink = async () => {
     try {
       await Clipboard.setString(referralLink);
-      Alert.alert('Copied!', 'Referral link copied');
+      Alert.alert('Copied!', 'Referral link copied to clipboard');
     } catch (e) {
       console.log('Copy error:', e);
     }
   };
 
-  if (compact) {
-    return (
-      <View style={styles.compactContainer}>
-        <View style={styles.compactContent}>
-          <View>
-            <Text style={styles.compactInvites}>Your Invites: {inviteCount}</Text>
-            <Text style={styles.compactText}>Add A Friend to Enjoy 3 Days Ads Free</Text>
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[COLORS.PRIMARY + '15', COLORS.PRIMARY + '08']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        <View style={styles.header}>
+          <View style={styles.titleSection}>
+            <Text style={styles.inviteCount}>{inviteCount}</Text>
+            <Text style={styles.label}>Your Invites</Text>
           </View>
-          <View style={styles.compactButtons}>
-            <TouchableOpacity onPress={handleShare} style={styles.compactBtn}>
-              <Ionicons name="share-social" size={16} color={COLORS.PRIMARY} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleCopyLink} style={styles.compactBtn}>
-              <Ionicons name="link" size={16} color={COLORS.PRIMARY} />
-            </TouchableOpacity>
-          </View>
+          <View style={styles.glowOrb} />
         </View>
-      </View>
-    );
-  }
 
-  return null;
+        <Text style={styles.message}>Add A Friend to Enjoy 3 Days Ads Free</Text>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity onPress={handleShare} style={[styles.button, styles.shareButton]}>
+            <LinearGradient
+              colors={[COLORS.PRIMARY, COLORS.PRIMARY + 'dd']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.buttonGradient}
+            >
+              <Ionicons name="share-social" size={18} color="#fff" />
+              <Text style={styles.buttonText}>Share</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleCopyLink} style={[styles.button, styles.linkButton]}>
+            <Ionicons name="link" size={18} color={COLORS.PRIMARY} />
+            <Text style={styles.linkText}>Copy Link</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  compactContainer: {
+  container: {
     paddingHorizontal: SPACING.PADDING,
-    paddingVertical: 12,
-    backgroundColor: COLORS.SURFACE + '80',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.PRIMARY + '11',
+    paddingVertical: 16,
   },
-  compactContent: {
+  card: {
+    borderRadius: RADIUS.CARD,
+    paddingHorizontal: SPACING.PADDING,
+    paddingVertical: SPACING.PADDING,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '22',
+    overflow: 'hidden',
+  },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  compactInvites: {
-    fontSize: FONT_SIZE.MEDIUM,
-    fontWeight: '700',
+  titleSection: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  inviteCount: {
+    fontSize: 36,
+    fontWeight: '800',
     color: COLORS.PRIMARY,
-    marginBottom: 2,
+    lineHeight: 40,
   },
-  compactText: {
+  label: {
     fontSize: FONT_SIZE.SMALL,
     color: COLORS.TEXT_SECONDARY,
+    fontWeight: '500',
+    marginTop: 2,
   },
-  compactButtons: {
+  glowOrb: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.PRIMARY + '22',
+    opacity: 0.6,
+  },
+  message: {
+    fontSize: FONT_SIZE.MEDIUM,
+    fontWeight: '600',
+    color: COLORS.TEXT,
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  buttonContainer: {
     flexDirection: 'row',
     gap: 12,
   },
-  compactBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.PRIMARY + '22',
+  button: {
+    flex: 1,
+    borderRadius: RADIUS.BUTTON,
+    overflow: 'hidden',
+  },
+  shareButton: {
+    flex: 1.2,
+  },
+  buttonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: FONT_SIZE.MEDIUM,
+    fontWeight: '700',
+  },
+  linkButton: {
+    backgroundColor: COLORS.PRIMARY + '15',
+    borderWidth: 1.5,
+    borderColor: COLORS.PRIMARY + '44',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  linkText: {
+    color: COLORS.PRIMARY,
+    fontSize: FONT_SIZE.MEDIUM,
+    fontWeight: '700',
   },
 });

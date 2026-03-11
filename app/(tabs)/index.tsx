@@ -23,8 +23,6 @@ import { AdInterstitial } from '@/components/AdInterstitial';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
 import { RewardAdButton } from '@/components/RewardAdButton';
-import { ReferralCard } from '@/components/ReferralCard';
-import { ReferralProgressBar } from '@/components/ReferralProgressBar';
 import { ReferralHeader } from '@/components/ReferralHeader';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
@@ -298,8 +296,6 @@ export default function StatusesScreen() {
         videoCnt={videoCnt}
       />
 
-      <ReferralHeader compact={true} />
-
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -310,8 +306,7 @@ export default function StatusesScreen() {
         style={styles.listArea}
       >
         <View style={{ width: SW }}>
-          <ReferralCard />
-          <ReferralProgressBar inviteCount={0} compact={true} />
+          <ReferralHeader />
           {isLoading ? (
             <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
           ) : statuses.filter(s => s.type === 'image').length === 0 ? (
