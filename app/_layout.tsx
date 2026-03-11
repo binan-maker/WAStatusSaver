@@ -22,7 +22,10 @@ import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useReferralVerification } from '@/hooks/useReferralVerification';
 import COLORS from '@/constants/colors';
+import { v4 as uuidv4 } from 'uuid';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -100,8 +103,10 @@ function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
 }
 
 export default function RootLayout() {
-  // Initialize app open ads
+  // Initialize app open ads, notifications, and referral system
   useAppOpenAd();
+  useNotifications();
+  useReferralVerification();
 
   const { showAd: showInterstitial } = useInterstitialAd();
   const [interstitialShown, setInterstitialShown] = useState(false);
@@ -116,6 +121,29 @@ export default function RootLayout() {
   const [splashHidden, setSplashHidden] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const appState = useRef(AppState.currentState);
+
+  // Initialize device ID and referral code
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        let deviceId = await AsyncStorage.getItem('deviceId');
+        if (!deviceId) {
+          deviceId = uuidv4();
+          await AsyncStorage.setItem('deviceId', deviceId);
+        }
+
+        let referralCode = await AsyncStorage.getItem('referralCode');
+        if (!referralCode) {
+          referralCode = 'REF' + Math.random().toString(36).substring(2, 8).toUpperCase();
+          await AsyncStorage.setItem('referralCode', referralCode);
+        }
+      } catch (e) {
+        console.error('App initialization error:', e);
+      }
+    };
+
+    initializeApp();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {
