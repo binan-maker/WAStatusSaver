@@ -23,7 +23,6 @@ import { useFirebaseAuth } from '@/contexts/AuthContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/SubscriptionPlansCard';
-import { SupportDeveloperAd } from '@/components/SupportDeveloperAd';
 import { Share } from 'react-native';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
@@ -84,7 +83,7 @@ export default function SettingsScreen() {
     requestSAF,
   } = useMedia();
   const { language, setLanguage, t } = useLanguage();
-  const { user, signInWithGoogle, signOut } = useFirebaseAuth();
+  const { user, signInWithGoogle, signOut, deleteAccount } = useFirebaseAuth();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -118,6 +117,34 @@ export default function SettingsScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: signOut },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Your account and all associated data will be permanently deleted after 30 days. During this period you can cancel by signing in again.\n\nThis action cannot be undone after 30 days.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Your subscription, referral history, and all account data will be erased permanently after 30 days.',
+              [
+                { text: 'Go Back', style: 'cancel' },
+                {
+                  text: 'Yes, Delete',
+                  style: 'destructive',
+                  onPress: deleteAccount,
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const deviceName = Device.modelName || Device.deviceName || 'Unknown Device';
@@ -284,8 +311,6 @@ export default function SettingsScreen() {
         <SectionHeader title="Subscription" />
         <SubscriptionPlansCard />
 
-        <SupportDeveloperAd />
-
         <SectionHeader title="Share" />
         <View style={styles.section}>
           <SettingRow
@@ -335,10 +360,19 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <SettingRow
                 icon="log-out-outline"
+                iconBg={COLORS.ERROR + '18'}
                 danger
                 label="Sign Out"
                 sublabel={user.email || 'Signed in with Google'}
                 onPress={handleSignOut}
+              />
+              <SettingRow
+                icon="trash-outline"
+                iconBg={COLORS.ERROR + '18'}
+                danger
+                label="Delete Account"
+                sublabel="Permanently deleted after 30 days"
+                onPress={handleDeleteAccount}
               />
             </View>
           </>
@@ -379,6 +413,13 @@ export default function SettingsScreen() {
             onPress={handleClearCache}
           />
         </View>
+
+        {user && (
+          <TouchableOpacity style={styles.signOutBottomBtn} onPress={handleSignOut} activeOpacity={0.8}>
+            <Ionicons name="log-out-outline" size={18} color={COLORS.ERROR} />
+            <Text style={styles.signOutBottomText}>Sign Out</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.footer}>
           <MaterialCommunityIcons name="shield-check" size={28} color={COLORS.PRIMARY} />
@@ -686,6 +727,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Nunito_400Regular',
     marginTop: SPACING.SM,
+  },
+  signOutBottomBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.SM,
+    marginTop: SPACING.LG,
+    marginBottom: SPACING.SM,
+    backgroundColor: COLORS.ERROR + '15',
+    borderRadius: RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.ERROR + '33',
+    paddingVertical: SPACING.MD,
+  },
+  signOutBottomText: {
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '700',
+    color: COLORS.ERROR,
+    fontFamily: 'Nunito_700Bold',
   },
   modalOverlay: {
     flex: 1,

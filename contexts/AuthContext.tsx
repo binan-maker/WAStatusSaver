@@ -12,6 +12,7 @@ type AuthContextValue = {
   configured: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
 };
 
@@ -107,6 +108,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await GoogleSignin.signOut();
         } catch {}
+      }
+    },
+    deleteAccount: async () => {
+      if (!user || !auth) return;
+      try {
+        const idToken = await user.getIdToken();
+        const baseUrl = process.env.EXPO_PUBLIC_DOMAIN
+          ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+          : "http://localhost:5000";
+        await fetch(`${baseUrl}/api/users/delete-account`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${idToken}` },
+        }).catch(() => {});
+        await firebaseSignOut(auth);
+        try {
+          await GoogleSignin.signOut();
+        } catch {}
+      } catch {
+        await firebaseSignOut(auth).catch(() => {});
+        try { await GoogleSignin.signOut(); } catch {}
       }
     },
     getIdToken: async () => {
