@@ -9,7 +9,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 import COLORS from "@/constants/colors";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
@@ -31,12 +32,25 @@ export default function SignInScreen() {
     }
   };
 
+  const canGoBack = router.canGoBack();
+
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + SPACING.LG }]}>
       <LinearGradient
         colors={["#05070A", "#0A1020", "#05070A"]}
         style={StyleSheet.absoluteFill}
       />
+
+      <TouchableOpacity
+        style={[styles.skipBtn, { top: insets.top + 8 }]}
+        onPress={() => {
+          if (canGoBack) router.back();
+          else router.replace('/(tabs)');
+        }}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="close" size={20} color={COLORS.TEXT_SECONDARY} />
+      </TouchableOpacity>
 
       <View style={styles.top}>
         <View style={styles.logoWrap}>
@@ -141,6 +155,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.BACKGROUND,
     paddingHorizontal: SPACING.XL,
     justifyContent: "space-between",
+  },
+  skipBtn: {
+    position: "absolute",
+    top: 16,
+    right: SPACING.XL,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.SURFACE_2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   top: {
     alignItems: "center",

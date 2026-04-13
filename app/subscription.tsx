@@ -25,7 +25,7 @@ export default function SubscriptionScreen() {
 
   const handlePay = async (planId: SubscriptionPlanId) => {
     if (!configured) {
-      Alert.alert("Setup required", "Add Firebase and Google OAuth values from .env.example before taking payments.");
+      Alert.alert("Setup required", "Add Firebase and Google OAuth values to your .env file before taking payments.");
       return;
     }
 

@@ -59,13 +59,7 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
 
     const inAuthGroup = segments[0] === 'signin';
 
-    if (!configured) {
-      return;
-    }
-
-    if (!user && !inAuthGroup) {
-      router.replace('/signin');
-    } else if (user && inAuthGroup) {
+    if (user && inAuthGroup) {
       if (showOnboarding) {
         router.replace('/onboarding');
       } else {

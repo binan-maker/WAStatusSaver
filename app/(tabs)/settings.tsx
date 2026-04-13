@@ -9,6 +9,7 @@ import {
   Linking,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,7 @@ import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useFirebaseAuth } from '@/contexts/AuthContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/SubscriptionPlansCard';
@@ -47,10 +49,10 @@ function SettingRow({ icon, iconBg, label, sublabel, value, onPress, showArrow =
       disabled={!onPress}
     >
       <View style={[styles.settingIcon, { backgroundColor: iconBg || COLORS.SURFACE_2 }]}>
-        <Ionicons name={icon} size={18} color={danger ? COLORS.ACCENT_RED : COLORS.TEXT} />
+        <Ionicons name={icon} size={18} color={danger ? COLORS.ERROR : COLORS.TEXT} />
       </View>
       <View style={styles.settingInfo}>
-        <Text style={[styles.settingLabel, danger && { color: COLORS.ACCENT_RED }]}>{label}</Text>
+        <Text style={[styles.settingLabel, danger && { color: COLORS.ERROR }]}>{label}</Text>
         {sublabel && <Text style={styles.settingSubLabel}>{sublabel}</Text>}
       </View>
       {value ? (
@@ -82,6 +84,7 @@ export default function SettingsScreen() {
     requestSAF,
   } = useMedia();
   const { language, setLanguage, t } = useLanguage();
+  const { user, signInWithGoogle, signOut } = useFirebaseAuth();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -108,6 +111,13 @@ export default function SettingsScreen() {
       setVersionClickCount(newCount);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: signOut },
+    ]);
   };
 
   const deviceName = Device.modelName || Device.deviceName || 'Unknown Device';
@@ -137,7 +147,22 @@ export default function SettingsScreen() {
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
         style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
       >
-        <Text style={styles.headerTitle}>{t('settings')}</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>{t('settings')}</Text>
+          <TouchableOpacity
+            style={styles.signInBtn}
+            onPress={user ? handleSignOut : signInWithGoogle}
+            activeOpacity={0.8}
+          >
+            {user?.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.profileAvatar} />
+            ) : (
+              <View style={styles.signInIconWrap}>
+                <Ionicons name={user ? 'person' : 'person-outline'} size={18} color={user ? COLORS.PRIMARY : COLORS.TEXT_SECONDARY} />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
       <ScrollView
@@ -145,6 +170,42 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 70 }]}
         showsVerticalScrollIndicator={false}
       >
+        {user && (
+          <View style={styles.profileCard}>
+            {user.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.profileCardAvatar} />
+            ) : (
+              <View style={styles.profileCardAvatarPlaceholder}>
+                <Ionicons name="person" size={28} color={COLORS.PRIMARY} />
+              </View>
+            )}
+            <View style={styles.profileCardInfo}>
+              <Text style={styles.profileCardName} numberOfLines={1}>
+                {user.displayName || 'User'}
+              </Text>
+              <Text style={styles.profileCardEmail} numberOfLines={1}>
+                {user.email || ''}
+              </Text>
+            </View>
+            <View style={styles.profileBadge}>
+              <MaterialCommunityIcons name="google" size={14} color={COLORS.PRIMARY} />
+            </View>
+          </View>
+        )}
+
+        {!user && (
+          <TouchableOpacity style={styles.signInCard} onPress={signInWithGoogle} activeOpacity={0.85}>
+            <View style={styles.signInCardIcon}>
+              <MaterialCommunityIcons name="google" size={20} color={COLORS.PRIMARY} />
+            </View>
+            <View style={styles.signInCardInfo}>
+              <Text style={styles.signInCardTitle}>Sign in with Google</Text>
+              <Text style={styles.signInCardSub}>Sync your subscription across devices</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.TEXT_MUTED} />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
@@ -268,6 +329,21 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {user && (
+          <>
+            <SectionHeader title="Account" />
+            <View style={styles.section}>
+              <SettingRow
+                icon="log-out-outline"
+                danger
+                label="Sign Out"
+                sublabel={user.email || 'Signed in with Google'}
+                onPress={handleSignOut}
+              />
+            </View>
+          </>
+        )}
+
         <SectionHeader title="About" />
         <View style={styles.section}>
           <SettingRow
@@ -375,11 +451,126 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.LG,
     paddingBottom: SPACING.LG,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   headerTitle: {
     fontSize: 26,
     fontWeight: '800',
     color: COLORS.TEXT,
     fontFamily: 'Nunito_800ExtraBold',
+  },
+  signInBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: COLORS.PRIMARY,
+  },
+  signInIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.SURFACE_2,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    padding: SPACING.MD,
+    marginBottom: SPACING.SM,
+    gap: SPACING.MD,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '33',
+  },
+  profileCardAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: COLORS.PRIMARY,
+  },
+  profileCardAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.PRIMARY + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.PRIMARY + '44',
+  },
+  profileCardInfo: {
+    flex: 1,
+  },
+  profileCardName: {
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '700',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
+  },
+  profileCardEmail: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+    marginTop: 2,
+  },
+  profileBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.PRIMARY + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    padding: SPACING.MD,
+    marginBottom: SPACING.SM,
+    gap: SPACING.MD,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  signInCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.PRIMARY + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signInCardInfo: {
+    flex: 1,
+  },
+  signInCardTitle: {
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
+  },
+  signInCardSub: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+    marginTop: 2,
   },
   scroll: {
     flex: 1,

@@ -1,12 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Alert, Platform } from "react-native";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { GoogleAuthProvider, User, onAuthStateChanged, signInWithCredential, signOut as firebaseSignOut } from "firebase/auth";
 import { appConfig, isFirebaseClientConfigured, isGoogleAuthConfigured } from "@/lib/app-config";
 import { getFirebaseClientAuth } from "@/lib/firebase-client";
-
-WebBrowser.maybeCompleteAuthSession();
 
 type AuthContextValue = {
   user: User | null;
@@ -24,10 +21,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const configured = Boolean(auth && isFirebaseClientConfigured() && isGoogleAuthConfigured());
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(Boolean(auth));
-  const [, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: appConfig.google.webClientId,
-    androidClientId: appConfig.google.androidClientId,
-  });
+
+  useEffect(() => {
+    if (configured && appConfig.google.webClientId) {
+      GoogleSignin.configure({
+        webClientId: appConfig.google.webClientId,
+        scopes: ["email", "profile"],
+      });
+    }
+  }, [configured]);
 
   useEffect(() => {
     if (!auth) {
@@ -43,37 +45,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe;
   }, [auth]);
 
-  useEffect(() => {
-    if (!auth || response?.type !== "success") return;
-
-    const idToken = response.params?.id_token;
-    if (!idToken) {
-      Alert.alert("Google sign-in failed", "Google did not return an ID token.");
-      return;
-    }
-
-    const credential = GoogleAuthProvider.credential(idToken);
-    signInWithCredential(auth, credential).catch((error) => {
-      Alert.alert("Google sign-in failed", error instanceof Error ? error.message : "Please try again.");
-    });
-  }, [auth, response]);
-
   const value: AuthContextValue = {
     user,
     loading,
     configured,
     signInWithGoogle: async () => {
       if (!configured) {
-        Alert.alert("Google sign-in not configured", "Add Firebase client config and Google OAuth client IDs from .env.example before using subscriptions.");
+        Alert.alert("Google sign-in not configured", "Add Firebase client config and Google OAuth client IDs to your .env file before using subscriptions.");
         return;
       }
 
-      await promptAsync({
-        useProxy: Platform.OS !== "web",
-      });
+      try {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const signInResult = await GoogleSignin.signIn();
+        const idToken = signInResult.data?.idToken;
+
+        if (!idToken) {
+          Alert.alert("Google sign-in failed", "Google did not return an ID token. Please try again.");
+          return;
+        }
+
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth!, credential);
+      } catch (error: any) {
+        if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+          return;
+        } else if (error.code === statusCodes.IN_PROGRESS) {
+          return;
+        } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+          Alert.alert("Google sign-in failed", "Google Play Services is not available on this device.");
+        } else {
+          Alert.alert("Google sign-in failed", error instanceof Error ? error.message : "Please try again.");
+        }
+      }
     },
     signOut: async () => {
-      if (auth) await firebaseSignOut(auth);
+      if (auth) {
+        await firebaseSignOut(auth);
+        try {
+          await GoogleSignin.signOut();
+        } catch {}
+      }
     },
     getIdToken: async () => {
       if (!user) return null;
