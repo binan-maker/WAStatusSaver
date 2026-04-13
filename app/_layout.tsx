@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, AppState, AppStateStatus } from 'react-native';
@@ -19,7 +19,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useFirebaseAuth } from '@/contexts/AuthContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
@@ -27,7 +27,6 @@ import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
 
-// Initialize Google Mobile Ads
 if (Platform.OS !== 'web') {
   mobileAds()
     .initialize()
@@ -40,8 +39,6 @@ if (Platform.OS !== 'web') {
 async function applyImmersiveMode() {
   if (Platform.OS !== 'android') return;
   try {
-    // Check if edge-to-edge is already handled by Expo (modern versions do this)
-    // We only apply these if they don't cause warnings on modern Android
     const sdkVersion = Platform.Version as number;
     if (sdkVersion < 30) {
       await NavigationBar.setVisibilityAsync('visible');
@@ -52,7 +49,31 @@ async function applyImmersiveMode() {
   } catch {}
 }
 
-function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
+function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
+  const { user, loading, configured } = useFirebaseAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (loading) return;
+
+    const inAuthGroup = segments[0] === 'signin';
+
+    if (!configured) {
+      return;
+    }
+
+    if (!user && !inAuthGroup) {
+      router.replace('/signin');
+    } else if (user && inAuthGroup) {
+      if (showOnboarding) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
+  }, [user, loading, configured, segments, showOnboarding]);
+
   return (
     <Stack
       screenOptions={{
@@ -68,6 +89,7 @@ function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
         animation: 'slide_from_right',
       }}
     >
+      <Stack.Screen name="signin" options={{ headerShown: false, animation: 'fade' }} />
       {showOnboarding && <Stack.Screen name="onboarding" options={{ headerShown: false }} />}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
@@ -107,13 +129,30 @@ function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
   );
 }
 
-export default function RootLayout() {
-  // Initialize app open ads
+function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   useAppOpenAd();
-
   const { showAd: showInterstitial } = useInterstitialAd();
   const [interstitialShown, setInterstitialShown] = useState(false);
+  const { user, loading } = useFirebaseAuth();
 
+  useEffect(() => {
+    if (!loading && user && !interstitialShown) {
+      setTimeout(() => {
+        showInterstitial();
+      }, 500);
+      setInterstitialShown(true);
+    }
+  }, [loading, user, interstitialShown]);
+
+  return (
+    <MediaProvider>
+      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <AuthGate showOnboarding={showOnboarding} />
+    </MediaProvider>
+  );
+}
+
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -124,7 +163,6 @@ export default function RootLayout() {
   const [splashHidden, setSplashHidden] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const appState = useRef(AppState.currentState);
-
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -159,15 +197,6 @@ export default function RootLayout() {
     } catch {}
   };
 
-  useEffect(() => {
-    if (fontsLoaded && loadingDone && !interstitialShown) {
-      setTimeout(() => {
-        showInterstitial();
-      }, 500);
-      setInterstitialShown(true);
-    }
-  }, [fontsLoaded, loadingDone, interstitialShown]);
-
   if (!fontsLoaded || !splashHidden) return null;
 
   if (!loadingDone) {
@@ -185,10 +214,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <LanguageProvider>
             <AuthProvider>
-              <MediaProvider>
-                <StatusBar style="light" translucent backgroundColor="transparent" />
-                <RootLayoutNav showOnboarding={showOnboarding} />
-              </MediaProvider>
+              <AppContent showOnboarding={showOnboarding} />
             </AuthProvider>
           </LanguageProvider>
         </GestureHandlerRootView>
