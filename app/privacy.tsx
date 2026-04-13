@@ -26,7 +26,7 @@ function PolicySection({ title, content }: SectionProps) {
 
 export default function PrivacyScreen() {
   const insets = useSafeAreaInsets();
-  const lastUpdated = 'February 2025';
+  const lastUpdated = 'April 2025';
 
   return (
     <View style={styles.root}>
@@ -43,77 +43,115 @@ export default function PrivacyScreen() {
           <Text style={styles.heroSub}>Last updated: {lastUpdated}</Text>
         </View>
 
+        <View style={styles.betaBadge}>
+          <Ionicons name="flask-outline" size={16} color={COLORS.ACCENT_GOLD} />
+          <Text style={styles.betaText}>
+            StatusVault is currently in Beta. Features, pricing, and policies may evolve. By using this app, you acknowledge and accept its beta status.
+          </Text>
+        </View>
+
         <View style={styles.highlight}>
           <Ionicons name="lock-closed" size={18} color={COLORS.PRIMARY} />
           <Text style={styles.highlightText}>
-            StatusVault is a fully offline application. We do not collect, store, or transmit any personal data.
+            StatusVault uses optional Google Sign-In and internet services for subscriptions, ads, and authentication. Your media always stays on your device.
           </Text>
         </View>
 
         <PolicySection
           title="1. Introduction"
-          content="StatusVault ('we', 'our', 'app') is a WhatsApp Status Saver application for Android. This Privacy Policy explains how we handle information when you use our app. By using StatusVault, you agree to this policy."
+          content="StatusVault ('we', 'our', 'the app', 'the Service') is a WhatsApp Status Saver application for Android devices. This Privacy Policy is a legally binding document explaining what data we collect, why we collect it, how it is used, and your rights as a user. By downloading, installing, or using StatusVault, you agree to this Privacy Policy in full. If you do not agree, you must immediately uninstall and cease use of the app.\n\nThis app is currently in Beta. All features, services, and policies are subject to change without prior notice beyond updating this document. Continued use of the app after updates constitutes acceptance of the revised policy."
         />
 
         <PolicySection
-          title="2. Data We Do NOT Collect"
-          content="StatusVault does not collect any personal information. We do not collect:\n\n• Your name, email, or contact information\n• WhatsApp messages, calls, or chats\n• Contacts or phone numbers\n• Location data\n• Device identifiers or analytics\n• Usage statistics or behavior data\n\nAll media is processed locally on your device only."
+          title="2. Data We Collect"
+          content="Depending on the features you use, we may collect the following information:\n\n• Google Account Information (if you sign in): Your email address, display name, and profile photo, provided via Google Sign-In (OAuth 2.0) and stored securely in Firebase Authentication.\n\n• Device Identifier: A unique anonymous device ID (UUID) generated on first launch, used for referral tracking and subscription verification.\n\n• Push Notification Token: If you enable notifications, your Expo push token is stored to send you status update alerts.\n\n• Subscription & Payment Records: Your subscription tier, status, start/expiry dates, and Razorpay payment references, stored in Firebase Firestore linked to your Firebase UID.\n\n• Referral Data: Your unique referral code, number of successful referrals, and ad-free reward expiry dates.\n\n• App Preferences: Language selection, notification preferences, and onboarding completion, stored locally on your device via AsyncStorage.\n\nWe do NOT collect: WhatsApp messages, chats, contacts, call logs, location data, or any biometric data."
         />
 
         <PolicySection
-          title="3. Storage Access"
-          content="StatusVault requires storage access solely to:\n\n• Read WhatsApp status files from the .Statuses directory\n• Save selected statuses to your device gallery\n• Create a local backup of saved statuses\n\nWe only access the WhatsApp .Statuses folder. We cannot and do not access WhatsApp messages, chats, or any other folders."
+          title="3. How We Use Your Data"
+          content="We use collected data strictly for the following purposes:\n\n• Authentication: To identify your account and maintain a persistent login session across app restarts.\n\n• Subscription Management: To validate your active subscription, prevent fraud, and unlock premium features.\n\n• Referral Rewards: To track referrals, verify new user installs, and grant ad-free reward periods.\n\n• Push Notifications: To alert you when new WhatsApp statuses are detected (only if you explicitly opt in).\n\n• Advertising: To display ads via Google AdMob when you do not have an active subscription or reward period. Ads are never shown to subscribed users.\n\n• Service Improvement: Anonymous, aggregated usage data may be reviewed internally to improve app stability and performance.\n\nWe do NOT sell, rent, trade, or share your personal data with any third party for marketing or advertising purposes beyond the services described in Section 5."
         />
 
         <PolicySection
-          title="4. Local Data Storage"
-          content="StatusVault stores the following data locally on your device only:\n\n• A list of statuses you have saved (stored in app's private directory)\n• The SAF (Storage Access Framework) folder URI you granted\n• User preferences (stored in app's private storage)\n\nThis data never leaves your device and is deleted when you uninstall the app."
+          title="4. Storage Access"
+          content="StatusVault requires storage access solely to:\n\n• Read WhatsApp status files from the WhatsApp .Statuses directory on your device.\n• Save selected statuses to your device gallery under the 'StatusVault' album.\n• Cache media files within the app's own private directory for performance.\n\nWe only access the WhatsApp .Statuses folder and the app's private storage directory. We cannot and do not access WhatsApp messages, chats, contacts, or any folders outside those explicitly granted by you through the system permissions dialog or Storage Access Framework (SAF)."
         />
 
         <PolicySection
-          title="5. Advertising"
-          content="StatusVault displays advertisements via Google AdMob. AdMob may collect certain data in accordance with Google's Privacy Policy. This may include:\n\n• Advertising ID (Android)\n• Device information for ad targeting\n• App usage for frequency capping\n\nYou can opt out of personalized ads in your device settings:\nSettings → Google → Ads → Opt out of Ads Personalization.\n\nFor Google's full privacy policy, visit: policies.google.com/privacy"
+          title="5. Internet Usage & Third-Party Services"
+          content="StatusVault connects to the internet to provide the following features:\n\n• Firebase Authentication (Google): Manages secure user login and persistent session storage.\n• Firebase Firestore (Google): Stores subscription records, referral data, and device registries on Google's secure cloud infrastructure.\n• Firebase Cloud Messaging (Google): Delivers push notifications to your device.\n• Google AdMob: Serves advertisements. AdMob may collect your Advertising ID, device info, and app usage data per Google's Privacy Policy (policies.google.com/privacy).\n• Razorpay: Processes subscription payments. Razorpay collects name, email, and payment details per Razorpay's Privacy Policy (razorpay.com/privacy).\n• StatusVault Backend Server: Our server verifies referrals, manages subscription status, and validates payment orders.\n\nAll communications with our server and third-party services are encrypted using HTTPS/TLS. The app's core status-viewing features operate offline; internet is only required for sign-in, subscriptions, ads, and notifications."
         />
 
         <PolicySection
-          title="6. Third-Party Services"
-          content="StatusVault uses the following third-party services:\n\n• Google AdMob — for displaying advertisements\n\nAll other functionality is performed locally on your device without any network requests."
+          title="6. Subscriptions & Payments"
+          content="StatusVault offers subscription plans that remove advertisements and unlock premium features. By purchasing a subscription:\n\n• You authorize Razorpay to process your payment on our behalf.\n• Your subscription details (plan, start date, expiry date) are stored in Firebase Firestore linked to your Firebase UID.\n• Subscriptions are personal and non-transferable. They apply to your account only.\n• Your ad-free experience and premium benefits remain active for the full duration of your subscription period.\n• Auto-renewal behaviour depends on how the subscription was initiated. You will be informed before any renewal.\n• Cancellation stops future renewals but does not immediately terminate the current subscription period."
         />
 
         <PolicySection
-          title="7. Permissions Explained"
-          content="READ_EXTERNAL_STORAGE / READ_MEDIA_IMAGES / READ_MEDIA_VIDEO:\nRequired to detect and display WhatsApp statuses from the .Statuses folder.\n\nWRITE_EXTERNAL_STORAGE (Android < 10):\nRequired to save statuses to the gallery on older devices.\n\nSTORAGE ACCESS FRAMEWORK (Android 11+):\nRequired for the user to manually grant access to the WhatsApp .Statuses folder on newer Android versions.\n\nNo permissions are used beyond their stated purpose."
+          title="7. Refund Policy"
+          content="We are committed to fair treatment of paying users. Our refund policy is as follows:\n\n• ELIGIBILITY: You are entitled to request a full refund if a verified technical failure caused by StatusVault completely prevents you from using the app's core features (viewing, saving, or sharing statuses) for the entire duration of your active subscription period.\n\n• TIME LIMIT: All refund requests must be submitted within 30 days of the subscription purchase or renewal date.\n\n• HOW TO REQUEST: Contact us via the Play Store developer page with your Razorpay Order ID, your registered email address, and a clear description of the issue experienced.\n\n• PROCESSING TIME: Valid refunds will be processed within 7 to 14 business days of verification.\n\n• EXCLUSIONS — Refunds will NOT be provided for:\n  – Change of mind or accidental purchase.\n  – Incompatibility with custom Android ROMs or heavily modified operating systems.\n  – Loss of access due to changes to your own Google account.\n  – Failure to correctly configure Storage Access Framework (SAF) permissions.\n  – Temporary service outages of third-party providers (Google Firebase, Razorpay).\n  – Issues arising from use on devices or OS versions outside our supported range.\n\n• ANTI-ABUSE: We reserve the right to decline refund requests where fraudulent activity, policy abuse, or repeated refund claims are detected.\n\n• GOOGLE PLAY: If the subscription was initiated through the Google Play Store, Google's own refund policies may independently apply and supersede ours in certain regions."
         />
 
         <PolicySection
-          title="8. Children's Privacy"
-          content="StatusVault is not directed to children under the age of 13. We do not knowingly collect any information from children. If you believe a child is using this app inappropriately, please contact us."
+          title="8. Advertising"
+          content="StatusVault displays advertisements via Google AdMob when no active subscription or reward period is in effect. Google AdMob may collect:\n\n• Android Advertising ID (AAID)\n• Device model, manufacturer, and OS version\n• App usage and session data for frequency capping\n• Approximate location at country or region level\n\nSubscribed users and users with an active ad-free reward period will not see advertisements.\n\nYou can opt out of personalized advertisements in your Android device settings:\nSettings → Google → Ads → Opt out of Ads Personalization.\n\nAll advertising is served in compliance with Google's EU User Consent Policy where applicable."
         />
 
         <PolicySection
-          title="9. Play Store Compliance"
-          content="This app complies with Google Play Store Developer Program Policies, including:\n\n• Honest disclosure of permissions usage\n• No collection of sensitive user data\n• Compliance with Families Policy\n• No deceptive behavior\n\nThis app is also compliant with Indus App Store (IndiStore) privacy requirements."
+          title="9. Data Retention & Deletion"
+          content="• Account data (email, display name, push tokens, subscription records) is retained for as long as your account remains active.\n\n• If you sign out and wish your data deleted, contact us via the Play Store developer page. Firebase Authentication entries are removed promptly; Firestore subscription records are retained for 90 days for audit and legal compliance before permanent deletion.\n\n• Device identifiers and push notification tokens are automatically purged after 180 days of inactivity.\n\n• Local app data (preferences, saved status list, SAF permission URIs) is permanently and automatically deleted when you uninstall the app.\n\n• We do not retain any payment card details. All payment data is held exclusively by Razorpay under their data retention policies."
         />
 
         <PolicySection
-          title="10. Disclaimer"
-          content="StatusVault is an independent application and is NOT affiliated with, endorsed by, or connected to WhatsApp LLC, Meta Platforms Inc., or any of their subsidiaries. 'WhatsApp' is a trademark of WhatsApp LLC. Use of this app is at your own risk."
+          title="10. Permissions Explained"
+          content="READ_EXTERNAL_STORAGE / READ_MEDIA_IMAGES / READ_MEDIA_VIDEO:\nRequired to detect and display WhatsApp statuses from the .Statuses folder.\n\nWRITE_EXTERNAL_STORAGE (Android < 10):\nRequired to save statuses to the gallery on older Android versions.\n\nSTORAGE ACCESS FRAMEWORK (Android 11+):\nRequired for users to manually grant folder-level access to the WhatsApp Media directory.\n\nINTERNET:\nRequired for Google Sign-In, Firebase (Auth, Firestore, FCM), Google AdMob, and Razorpay payment processing.\n\nPOST_NOTIFICATIONS (Android 13+):\nOptional. Required only if you choose to enable status-detection push notifications.\n\nNo permissions are requested or used beyond their explicitly stated purpose."
         />
 
         <PolicySection
-          title="11. Changes to This Policy"
-          content="We may update this Privacy Policy from time to time. We will notify you of any significant changes by updating the 'Last updated' date at the top of this page. Continued use of the app after changes constitutes acceptance of the updated policy."
+          title="11. Children's Privacy"
+          content="StatusVault is not directed to children under the age of 13. We do not knowingly collect personal information from children. Google Sign-In requires a valid Google Account, which mandates a minimum age of 13 (or the applicable minimum in your jurisdiction). If you believe a child under the minimum age is using this app, please contact us immediately and we will take steps to remove their data."
         />
 
         <PolicySection
-          title="12. Contact Us"
-          content="If you have questions about this Privacy Policy or the app, you can reach us through the Play Store developer page or the app's support page."
+          title="12. Account Security"
+          content="• Sign-in is optional. Core features (viewing, saving, sharing statuses) remain available without an account.\n\n• Google Sign-In is handled entirely by Google's OAuth 2.0 infrastructure. We never store, see, or have access to your Google password.\n\n• Your Firebase UID serves as the primary key for all account-linked data. It is never shared externally.\n\n• All data in transit between the app and our servers or third-party services is encrypted with HTTPS/TLS.\n\n• In the event of a data breach materially affecting your personal data, we will notify affected users within 72 hours of becoming aware of the breach, as required by applicable law."
+        />
+
+        <PolicySection
+          title="13. Disclaimer of Warranties"
+          content="StatusVault is provided 'as is' and 'as available' without any warranty, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement. As a beta application, the service may experience interruptions, bugs, crashes, or data inconsistencies at any time.\n\nWe do not warrant that:\n• The app will operate without error or interruption.\n• Statuses will always be accessible (access depends on WhatsApp's folder structure and Android OS policies which are beyond our control).\n• All subscription or ad-free features will be available 100% of the time.\n\nUse of StatusVault is entirely at your own risk."
+        />
+
+        <PolicySection
+          title="14. Limitation of Liability"
+          content="To the maximum extent permitted by applicable law, StatusVault, its developers, and its affiliates shall not be liable for:\n\n• Any indirect, incidental, special, consequential, or punitive damages.\n• Loss of data, revenue, or profits.\n• Any harm to your device or data resulting from use of the app.\n• Any failure or downtime of third-party services (Google Firebase, Razorpay, Google AdMob).\n• Any WhatsApp policy changes that restrict or remove access to the .Statuses folder.\n\nOur total aggregate liability to you for any claim arising from use of the Service shall not exceed the total subscription fees paid by you in the 30 days immediately preceding the claim giving rise to such liability."
+        />
+
+        <PolicySection
+          title="15. WhatsApp & Meta Disclaimer"
+          content="StatusVault is an independent, third-party application. It is NOT affiliated with, endorsed by, sponsored by, authorized by, or in any way connected to WhatsApp LLC, Meta Platforms Inc., or any of their subsidiaries or affiliates. 'WhatsApp' and 'WhatsApp Business' are registered trademarks of WhatsApp LLC. This app merely reads files that WhatsApp makes available in the device's storage as part of normal Android operating system behaviour. Use of this app is governed solely by this Privacy Policy."
+        />
+
+        <PolicySection
+          title="16. Governing Law & Disputes"
+          content="This Privacy Policy, along with any disputes, claims, or proceedings arising from your use of StatusVault, shall be exclusively governed by and construed in accordance with the laws of India, without regard to conflict-of-law principles.\n\nBy using the app, you irrevocably consent to the exclusive jurisdiction of the competent courts located in India for the resolution of any disputes.\n\nWe strongly encourage users to contact us directly to resolve any disputes informally before pursuing formal legal action."
+        />
+
+        <PolicySection
+          title="17. Changes to This Policy"
+          content="We may update this Privacy Policy from time to time to reflect changes in the app's features, applicable legal requirements, or our data practices. We will notify you of material changes by updating the 'Last updated' date at the top of this page. Where required by law or where changes are significant, we may provide additional notice such as a push notification or an in-app alert. Your continued use of the app after the effective date of any revision constitutes your acceptance of the updated Privacy Policy."
+        />
+
+        <PolicySection
+          title="18. Contact Us"
+          content="For questions, concerns, data deletion requests, or refund requests related to this Privacy Policy, please contact us through the Google Play Store developer page or the in-app support page. We aim to respond to all legitimate inquiries within 5 business days."
         />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             © {new Date().getFullYear()} StatusVault. All rights reserved.{'\n'}
-            This policy is compliant with GDPR, Google Play Store, and Indus App Store requirements.
+            Compliant with GDPR, Indian IT Act 2000, Google Play Store Policies, and Indus App Store requirements.{'\n'}
+            StatusVault Beta — Policies subject to change.
           </Text>
         </View>
       </ScrollView>
@@ -158,9 +196,26 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
     fontFamily: 'Nunito_400Regular',
   },
+  betaBadge: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.SM,
+    backgroundColor: COLORS.ACCENT_GOLD + '18',
+    borderRadius: RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT_GOLD + '44',
+    padding: SPACING.MD,
+  },
+  betaText: {
+    flex: 1,
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.ACCENT_GOLD,
+    fontFamily: 'Nunito_600SemiBold',
+    lineHeight: 20,
+  },
   highlight: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: SPACING.SM,
     backgroundColor: COLORS.PRIMARY + '18',
     borderRadius: RADIUS.MD,

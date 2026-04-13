@@ -7,6 +7,7 @@ const COLORS = {
   SECONDARY: '#7000FF', // Cyber Purple
   ACCENT_BLUE: '#00E0FF', // Electric Cyan
   ACCENT_PINK: '#FF00E5', // Neon Pink
+  ACCENT_GOLD: '#FFB800', // Gold
 
   BACKGROUND: '#05070A', // Deepest Obsidian
   SURFACE: '#0F131A', // Dark Slate
