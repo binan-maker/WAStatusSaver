@@ -14,7 +14,7 @@ import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 export function SupportDeveloperAd() {
-  const { loaded, showAd } = useRewardedAd('ca-app-pub-8785278012936203/8714198841');
+  const { loaded, showAd } = useRewardedAd('ca-app-pub-2087467559495393/3096082603');
   const [isLoading, setIsLoading] = useState(false);
   const [watchCompleted, setWatchCompleted] = useState(false);
 
