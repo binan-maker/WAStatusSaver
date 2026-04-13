@@ -20,6 +20,7 @@ import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
+import { SubscriptionPlansCard } from '@/components/SubscriptionPlansCard';
 import { SupportDeveloperAd } from '@/components/SupportDeveloperAd';
 import { Share } from 'react-native';
 import COLORS from '@/constants/colors';
@@ -218,6 +219,9 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Get Free Ads Access" />
         <RewardAdButton variant="row" />
+
+        <SectionHeader title="Subscription" />
+        <SubscriptionPlansCard />
 
         <SupportDeveloperAd />
 

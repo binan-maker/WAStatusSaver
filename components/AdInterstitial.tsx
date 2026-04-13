@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
+import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 
 const adUnitId = AD_UNIT_IDS.INTERSTITIAL;
 
@@ -12,9 +13,10 @@ const MAX_RETRIES = 3;
 export function useInterstitialAd() {
   const [loaded, setLoaded] = useState(false);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
+  const { isFreeAds } = useFreeAdsState();
 
   useEffect(() => {
-    if (!ADS_ENABLED || Platform.OS === 'web') return;
+    if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return;
 
     if (!interstitial) {
       const loadAd = () => {
@@ -69,9 +71,10 @@ export function useInterstitialAd() {
         }
       };
     }
-  }, []);
+  }, [isFreeAds]);
 
   const showAd = () => {
+    if (isFreeAds) return;
     if (loaded && interstitial) {
       interstitial.show();
     } else {

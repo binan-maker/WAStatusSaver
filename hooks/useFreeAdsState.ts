@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 
 const FREE_ADS_UNTIL_KEY = 'free_ads_until_timestamp';
 
 export function useFreeAdsState() {
-  const [isFreeAds, setIsFreeAds] = useState(false);
+  const { isSubscribed, remainingSeconds: subscriptionRemainingSeconds, status } = useSubscriptionStatus();
+  const [isRewardFreeAds, setIsRewardFreeAds] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
 
   // Check free ads status on mount and periodically
@@ -21,15 +23,15 @@ export function useFreeAdsState() {
         const freeUntil = parseInt(stored, 10);
         const now = Date.now();
         if (now < freeUntil) {
-          setIsFreeAds(true);
+          setIsRewardFreeAds(true);
           setTimeRemaining(Math.ceil((freeUntil - now) / 1000));
         } else {
-          setIsFreeAds(false);
+          setIsRewardFreeAds(false);
           setTimeRemaining(0);
           await AsyncStorage.removeItem(FREE_ADS_UNTIL_KEY);
         }
       } else {
-        setIsFreeAds(false);
+        setIsRewardFreeAds(false);
         setTimeRemaining(0);
       }
     } catch (error) {
@@ -41,7 +43,7 @@ export function useFreeAdsState() {
     try {
       const freeUntil = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
       await AsyncStorage.setItem(FREE_ADS_UNTIL_KEY, freeUntil.toString());
-      setIsFreeAds(true);
+      setIsRewardFreeAds(true);
       setTimeRemaining(30 * 24 * 60 * 60);
     } catch (error) {
       console.error('Error setting free ads:', error);
@@ -52,7 +54,7 @@ export function useFreeAdsState() {
     try {
       const freeUntil = Date.now() + 5 * 60 * 60 * 1000; // 5 hours
       await AsyncStorage.setItem(FREE_ADS_UNTIL_KEY, freeUntil.toString());
-      setIsFreeAds(true);
+      setIsRewardFreeAds(true);
       setTimeRemaining(5 * 60 * 60);
     } catch (error) {
       console.error('Error setting free ads:', error);
@@ -74,8 +76,10 @@ export function useFreeAdsState() {
   };
 
   return {
-    isFreeAds,
-    timeRemaining,
+    isFreeAds: isSubscribed || isRewardFreeAds,
+    isSubscribed,
+    subscriptionPlanId: status.planId || null,
+    timeRemaining: isSubscribed ? subscriptionRemainingSeconds : timeRemaining,
     setFreeAdsFor30Days,
     setFreeAdsFor5Hours,
     formatTimeRemaining,

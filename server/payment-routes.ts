@@ -1,0 +1,349 @@
+import type { Express, Request, Response } from "express";
+import crypto from "node:crypto";
+import { amountToPaise, getSubscriptionPlan, SUBSCRIPTION_PLANS } from "../shared/subscription-plans";
+import { firestoreFieldValue, firestoreTimestamp, getFirebaseStatus, getFirestoreDb } from "./firebase-admin";
+
+type RazorpayOrderResponse = {
+  id: string;
+  amount: number;
+  currency: string;
+  receipt: string;
+  status: string;
+};
+
+type RazorpayPaymentResponse = {
+  id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  method?: string;
+  email?: string;
+  contact?: string;
+};
+
+function paymentUnavailable(res: Response) {
+  return res.status(503).json({
+    message: "Payments are not configured yet",
+    missing: {
+      razorpayKeyId: !process.env.RAZORPAY_KEY_ID,
+      razorpayKeySecret: !process.env.RAZORPAY_KEY_SECRET,
+      firebaseServiceAccount: !process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    },
+  });
+}
+
+function getRazorpayAuthHeader() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) return null;
+  return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
+}
+
+function normalizeDeviceId(deviceId: unknown) {
+  if (typeof deviceId !== "string") return "";
+  return deviceId.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+}
+
+function getPaidUntil(planId: string) {
+  const plan = getSubscriptionPlan(planId);
+  if (!plan) return null;
+  if (plan.durationDays === null) return null;
+  return new Date(Date.now() + plan.durationDays * 24 * 60 * 60 * 1000);
+}
+
+async function createRazorpayOrder(planId: string, deviceId: string) {
+  const auth = getRazorpayAuthHeader();
+  const plan = getSubscriptionPlan(planId);
+  if (!auth || !plan) return null;
+
+  const receipt = `sv_${plan.id}_${Date.now()}_${deviceId.slice(0, 12)}`;
+  const response = await fetch("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: {
+      Authorization: auth,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount: amountToPaise(plan.amount),
+      currency: plan.currency,
+      receipt,
+      notes: {
+        deviceId,
+        planId: plan.id,
+        app: "StatusVault",
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Razorpay order creation failed: ${text}`);
+  }
+
+  return (await response.json()) as RazorpayOrderResponse;
+}
+
+async function getRazorpayPayment(paymentId: string) {
+  const auth = getRazorpayAuthHeader();
+  if (!auth) return null;
+
+  const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
+    headers: { Authorization: auth },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Razorpay payment fetch failed: ${text}`);
+  }
+
+  return (await response.json()) as RazorpayPaymentResponse;
+}
+
+async function captureRazorpayPayment(paymentId: string, amount: number, currency: string) {
+  const auth = getRazorpayAuthHeader();
+  if (!auth) return null;
+
+  const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/capture`, {
+    method: "POST",
+    headers: {
+      Authorization: auth,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ amount, currency }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Razorpay capture failed: ${text}`);
+  }
+
+  return (await response.json()) as RazorpayPaymentResponse;
+}
+
+function verifySignature(orderId: string, paymentId: string, signature: string) {
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) return false;
+  const expected = crypto.createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length) return false;
+  return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+}
+
+export function registerPaymentRoutes(app: Express) {
+  app.get("/api/subscriptions/plans", (_req: Request, res: Response) => {
+    res.json({
+      plans: SUBSCRIPTION_PLANS,
+      paymentsConfigured: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+      firebase: getFirebaseStatus(),
+    });
+  });
+
+  app.get("/api/subscriptions/status/:deviceId", async (req: Request, res: Response, next) => {
+    try {
+      const db = getFirestoreDb();
+      const deviceId = normalizeDeviceId(req.params.deviceId);
+
+      if (!deviceId) {
+        return res.status(400).json({ message: "Invalid device ID" });
+      }
+
+      if (!db) {
+        return res.json({
+          active: false,
+          configured: false,
+          planId: null,
+          paidUntil: null,
+          message: "Firebase is not configured",
+        });
+      }
+
+      const snap = await db.collection("subscriptions").doc(deviceId).get();
+      if (!snap.exists) {
+        return res.json({ active: false, configured: true, planId: null, paidUntil: null });
+      }
+
+      const data = snap.data() || {};
+      const paidUntilDate = data.paidUntil?.toDate?.() instanceof Date ? data.paidUntil.toDate() : null;
+      const lifetime = Boolean(data.lifetime);
+      const active = lifetime || Boolean(paidUntilDate && paidUntilDate.getTime() > Date.now());
+
+      res.json({
+        active,
+        configured: true,
+        lifetime,
+        planId: data.planId || null,
+        paidUntil: paidUntilDate ? paidUntilDate.toISOString() : null,
+        lastPaymentId: data.lastPaymentId || null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/payments/razorpay/create-order", async (req: Request, res: Response, next) => {
+    try {
+      const db = getFirestoreDb();
+      const auth = getRazorpayAuthHeader();
+      const plan = getSubscriptionPlan(String(req.body?.planId || ""));
+      const deviceId = normalizeDeviceId(req.body?.deviceId);
+
+      if (!db || !auth) return paymentUnavailable(res);
+      if (!plan) return res.status(400).json({ message: "Invalid subscription plan" });
+      if (!deviceId) return res.status(400).json({ message: "Invalid device ID" });
+
+      const order = await createRazorpayOrder(plan.id, deviceId);
+      if (!order) return paymentUnavailable(res);
+
+      await db.collection("paymentOrders").doc(order.id).set({
+        orderId: order.id,
+        deviceId,
+        planId: plan.id,
+        amount: order.amount,
+        currency: order.currency,
+        receipt: order.receipt,
+        status: "created",
+        createdAt: firestoreFieldValue.serverTimestamp(),
+      });
+
+      res.json({
+        keyId: process.env.RAZORPAY_KEY_ID,
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        plan,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/payments/razorpay/verify", async (req: Request, res: Response, next) => {
+    try {
+      const db = getFirestoreDb();
+      const auth = getRazorpayAuthHeader();
+      const deviceId = normalizeDeviceId(req.body?.deviceId);
+      const plan = getSubscriptionPlan(String(req.body?.planId || ""));
+      const orderId = String(req.body?.razorpay_order_id || "");
+      const paymentId = String(req.body?.razorpay_payment_id || "");
+      const signature = String(req.body?.razorpay_signature || "");
+
+      if (!db || !auth) return paymentUnavailable(res);
+      if (!deviceId || !plan || !orderId || !paymentId || !signature) {
+        return res.status(400).json({ message: "Missing payment verification details" });
+      }
+
+      const orderRef = db.collection("paymentOrders").doc(orderId);
+      const orderSnap = await orderRef.get();
+      const orderData = orderSnap.data();
+
+      if (!orderSnap.exists || orderData?.deviceId !== deviceId || orderData?.planId !== plan.id) {
+        await orderRef.set(
+          {
+            orderId,
+            deviceId,
+            planId: plan.id,
+            paymentId,
+            status: "rejected_order_mismatch",
+            updatedAt: firestoreFieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return res.status(400).json({ message: "Payment order does not match this device or plan" });
+      }
+
+      if (!verifySignature(orderId, paymentId, signature)) {
+        await orderRef.set(
+          {
+            paymentId,
+            status: "failed_signature",
+            updatedAt: firestoreFieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return res.status(400).json({ message: "Payment verification failed" });
+      }
+
+      let payment = await getRazorpayPayment(paymentId);
+      if (!payment) return paymentUnavailable(res);
+
+      if (payment.status === "authorized") {
+        payment = await captureRazorpayPayment(payment.id, amountToPaise(plan.amount), plan.currency);
+      }
+
+      const amountMatches = payment?.amount === amountToPaise(plan.amount);
+      const orderMatches = payment?.order_id === orderId;
+      const currencyMatches = payment?.currency === plan.currency;
+      const captured = payment?.status === "captured";
+
+      if (!payment || !amountMatches || !orderMatches || !currencyMatches || !captured) {
+        await orderRef.set(
+          {
+            paymentId,
+            status: "failed_payment_state",
+            paymentStatus: payment?.status || null,
+            updatedAt: firestoreFieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        return res.status(400).json({ message: "Payment was not captured correctly" });
+      }
+
+      const paidUntil = getPaidUntil(plan.id);
+      const subscriptionPayload = {
+        deviceId,
+        active: true,
+        lifetime: plan.durationDays === null,
+        planId: plan.id,
+        amount: plan.amount,
+        currency: plan.currency,
+        paidUntil: paidUntil ? firestoreTimestamp.fromDate(paidUntil) : null,
+        lastPaymentId: payment.id,
+        lastOrderId: orderId,
+        paymentMethod: payment.method || null,
+        updatedAt: firestoreFieldValue.serverTimestamp(),
+      };
+
+      await db.collection("subscriptions").doc(deviceId).set(subscriptionPayload, { merge: true });
+      await db.collection("users").doc(deviceId).set(
+        {
+          deviceId,
+          subscription: subscriptionPayload,
+          updatedAt: firestoreFieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      await db.collection("users").doc(deviceId).collection("payments").doc(payment.id).set({
+        paymentId: payment.id,
+        orderId,
+        planId: plan.id,
+        amount: plan.amount,
+        currency: plan.currency,
+        status: "captured",
+        razorpayStatus: payment.status,
+        method: payment.method || null,
+        email: payment.email || null,
+        contact: payment.contact || null,
+        createdAt: firestoreFieldValue.serverTimestamp(),
+      });
+      await orderRef.set(
+        {
+          paymentId: payment.id,
+          status: "verified",
+          verifiedAt: firestoreFieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      res.json({
+        active: true,
+        lifetime: plan.durationDays === null,
+        planId: plan.id,
+        paidUntil: paidUntil ? paidUntil.toISOString() : null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+}

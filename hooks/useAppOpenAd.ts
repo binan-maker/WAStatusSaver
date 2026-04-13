@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { AppOpenAd, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
+import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 
 const adUnitId = AD_UNIT_IDS.APP_OPEN;
 
@@ -16,9 +17,10 @@ export function useAppOpenAd() {
   const appState = useRef(AppState.currentState);
   const [loaded, setLoaded] = useState(isLoaded);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
+  const { isFreeAds } = useFreeAdsState();
 
   useEffect(() => {
-    if (!ADS_ENABLED || Platform.OS === 'web') return;
+    if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return;
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
@@ -39,7 +41,7 @@ export function useAppOpenAd() {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, []);
+  }, [isFreeAds]);
 
   const loadAppOpenAd = () => {
     if (globalAppOpenAd || isShowingAd) return;
@@ -85,7 +87,7 @@ export function useAppOpenAd() {
   };
 
   const showAppOpenAd = async () => {
-    if (!ADS_ENABLED || Platform.OS === 'web') return;
+    if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return;
     
     if (!globalAppOpenAd || !isLoaded || isShowingAd) {
       return;

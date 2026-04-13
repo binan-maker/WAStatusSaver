@@ -8,10 +8,11 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
 ### Stack
 - **Frontend**: Expo React Native (Expo Router file-based routing)
 - **Backend**: Express.js (serves landing page + API scaffolding)
-- **Storage**: AsyncStorage (local persistence, no cloud)
+- **Storage**: AsyncStorage for local app state, Firebase Firestore for verified paid subscriptions
 - **Fonts**: Nunito (Google Fonts via @expo-google-fonts/nunito)
-- **Video**: expo-av (Video component)
+- **Video**: expo-video
 - **Media**: expo-media-library, expo-sharing, expo-file-system/legacy
+- **Payments**: Razorpay checkout with server-side order creation and signature verification
 
 ### Color Palette (Dark Navy + Emerald)
 - Background: #0A0E1A (deep dark navy)
@@ -49,7 +50,14 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
    - Interstitial ads: `AdInterstitial` component (every 3 video views)
    - Replace `AD_UNIT_IDS` in `constants/admob.ts`
 
-4. **Media Operations**:
+4. **Paid Ad Removal**:
+   - Plans: ₹30 monthly, ₹199 yearly, ₹499 lifetime
+   - Settings page includes an ad-free banner and subscription plan sheet
+   - Backend creates Razorpay orders and verifies Razorpay signatures before activation
+   - Firestore stores payment orders, user payment history, and subscription status
+   - Ads are hidden only when the backend-confirmed subscription is active or local rewarded ad access is active
+
+5. **Media Operations**:
    - View images and videos
    - Save to device gallery (StatusVault album)
    - Share to any app or directly to WhatsApp
@@ -82,7 +90,17 @@ constants/
   colors.ts            # Theme colors
   theme.ts             # Spacing, typography, layout
   admob.ts             # AdMob unit IDs (replace before publish)
+server/
+  payment-routes.ts    # Razorpay + Firestore payment endpoints
+  firebase-admin.ts    # Firebase Admin initialization
+shared/
+  subscription-plans.ts # Shared subscription plan definitions
 ```
+
+## Payment Configuration
+- Required secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON`
+- Optional env var: `FIREBASE_PROJECT_ID` if not included in the service account JSON
+- Firestore collections used: `subscriptions`, `paymentOrders`, `users/{deviceId}/payments`
 
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`
