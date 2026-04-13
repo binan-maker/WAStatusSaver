@@ -17,12 +17,12 @@
       "bundleIdentifier": "com.binan.statussaver"
     },
     "android": {
-  "package": "com.binan.statussaver",
-  "softwareKeyboardLayoutMode": "pan",
-  "adaptiveIcon": {
-    "backgroundColor": "#0A0E1A",
-    "foregroundImage": "./assets/images/android-icon-foreground.png"
-  },
+      "package": "com.binan.statussaver",
+      "softwareKeyboardLayoutMode": "pan",
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0E1A",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
       "permissions": [
         "com.google.android.gms.permission.AD_ID",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -42,12 +42,12 @@
         }
       ],
       [
-  "react-native-google-mobile-ads",
-  {
-    "androidAppId": "ca-app-pub-8785278012936203~2614818645",
-    "iosAppId": "ca-app-pub-3940256099942544~1458002511"
-  }
-],
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-8785278012936203~2614818645",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
       "expo-font",
       [
         "expo-video",
@@ -70,7 +70,8 @@
           "savePhotosPermission": "Allow StatusVault to save statuses.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
