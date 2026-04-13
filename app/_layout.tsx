@@ -19,6 +19,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
@@ -94,6 +95,13 @@ function RootLayoutNav({ showOnboarding }: { showOnboarding: boolean }) {
       <Stack.Screen
         name="permissions"
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="subscription"
+        options={{
+          title: 'Choose Subscription',
+          headerStyle: { backgroundColor: COLORS.SURFACE },
+        }}
       />
     </Stack>
   );
@@ -176,10 +184,12 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <LanguageProvider>
-            <MediaProvider>
-              <StatusBar style="light" translucent backgroundColor="transparent" />
-              <RootLayoutNav showOnboarding={showOnboarding} />
-            </MediaProvider>
+            <AuthProvider>
+              <MediaProvider>
+                <StatusBar style="light" translucent backgroundColor="transparent" />
+                <RootLayoutNav showOnboarding={showOnboarding} />
+              </MediaProvider>
+            </AuthProvider>
           </LanguageProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

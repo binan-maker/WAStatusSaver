@@ -3,6 +3,7 @@ import { Alert, Platform } from "react-native";
 import { apiRequest } from "@/lib/query-client";
 import { getPaymentDeviceId } from "@/lib/device-identity";
 import { SUBSCRIPTION_PLANS, SubscriptionPlanId } from "@/shared/subscription-plans";
+import { useFirebaseAuth } from "@/contexts/AuthContext";
 
 type SubscriptionStatus = {
   active: boolean;
@@ -43,6 +44,7 @@ function getRemainingSeconds(status: SubscriptionStatus) {
 }
 
 export function useSubscriptionStatus() {
+  const { user, getIdToken } = useFirebaseAuth();
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [status, setStatus] = useState<SubscriptionStatus>({ active: false });
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,13 @@ export function useSubscriptionStatus() {
 
     try {
       setLoading(true);
-      const response = await apiRequest("GET", `/api/subscriptions/status/${deviceId}`);
+      const token = await getIdToken();
+      const response = await apiRequest(
+        "GET",
+        `/api/subscriptions/status/${deviceId}`,
+        undefined,
+        token ? { Authorization: `Bearer ${token}` } : undefined,
+      );
       setStatus(await response.json());
     } catch (error) {
       setStatus({
@@ -70,7 +78,7 @@ export function useSubscriptionStatus() {
     } finally {
       setLoading(false);
     }
-  }, [deviceId]);
+  }, [deviceId, getIdToken]);
 
   useEffect(() => {
     refresh();
@@ -81,6 +89,12 @@ export function useSubscriptionStatus() {
   const startPayment = useCallback(
     async (planId: SubscriptionPlanId) => {
       if (!deviceId || payingPlanId) return false;
+
+      const token = await getIdToken();
+      if (!user || !token) {
+        Alert.alert("Sign in required", "Please sign in with Google first so your subscription is saved safely in Firebase.");
+        return false;
+      }
 
       if (Platform.OS === "web") {
         Alert.alert("Open on phone", "Razorpay checkout is available in the Android app build.");
@@ -96,10 +110,15 @@ export function useSubscriptionStatus() {
       setPayingPlanId(planId);
 
       try {
-        const orderResponse = await apiRequest("POST", "/api/payments/razorpay/create-order", {
-          planId,
-          deviceId,
-        });
+        const orderResponse = await apiRequest(
+          "POST",
+          "/api/payments/razorpay/create-order",
+          {
+            planId,
+            deviceId,
+          },
+          { Authorization: `Bearer ${token}` },
+        );
         const order = (await orderResponse.json()) as CreateOrderResponse;
 
         const result = (await RazorpayCheckout.open({
@@ -117,13 +136,18 @@ export function useSubscriptionStatus() {
           },
         })) as RazorpaySuccess;
 
-        const verifyResponse = await apiRequest("POST", "/api/payments/razorpay/verify", {
-          planId,
-          deviceId,
-          razorpay_payment_id: result.razorpay_payment_id,
-          razorpay_order_id: result.razorpay_order_id,
-          razorpay_signature: result.razorpay_signature,
-        });
+        const verifyResponse = await apiRequest(
+          "POST",
+          "/api/payments/razorpay/verify",
+          {
+            planId,
+            deviceId,
+            razorpay_payment_id: result.razorpay_payment_id,
+            razorpay_order_id: result.razorpay_order_id,
+            razorpay_signature: result.razorpay_signature,
+          },
+          { Authorization: `Bearer ${token}` },
+        );
 
         setStatus(await verifyResponse.json());
         Alert.alert("Payment successful", "Ads are now removed for your selected plan.");
@@ -136,7 +160,7 @@ export function useSubscriptionStatus() {
         setPayingPlanId(null);
       }
     },
-    [deviceId, payingPlanId, refresh],
+    [deviceId, getIdToken, payingPlanId, refresh, user],
   );
 
   const remainingSeconds = useMemo(() => getRemainingSeconds(status), [status]);

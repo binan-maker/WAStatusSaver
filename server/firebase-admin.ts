@@ -54,6 +54,11 @@ export function getFirestoreDb() {
   return admin.firestore();
 }
 
+export function getFirebaseAuth() {
+  if (!getFirestoreDb()) return null;
+  return admin.auth();
+}
+
 export function getFirebaseStatus() {
   return {
     configured: Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),

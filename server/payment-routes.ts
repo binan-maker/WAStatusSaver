@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import crypto from "node:crypto";
 import { amountToPaise, getSubscriptionPlan, SUBSCRIPTION_PLANS } from "../shared/subscription-plans";
-import { firestoreFieldValue, firestoreTimestamp, getFirebaseStatus, getFirestoreDb } from "./firebase-admin";
+import { firestoreFieldValue, firestoreTimestamp, getFirebaseAuth, getFirebaseStatus, getFirestoreDb } from "./firebase-admin";
 
 type RazorpayOrderResponse = {
   id: string;
@@ -20,6 +20,12 @@ type RazorpayPaymentResponse = {
   method?: string;
   email?: string;
   contact?: string;
+};
+
+type AuthenticatedUser = {
+  uid: string;
+  email?: string;
+  name?: string;
 };
 
 function paymentUnavailable(res: Response) {
@@ -45,6 +51,25 @@ function normalizeDeviceId(deviceId: unknown) {
   return deviceId.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
 }
 
+async function getAuthenticatedUser(req: Request): Promise<AuthenticatedUser | null> {
+  const auth = getFirebaseAuth();
+  const header = req.header("authorization") || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+
+  if (!auth || !token) return null;
+
+  try {
+    const decoded = await auth.verifyIdToken(token);
+    return {
+      uid: decoded.uid,
+      email: typeof decoded.email === "string" ? decoded.email : undefined,
+      name: typeof decoded.name === "string" ? decoded.name : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function getPaidUntil(planId: string) {
   const plan = getSubscriptionPlan(planId);
   if (!plan) return null;
@@ -52,7 +77,7 @@ function getPaidUntil(planId: string) {
   return new Date(Date.now() + plan.durationDays * 24 * 60 * 60 * 1000);
 }
 
-async function createRazorpayOrder(planId: string, deviceId: string) {
+async function createRazorpayOrder(planId: string, deviceId: string, authUser: AuthenticatedUser) {
   const auth = getRazorpayAuthHeader();
   const plan = getSubscriptionPlan(planId);
   if (!auth || !plan) return null;
@@ -71,6 +96,7 @@ async function createRazorpayOrder(planId: string, deviceId: string) {
       notes: {
         deviceId,
         planId: plan.id,
+        userId: authUser.uid,
         app: "StatusVault",
       },
     }),
@@ -143,6 +169,7 @@ export function registerPaymentRoutes(app: Express) {
   app.get("/api/subscriptions/status/:deviceId", async (req: Request, res: Response, next) => {
     try {
       const db = getFirestoreDb();
+      const authUser = await getAuthenticatedUser(req);
       const deviceId = normalizeDeviceId(req.params.deviceId);
 
       if (!deviceId) {
@@ -159,7 +186,17 @@ export function registerPaymentRoutes(app: Express) {
         });
       }
 
-      const snap = await db.collection("subscriptions").doc(deviceId).get();
+      if (!authUser) {
+        return res.json({
+          active: false,
+          configured: true,
+          signInRequired: true,
+          planId: null,
+          paidUntil: null,
+        });
+      }
+
+      const snap = await db.collection("subscriptions").doc(authUser.uid).get();
       if (!snap.exists) {
         return res.json({ active: false, configured: true, planId: null, paidUntil: null });
       }
@@ -186,19 +223,23 @@ export function registerPaymentRoutes(app: Express) {
     try {
       const db = getFirestoreDb();
       const auth = getRazorpayAuthHeader();
+      const authUser = await getAuthenticatedUser(req);
       const plan = getSubscriptionPlan(String(req.body?.planId || ""));
       const deviceId = normalizeDeviceId(req.body?.deviceId);
 
       if (!db || !auth) return paymentUnavailable(res);
+      if (!authUser) return res.status(401).json({ message: "Google sign-in is required before payment" });
       if (!plan) return res.status(400).json({ message: "Invalid subscription plan" });
       if (!deviceId) return res.status(400).json({ message: "Invalid device ID" });
 
-      const order = await createRazorpayOrder(plan.id, deviceId);
+      const order = await createRazorpayOrder(plan.id, deviceId, authUser);
       if (!order) return paymentUnavailable(res);
 
       await db.collection("paymentOrders").doc(order.id).set({
         orderId: order.id,
         deviceId,
+        userId: authUser.uid,
+        userEmail: authUser.email || null,
         planId: plan.id,
         amount: order.amount,
         currency: order.currency,
@@ -223,6 +264,7 @@ export function registerPaymentRoutes(app: Express) {
     try {
       const db = getFirestoreDb();
       const auth = getRazorpayAuthHeader();
+      const authUser = await getAuthenticatedUser(req);
       const deviceId = normalizeDeviceId(req.body?.deviceId);
       const plan = getSubscriptionPlan(String(req.body?.planId || ""));
       const orderId = String(req.body?.razorpay_order_id || "");
@@ -230,6 +272,7 @@ export function registerPaymentRoutes(app: Express) {
       const signature = String(req.body?.razorpay_signature || "");
 
       if (!db || !auth) return paymentUnavailable(res);
+      if (!authUser) return res.status(401).json({ message: "Google sign-in is required before payment verification" });
       if (!deviceId || !plan || !orderId || !paymentId || !signature) {
         return res.status(400).json({ message: "Missing payment verification details" });
       }
@@ -238,11 +281,12 @@ export function registerPaymentRoutes(app: Express) {
       const orderSnap = await orderRef.get();
       const orderData = orderSnap.data();
 
-      if (!orderSnap.exists || orderData?.deviceId !== deviceId || orderData?.planId !== plan.id) {
+      if (!orderSnap.exists || orderData?.deviceId !== deviceId || orderData?.userId !== authUser.uid || orderData?.planId !== plan.id) {
         await orderRef.set(
           {
             orderId,
             deviceId,
+            userId: authUser.uid,
             planId: plan.id,
             paymentId,
             status: "rejected_order_mismatch",
@@ -293,6 +337,8 @@ export function registerPaymentRoutes(app: Express) {
       const paidUntil = getPaidUntil(plan.id);
       const subscriptionPayload = {
         deviceId,
+        userId: authUser.uid,
+        userEmail: authUser.email || null,
         active: true,
         lifetime: plan.durationDays === null,
         planId: plan.id,
@@ -305,16 +351,28 @@ export function registerPaymentRoutes(app: Express) {
         updatedAt: firestoreFieldValue.serverTimestamp(),
       };
 
-      await db.collection("subscriptions").doc(deviceId).set(subscriptionPayload, { merge: true });
-      await db.collection("users").doc(deviceId).set(
+      await db.collection("subscriptions").doc(authUser.uid).set(subscriptionPayload, { merge: true });
+      await db.collection("subscriptionDevices").doc(deviceId).set(
         {
+          deviceId,
+          userId: authUser.uid,
+          linkedAt: firestoreFieldValue.serverTimestamp(),
+          subscription: subscriptionPayload,
+        },
+        { merge: true },
+      );
+      await db.collection("users").doc(authUser.uid).set(
+        {
+          userId: authUser.uid,
+          email: authUser.email || null,
+          name: authUser.name || null,
           deviceId,
           subscription: subscriptionPayload,
           updatedAt: firestoreFieldValue.serverTimestamp(),
         },
         { merge: true },
       );
-      await db.collection("users").doc(deviceId).collection("payments").doc(payment.id).set({
+      await db.collection("users").doc(authUser.uid).collection("payments").doc(payment.id).set({
         paymentId: payment.id,
         orderId,
         planId: plan.id,
