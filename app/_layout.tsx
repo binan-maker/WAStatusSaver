@@ -21,6 +21,7 @@ import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider, useFirebaseAuth } from '@/contexts/AuthContext';
 import { AppLoadingScreen } from '@/components/AppLoadingScreen';
+import { GoogleSignInModal } from '@/components/GoogleSignInModal';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
 import COLORS from '@/constants/colors';
@@ -127,7 +128,7 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   useAppOpenAd();
   const { showAd: showInterstitial } = useInterstitialAd();
   const [interstitialShown, setInterstitialShown] = useState(false);
-  const { user, loading } = useFirebaseAuth();
+  const { user, loading, signingIn } = useFirebaseAuth();
 
   useEffect(() => {
     if (!loading && user && !interstitialShown) {
@@ -142,6 +143,7 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
     <MediaProvider>
       <StatusBar style="light" translucent backgroundColor="transparent" />
       <AuthGate showOnboarding={showOnboarding} />
+      <GoogleSignInModal visible={signingIn} />
     </MediaProvider>
   );
 }

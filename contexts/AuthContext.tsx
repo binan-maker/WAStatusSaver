@@ -8,6 +8,7 @@ import { getFirebaseClientAuth } from "@/lib/firebase-client";
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  signingIn: boolean;
   configured: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -21,12 +22,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const configured = Boolean(auth && isFirebaseClientConfigured() && isGoogleAuthConfigured());
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(Boolean(auth));
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     if (configured && appConfig.google.webClientId) {
       GoogleSignin.configure({
         webClientId: appConfig.google.webClientId,
-        scopes: ["email", "profile"],
+        scopes: ["openid", "email", "profile"],
+        offlineAccess: false,
+        forceCodeForRefreshToken: false,
       });
     }
   }, [configured]);
@@ -48,13 +52,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextValue = {
     user,
     loading,
+    signingIn,
     configured,
     signInWithGoogle: async () => {
       if (!configured) {
-        Alert.alert("Google sign-in not configured", "Add Firebase client config and Google OAuth client IDs to your .env file before using subscriptions.");
+        Alert.alert(
+          "Google sign-in not configured",
+          "Add Firebase client config and Google OAuth client IDs to your .env file before using subscriptions."
+        );
         return;
       }
 
+      setSigningIn(true);
       try {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
         const signInResult = await GoogleSignin.signIn();
@@ -69,14 +78,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await signInWithCredential(auth!, credential);
       } catch (error: any) {
         if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-          return;
+          // user cancelled — no alert needed
         } else if (error.code === statusCodes.IN_PROGRESS) {
-          return;
+          // already in progress
         } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-          Alert.alert("Google sign-in failed", "Google Play Services is not available on this device.");
+          Alert.alert(
+            "Google Play Services required",
+            "Please update Google Play Services on your device and try again."
+          );
+        } else if (error.code === "DEVELOPER_ERROR" || error.code === "10") {
+          Alert.alert(
+            "Configuration needed",
+            "The app's SHA-1 fingerprint must be registered in the Firebase Console under Project Settings > Android App. Contact the developer to fix this."
+          );
         } else {
-          Alert.alert("Google sign-in failed", error instanceof Error ? error.message : "Please try again.");
+          Alert.alert(
+            "Google sign-in failed",
+            error instanceof Error ? error.message : "Please try again."
+          );
         }
+      } finally {
+        setSigningIn(false);
       }
     },
     signOut: async () => {

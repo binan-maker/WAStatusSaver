@@ -128,11 +128,15 @@ export function useSubscriptionStatus() {
           name: "StatusVault",
           description: order.plan.title,
           order_id: order.orderId,
-          prefill: {},
+          prefill: {
+            email: user?.email || "",
+            name: user?.displayName || "",
+          },
           theme: { color: "#00FFA3" },
           notes: {
             deviceId,
             planId,
+            googleUid: user?.uid || "",
           },
         })) as RazorpaySuccess;
 
