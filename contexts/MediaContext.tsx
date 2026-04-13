@@ -40,6 +40,7 @@ interface MediaContextValue {
   savedItems: SavedItem[];
   isLoading: boolean;
   isRefreshing: boolean;
+  isInitializing: boolean;
   isRequestingSAF: boolean;
   hasPermission: boolean;
   safGranted: boolean;
@@ -109,6 +110,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [safGranted, setSafGranted] = useState(false);
   const [safUri, setSafUri] = useState<string | null>(null);
@@ -118,23 +120,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [showInterstitial, setShowInterstitial] = useState(false);
   const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
   const swipeCountRef = useRef<number>(0);
-  
-  // Load swipe count from AsyncStorage on mount
-  useEffect(() => {
-    const loadSwipeCount = async () => {
-      try {
-        const saved = await AsyncStorage.getItem('swipeCountForAds');
-        if (saved) {
-          const count = parseInt(saved, 10);
-          swipeCountRef.current = count;
-          setImageSwipeCount(count);
-        }
-      } catch (e) {
-        console.log('Failed to load swipe count:', e);
-      }
-    };
-    loadSwipeCount();
-  }, []);
+  const initLoadDoneRef = useRef(false);
 
   const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
 
@@ -145,13 +131,30 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     return 'legacy';
   }, [androidVersion, safGranted]);
 
+  // Single init effect — waits for all permission/storage checks before marking ready
   useEffect(() => {
-    loadSavedItems();
-    checkExistingPermissions();
-    loadSAFUri();
-    // Run cache cleanup on app start
-    cleanupCacheFiles();
-  }, [cleanupCacheFiles]);
+    let mounted = true;
+    const init = async () => {
+      try {
+        await Promise.all([
+          checkExistingPermissions(),
+          loadSAFUri(),
+          loadSavedItems(),
+          AsyncStorage.getItem('swipeCountForAds').then(saved => {
+            if (saved) {
+              const count = parseInt(saved, 10);
+              swipeCountRef.current = count;
+              setImageSwipeCount(count);
+            }
+          }).catch(() => {}),
+        ]);
+      } finally {
+        if (mounted) setIsInitializing(false);
+      }
+    };
+    init();
+    return () => { mounted = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadSAFUri() {
     try {
