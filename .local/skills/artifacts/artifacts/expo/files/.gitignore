@@ -18,9 +18,7 @@ android/
 *.p12
 *.key
 *.mobileprovision
-.env
-.env.example
-status-saver-release.keystore
+
 # Metro
 .metro-health-check*
 
