@@ -23,8 +23,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleWatchAd = async () => {
-    if (isFreeAds || isLoading || !loaded) return;
-    
+    if (isFreeAds || isLoading) return;
     setIsLoading(true);
     try {
       const rewarded = await showAd();
@@ -38,257 +37,284 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
     }
   };
 
-  if (variant === 'grid') {
-    // Grid card variant - for use in FlatList
-    return (
-      <View style={styles.gridCard}>
-        {isFreeAds ? (
-          <LinearGradient colors={[COLORS.PRIMARY + '30', COLORS.PRIMARY + '10']} style={styles.freeContent}>
-            <MaterialCommunityIcons name="star-circle" size={32} color={COLORS.PRIMARY} />
-            <Text style={styles.freeTitle}>Free Ads Active</Text>
-            <Text style={styles.timeRemaining}>{formatTimeRemaining(timeRemaining)} left</Text>
-          </LinearGradient>
-        ) : (
-          <>
-            <LinearGradient
-              colors={[COLORS.PRIMARY, COLORS.PRIMARY + 'dd']}
-              style={styles.gradient}
-            >
-              <MaterialCommunityIcons name="play-circle" size={32} color="#fff" />
-            </LinearGradient>
-            <View style={styles.content}>
-              <Text style={styles.title}>Watch Ads</Text>
-              <Text style={styles.subtitle}>Free Ads for 30 Minutes</Text>
-              {isLoading && <ActivityIndicator color={COLORS.PRIMARY} size="small" style={styles.loader} />}
-              {!isLoading && (
-                <TouchableOpacity
-                  onPress={handleWatchAd}
-                  disabled={!loaded || isLoading}
-                  style={[styles.button, !loaded && styles.buttonDisabled]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.buttonText}>
-                    {loaded ? 'Watch Now' : 'Loading...'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+  // ── Row variant (Settings page) ────────────────────────────────────────────
+  if (variant === 'row') {
+    if (isFreeAds) {
+      return (
+        <View style={styles.rowCard}>
+          <LinearGradient
+            colors={[COLORS.PRIMARY + '18', COLORS.PRIMARY + '08']}
+            style={styles.rowCardInner}
+          >
+            <View style={styles.rowLeft}>
+              <View style={[styles.rowIconWrap, { backgroundColor: COLORS.PRIMARY + '22' }]}>
+                <MaterialCommunityIcons name="check-circle" size={22} color={COLORS.PRIMARY} />
+              </View>
+              <View style={styles.rowTextWrap}>
+                <Text style={styles.rowTitle}>Ads-Free Active</Text>
+                <Text style={styles.rowSubtitle}>
+                  {formatTimeRemaining(timeRemaining)} remaining
+                </Text>
+              </View>
             </View>
-          </>
-        )}
+          </LinearGradient>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.rowCard}>
+        <View style={styles.rowCardInner}>
+          <View style={styles.rowLeft}>
+            <View style={[styles.rowIconWrap, { backgroundColor: COLORS.PRIMARY + '18' }]}>
+              <MaterialCommunityIcons name="play-circle" size={22} color={COLORS.PRIMARY} />
+            </View>
+            <View style={styles.rowTextWrap}>
+              <Text style={styles.rowTitle}>Watch Ad for Free Access</Text>
+              <Text style={styles.rowSubtitle}>Get 30 minutes completely ad-free</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={handleWatchAd}
+            disabled={isLoading}
+            style={styles.rowBtn}
+            activeOpacity={0.8}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#06100C" size="small" />
+            ) : (
+              <Text style={styles.rowBtnText}>Watch Ad</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
-  if (variant === 'row') {
-    // Row variant - for settings page
+  // ── Full variant ────────────────────────────────────────────────────────────
+  if (variant === 'full') {
     return (
       <TouchableOpacity
         onPress={handleWatchAd}
-        disabled={isFreeAds || isLoading || !loaded}
-        style={[styles.rowContainer, isFreeAds && styles.rowDisabled]}
-        activeOpacity={0.7}
+        disabled={isFreeAds || isLoading}
+        activeOpacity={0.8}
+        style={styles.fullWrap}
       >
-        <View style={[styles.rowIcon, isFreeAds && styles.rowIconFree]}>
+        <LinearGradient
+          colors={isFreeAds ? [COLORS.PRIMARY + '30', COLORS.PRIMARY + '15'] : [COLORS.PRIMARY, COLORS.PRIMARY + 'dd']}
+          style={styles.fullCard}
+        >
           <MaterialCommunityIcons
             name={isFreeAds ? 'check-circle' : 'play-circle'}
-            size={20}
-            color={isFreeAds ? COLORS.PRIMARY : '#fff'}
+            size={26}
+            color={isFreeAds ? COLORS.PRIMARY : '#06100C'}
           />
-        </View>
-        <View style={styles.rowInfo}>
-          <Text style={styles.rowTitle}>
-            {isFreeAds ? 'Ads-Free Active' : 'Watch Ads for Free Access'}
-          </Text>
-          <Text style={styles.rowSubtitle}>
-            {isFreeAds ? `${formatTimeRemaining(timeRemaining)} remaining` : 'Get 30 minutes ad-free'}
-          </Text>
-        </View>
-        {isLoading && <ActivityIndicator color={COLORS.TEXT} size="small" />}
-        {!isLoading && !isFreeAds && (
-          <Text style={styles.rowCta}>{loaded ? 'Watch' : 'Loading'}</Text>
-        )}
+          <View style={styles.fullText}>
+            <Text style={[styles.fullTitle, isFreeAds && { color: COLORS.PRIMARY }]}>
+              {isFreeAds ? 'Ads-Free Active' : 'Watch Ad — 30 Min Free'}
+            </Text>
+            <Text style={[styles.fullSubtitle, isFreeAds && { color: COLORS.TEXT_SECONDARY }]}>
+              {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads'}
+            </Text>
+          </View>
+          {isLoading
+            ? <ActivityIndicator color={isFreeAds ? COLORS.PRIMARY : '#06100C'} />
+            : !isFreeAds && <Text style={styles.fullCta}>Watch Now</Text>
+          }
+        </LinearGradient>
       </TouchableOpacity>
     );
   }
 
-  // Full width variant - for saved page
+  // ── Grid variant ────────────────────────────────────────────────────────────
   return (
-    <TouchableOpacity
-      onPress={handleWatchAd}
-      disabled={isFreeAds || isLoading || !loaded}
-      activeOpacity={0.75}
-      style={{ marginHorizontal: SPACING.md, marginVertical: SPACING.sm }}
-    >
-      <LinearGradient
-        colors={
-          isFreeAds
-            ? [COLORS.PRIMARY + '30', COLORS.PRIMARY + '15']
-            : [COLORS.PRIMARY, COLORS.PRIMARY + 'dd']
-        }
-        style={styles.fullCard}
-      >
-        <View style={styles.fullContent}>
-          <MaterialCommunityIcons
-            name={isFreeAds ? 'check-circle' : 'play-circle'}
-            size={28}
-            color={isFreeAds ? COLORS.PRIMARY : '#fff'}
-          />
-          <View style={styles.fullText}>
-            <Text style={[styles.fullTitle, isFreeAds && { color: COLORS.PRIMARY }]}>
-              {isFreeAds ? 'Ads-Free for 30 Minutes' : 'Watch Ads - Free for 30 Minutes'}
-            </Text>
-            <Text style={[styles.fullSubtitle, isFreeAds && { color: COLORS.TEXT_SECONDARY }]}>
-              {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads for 30 minutes'}
-            </Text>
+    <View style={styles.gridCard}>
+      {isFreeAds ? (
+        <LinearGradient colors={[COLORS.PRIMARY + '30', COLORS.PRIMARY + '10']} style={styles.gridFree}>
+          <MaterialCommunityIcons name="star-circle" size={30} color={COLORS.PRIMARY} />
+          <Text style={styles.gridFreeTitle}>Free Ads Active</Text>
+          <Text style={styles.gridFreeTime}>{formatTimeRemaining(timeRemaining)} left</Text>
+        </LinearGradient>
+      ) : (
+        <>
+          <LinearGradient colors={[COLORS.PRIMARY, COLORS.PRIMARY + 'cc']} style={styles.gridTop}>
+            <MaterialCommunityIcons name="play-circle" size={30} color="#06100C" />
+          </LinearGradient>
+          <View style={styles.gridBottom}>
+            <Text style={styles.gridTitle}>Watch Ad</Text>
+            <Text style={styles.gridSub}>30 min free</Text>
+            <TouchableOpacity
+              onPress={handleWatchAd}
+              disabled={isLoading}
+              style={styles.gridBtn}
+              activeOpacity={0.8}
+            >
+              {isLoading
+                ? <ActivityIndicator color={COLORS.PRIMARY} size="small" />
+                : <Text style={styles.gridBtnText}>Watch Now</Text>
+              }
+            </TouchableOpacity>
           </View>
-        </View>
-        {isLoading && <ActivityIndicator color={isFreeAds ? COLORS.PRIMARY : '#fff'} />}
-        {!isLoading && !isFreeAds && (
-          <Text style={styles.fullCta}>{loaded ? 'Watch Now' : 'Loading'}</Text>
-        )}
-      </LinearGradient>
-    </TouchableOpacity>
+        </>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Grid variant
-  gridCard: {
-    backgroundColor: COLORS.SURFACE_2,
-    borderRadius: RADIUS.lg,
+  // ── Row variant ──────────────────────────────────────────────────────────
+  rowCard: {
+    marginHorizontal: 0,
+    borderRadius: RADIUS.MD,
     overflow: 'hidden',
-    aspectRatio: 1,
-    justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: COLORS.SURFACE,
+    borderColor: COLORS.BORDER,
+    backgroundColor: COLORS.SURFACE,
   },
-  gradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    padding: SPACING.md,
-    gap: SPACING.xs,
-  },
-  title: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: '600',
-    color: COLORS.TEXT,
-  },
-  subtitle: {
-    fontSize: FONT_SIZE.sm,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  button: {
-    backgroundColor: COLORS.PRIMARY,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-  },
-  loader: {
-    marginTop: SPACING.xs,
-  },
-  freeContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  freeTitle: {
-    fontSize: FONT_SIZE.md,
-    fontWeight: '600',
-    color: COLORS.PRIMARY,
-  },
-  timeRemaining: {
-    fontSize: FONT_SIZE.xs,
-    color: COLORS.TEXT_SECONDARY,
-  },
-
-  // Row variant
-  rowContainer: {
+  rowCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.md,
-    backgroundColor: COLORS.SURFACE_2,
-    borderRadius: RADIUS.md,
-    marginHorizontal: SPACING.md,
-    marginVertical: SPACING.sm,
-    gap: SPACING.md,
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.MD,
+    gap: SPACING.MD,
   },
-  rowDisabled: {
-    opacity: 0.7,
-  },
-  rowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.PRIMARY,
-    justifyContent: 'center',
+  rowLeft: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACING.MD,
   },
-  rowIconFree: {
-    backgroundColor: 'transparent',
+  rowIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  rowInfo: {
+  rowTextWrap: {
     flex: 1,
   },
   rowTitle: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '700',
     color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
   },
   rowSubtitle: {
-    fontSize: FONT_SIZE.xs,
+    fontSize: FONT_SIZE.XS,
     color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
     marginTop: 2,
   },
-  rowCta: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-    color: COLORS.PRIMARY,
+  rowBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: SPACING.LG,
+    paddingVertical: SPACING.SM + 2,
+    borderRadius: RADIUS.FULL,
+    minWidth: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowBtnText: {
+    color: '#06100C',
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '800',
+    fontFamily: 'Nunito_800ExtraBold',
   },
 
-  // Full width variant
+  // ── Full variant ─────────────────────────────────────────────────────────
+  fullWrap: {
+    marginHorizontal: SPACING.LG,
+    marginVertical: SPACING.SM,
+  },
   fullCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    gap: SPACING.md,
-  },
-  fullContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
+    padding: SPACING.MD,
+    borderRadius: RADIUS.MD,
+    gap: SPACING.MD,
   },
   fullText: {
     flex: 1,
   },
   fullTitle: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: '#06100C',
+    fontFamily: 'Nunito_700Bold',
   },
   fullSubtitle: {
-    fontSize: FONT_SIZE.xs,
-    color: '#fff',
-    opacity: 0.9,
+    fontSize: FONT_SIZE.XS,
+    color: '#06100C',
+    opacity: 0.75,
     marginTop: 2,
+    fontFamily: 'Nunito_400Regular',
   },
   fullCta: {
-    fontSize: FONT_SIZE.sm,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '800',
+    color: '#06100C',
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+
+  // ── Grid variant ─────────────────────────────────────────────────────────
+  gridCard: {
+    backgroundColor: COLORS.SURFACE_2,
+    borderRadius: RADIUS.MD,
+    overflow: 'hidden',
+    aspectRatio: 1,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  gridTop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridBottom: {
+    padding: SPACING.SM,
+    gap: 2,
+  },
+  gridTitle: {
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
+  },
+  gridSub: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+  },
+  gridBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: SPACING.XS,
+    borderRadius: RADIUS.SM,
+    alignItems: 'center',
+    marginTop: SPACING.XS,
+  },
+  gridBtnText: {
+    color: '#06100C',
+    fontSize: FONT_SIZE.XS,
+    fontWeight: '700',
+    fontFamily: 'Nunito_700Bold',
+  },
+  gridFree: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: SPACING.XS,
+  },
+  gridFreeTitle: {
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    fontFamily: 'Nunito_700Bold',
+  },
+  gridFreeTime: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
   },
 });

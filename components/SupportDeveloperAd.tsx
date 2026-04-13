@@ -19,23 +19,16 @@ export function SupportDeveloperAd() {
   const [watchCompleted, setWatchCompleted] = useState(false);
 
   const handleWatchAd = async () => {
-    if (isLoading || !loaded || watchCompleted) return;
-    
+    if (isLoading || watchCompleted) return;
     setIsLoading(true);
     try {
       const rewarded = await showAd();
       if (rewarded) {
         setWatchCompleted(true);
-        // Show emotional thank you message ONLY after watching
         Alert.alert(
-          '🙏 Thank You!',
-          'Your support means so much to us! This helps us keep building amazing features for StatusVault.\n\nYou\'ve made a real difference today.',
-          [
-            {
-              text: 'Close',
-              style: 'default',
-            },
-          ]
+          'Thank You!',
+          "Your support means everything to us! This helps us keep building amazing features for StatusVault.\n\nYou've made a real difference today.",
+          [{ text: 'Close', style: 'default' }]
         );
       }
     } catch (error) {
@@ -45,147 +38,133 @@ export function SupportDeveloperAd() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[COLORS.ACCENT_GOLD + '20', COLORS.ACCENT_GOLD + '08']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
-      >
-        <View style={styles.header}>
-          <View style={styles.iconBox}>
-            <MaterialCommunityIcons name="heart" size={24} color={COLORS.ACCENT_GOLD} />
+  if (watchCompleted) {
+    return (
+      <View style={styles.card}>
+        <LinearGradient
+          colors={[COLORS.PRIMARY + '18', COLORS.PRIMARY + '08']}
+          style={styles.cardInner}
+        >
+          <View style={styles.headerRow}>
+            <View style={[styles.iconWrap, { backgroundColor: COLORS.PRIMARY + '22' }]}>
+              <MaterialCommunityIcons name="check-circle" size={22} color={COLORS.PRIMARY} />
+            </View>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Thank You!</Text>
+              <Text style={styles.subtitle}>Your support means a lot to us</Text>
+            </View>
           </View>
-          <View style={styles.titleBox}>
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.card}>
+      <LinearGradient
+        colors={[COLORS.ACCENT_GOLD + '18', COLORS.ACCENT_GOLD + '06']}
+        style={styles.cardInner}
+      >
+        <View style={styles.headerRow}>
+          <View style={[styles.iconWrap, { backgroundColor: COLORS.ACCENT_GOLD + '25' }]}>
+            <MaterialCommunityIcons name="heart" size={22} color={COLORS.ACCENT_GOLD} />
+          </View>
+          <View style={styles.headerText}>
             <Text style={styles.title}>Support App Development</Text>
-            <Text style={styles.subtitle}>Watch an ad & help us grow</Text>
+            <Text style={styles.subtitle}>Watch an ad — it costs you nothing</Text>
           </View>
         </View>
 
         <Text style={styles.message}>
-          Your support helps us maintain StatusVault and add new features. Thank you for being part of our community! 💪
+          Watching one ad helps us keep StatusVault free and add new features. Your support makes a real difference!
         </Text>
 
         <TouchableOpacity
           onPress={handleWatchAd}
-          disabled={!loaded || isLoading || watchCompleted}
-          style={[styles.button, (isLoading || watchCompleted) && styles.buttonDisabled]}
-          activeOpacity={0.8}
+          disabled={isLoading}
+          style={styles.btn}
+          activeOpacity={0.85}
         >
           <LinearGradient
-            colors={
-              watchCompleted
-                ? [COLORS.PRIMARY + '44', COLORS.PRIMARY + '33']
-                : [COLORS.ACCENT_GOLD, COLORS.ACCENT_GOLD + 'dd']
-            }
+            colors={[COLORS.ACCENT_GOLD, '#E6A800']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.buttonGradient}
+            end={{ x: 1, y: 0 }}
+            style={styles.btnGradient}
           >
-            {isLoading && <ActivityIndicator color="#fff" size="small" style={styles.loader} />}
-            {!isLoading && (
+            {isLoading ? (
+              <ActivityIndicator color="#06100C" size="small" />
+            ) : (
               <>
-                <MaterialCommunityIcons name={watchCompleted ? 'check-circle' : 'play-circle'} size={18} color="#fff" />
-                <Text style={styles.buttonText}>
-                  {watchCompleted ? 'Thank You!' : loaded ? 'Watch Ad' : 'Loading...'}
-                </Text>
+                <MaterialCommunityIcons name="play-circle" size={20} color="#06100C" />
+                <Text style={styles.btnText}>Watch Ad to Support</Text>
               </>
             )}
           </LinearGradient>
         </TouchableOpacity>
-
-        {watchCompleted && (
-          <View style={styles.thankYouBox}>
-            <MaterialCommunityIcons name="check-circle" size={20} color={COLORS.PRIMARY} />
-            <Text style={styles.thankYouText}>Thanks for supporting us!</Text>
-          </View>
-        )}
       </LinearGradient>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginHorizontal: SPACING.PADDING,
-    marginVertical: 12,
-  },
   card: {
-    borderRadius: RADIUS.CARD,
-    padding: SPACING.PADDING,
+    borderRadius: RADIUS.MD,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.ACCENT_GOLD + '33',
+    borderColor: COLORS.ACCENT_GOLD + '30',
   },
-  header: {
+  cardInner: {
+    padding: SPACING.LG,
+    gap: SPACING.MD,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: SPACING.MD,
   },
-  iconBox: {
+  iconWrap: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.ACCENT_GOLD + '25',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  titleBox: {
+  headerText: {
     flex: 1,
   },
   title: {
-    fontSize: FONT_SIZE.MEDIUM,
+    fontSize: FONT_SIZE.MD,
     fontWeight: '700',
     color: COLORS.TEXT,
-    marginBottom: 2,
+    fontFamily: 'Nunito_700Bold',
   },
   subtitle: {
-    fontSize: FONT_SIZE.SMALL,
+    fontSize: FONT_SIZE.XS,
     color: COLORS.TEXT_SECONDARY,
-    fontWeight: '500',
+    fontFamily: 'Nunito_400Regular',
+    marginTop: 2,
   },
   message: {
-    fontSize: FONT_SIZE.SMALL,
+    fontSize: FONT_SIZE.SM,
     color: COLORS.TEXT_SECONDARY,
-    lineHeight: 18,
-    marginBottom: 14,
+    lineHeight: 20,
+    fontFamily: 'Nunito_400Regular',
   },
-  button: {
-    borderRadius: RADIUS.BUTTON,
+  btn: {
+    borderRadius: RADIUS.FULL,
     overflow: 'hidden',
-    marginBottom: 12,
   },
-  buttonGradient: {
+  btnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
-    gap: 8,
+    paddingVertical: SPACING.MD,
+    gap: SPACING.SM,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  loader: {
-    marginRight: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: FONT_SIZE.MEDIUM,
-    fontWeight: '700',
-  },
-  thankYouBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.PRIMARY + '15',
-    borderRadius: RADIUS.BUTTON,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  thankYouText: {
-    fontSize: FONT_SIZE.SMALL,
-    color: COLORS.PRIMARY,
-    fontWeight: '600',
+  btnText: {
+    color: '#06100C',
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '800',
+    fontFamily: 'Nunito_800ExtraBold',
   },
 });
