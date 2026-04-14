@@ -62,8 +62,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return s;
   }, [item.id, item.uri]);
 
-  // Use a simpler video player initialization to avoid binder issues
-  const player = useVideoPlayer(initialSource, (p) => {
+  // Only create a native video player for video items — images don't need one
+  const videoSource = item.type === 'video' ? initialSource : null;
+  const player = useVideoPlayer(videoSource, (p) => {
     if (p) {
       p.loop = true;
       p.muted = !isActive;

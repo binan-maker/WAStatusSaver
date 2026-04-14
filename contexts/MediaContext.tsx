@@ -479,35 +479,40 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
       const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
       const tempUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
-      
-      // FIXED: Immediate check for existence to avoid any delay
+
+      // Return cached file immediately if it already exists and is non-empty
       const info = await FileSystem.getInfoAsync(tempUri);
-      if (info.exists && info.size > 0) {
+      if (info.exists && (info as any).size > 0) {
         return tempUri;
       }
 
-      // Aggressive caching with timeout - return original if copy takes too long
-      let copyCompleted = false;
-      const copyPromise = FileSystem.copyAsync({
-        from: item.uri,
-        to: tempUri
-      }).then(() => {
-        copyCompleted = true;
-        return tempUri;
-      }).catch(() => item.uri);
+      // Race the copy against a 1.5s timeout. If the timeout wins, return the
+      // original URI and clean up any partial/late-arriving copy so stale cache
+      // files don't accumulate.
+      let timedOut = false;
 
-      const timeoutPromise = new Promise<string>((resolve) => {
-        setTimeout(() => {
-          if (!copyCompleted) {
-            resolve(item.uri); // Return original URI if copy times out
+      const copyPromise = FileSystem.copyAsync({ from: item.uri, to: tempUri })
+        .then(() => {
+          if (timedOut) {
+            // Copy arrived late — discard it to avoid orphaned cache files
+            FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+            return item.uri;
           }
-        }, 1500); // 1.5 second timeout
-      });
+          return tempUri;
+        })
+        .catch(() => item.uri);
+
+      const timeoutPromise = new Promise<string>((resolve) =>
+        setTimeout(() => {
+          timedOut = true;
+          resolve(item.uri);
+        }, 1500)
+      );
 
       return Promise.race([copyPromise, timeoutPromise]);
     } catch (e) {
       console.error('Prepare for viewing error:', e);
-      return item.uri; // Fallback to original URI
+      return item.uri;
     }
   }, []);
 
@@ -544,6 +549,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     savedItems,
     isLoading,
     isRefreshing,
+    isInitializing,
     isRequestingSAF,
     hasPermission,
     safGranted,
