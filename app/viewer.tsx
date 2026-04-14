@@ -292,7 +292,8 @@ export default function ViewerScreen() {
     hasPermission,
     onImageSwipe,
     dismissInterstitial,
-    showInterstitial
+    showInterstitial,
+    prepareStatusForViewing,
   } = useMedia();
 
   const isSavedView = isSavedParam === '1';
@@ -304,7 +305,7 @@ export default function ViewerScreen() {
       loadStatuses();
     }
   }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
-  
+
   const items = useMemo(() => {
     if (isSavedView) {
       const startItem = savedItems.find(s => s.id === id || decodeURIComponent(s.id) === id);
@@ -350,6 +351,20 @@ export default function ViewerScreen() {
   }, [initialIndex, items.length, id]);
 
   const currentItem = items[currentIndex];
+
+  // Pre-load the next 2 items in the background so they are in cache before the user swipes.
+  // This eliminates the black screen caused by on-demand file copying on fast swipes.
+  useEffect(() => {
+    for (const offset of [1, 2]) {
+      const next = items[currentIndex + offset];
+      if (next && next.uri.startsWith('content://')) {
+        prepareStatusForViewing(next as StatusItem).catch(() => {});
+      }
+    }
+  }, [currentIndex, items, prepareStatusForViewing]);
+
+  // Debounce ref: used to skip processing intermediate scroll positions during fast flicks.
+  const scrollSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showControls, setShowControls] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -417,29 +432,24 @@ const toggleControls = useCallback(() => {
     if (isScrollingRef.current) return;
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SW);
-    if (index !== currentIndex && index >= 0 && index < items.length) {
+    if (index < 0 || index >= items.length) return;
+
+    // Debounce: if the user is flicking fast through multiple pages, skip intermediate
+    // positions and only process the final settled index. This prevents the disk I/O
+    // "clog" that causes black screens when swiping rapidly.
+    if (scrollSettleRef.current) clearTimeout(scrollSettleRef.current);
+    scrollSettleRef.current = setTimeout(() => {
       setCurrentIndex(index);
-      // Reset controls visibility when swiping to a new item
       setShowControls(true);
       controlsOpacity.setValue(1);
-      
-      // Trigger image swipe ad logic if it's an image AND index changed
       if (index !== prevIndex.current) {
-        if (items[index].type === 'image') {
+        if (items[index]?.type === 'image') {
           onImageSwipe();
         }
-        
-        // Interstitial ad logic for video views (7 image/video swipes)
-        if (index > 0 && index % 7 === 0) {
-           // Interstitial logic is handled by onVideoOpen in useMedia usually, 
-           // but we'll use showInterstitial state directly here if needed or let onImageSwipe handle it.
-           // User asked for video ads (interstitial) every 7 swipes.
-        }
-
         prevIndex.current = index;
       }
-    }
-  }, [currentIndex, items, onImageSwipe]);
+    }, 60);
+  }, [items, onImageSwipe, controlsOpacity]);
 
   const onScrollBeginDrag = useCallback(() => {
     isScrollingRef.current = true;
@@ -486,10 +496,10 @@ const toggleControls = useCallback(() => {
           flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
         }}
         windowSize={3}
-        initialNumToRender={3}
-        maxToRenderPerBatch={3}
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
         removeClippedSubviews={Platform.OS === 'android'}
-        updateCellsBatchingPeriod={10}
+        updateCellsBatchingPeriod={50}
       />
 
       <Animated.View

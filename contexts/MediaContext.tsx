@@ -455,15 +455,31 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const shareStatus = useCallback(async (item: StatusItem | SavedItem) => {
     try {
-      let shareUri = item.uri;
+      let shareUri: string;
 
       if ('localUri' in item) {
-        shareUri = item.localUri;
-      } else if (item.uri.startsWith('content://')) {
-        const ext = item.name.split('.').pop() || 'jpg';
-        const tempUri = `${FileSystem.cacheDirectory}share_${Date.now()}.${ext}`;
-        await FileSystem.copyAsync({ from: item.uri, to: tempUri });
-        shareUri = tempUri;
+        // Already a saved local file — use it directly, no copy needed
+        shareUri = (item as SavedItem).localUri;
+      } else if (!item.uri.startsWith('content://')) {
+        shareUri = item.uri;
+      } else {
+        // Reuse the view_ cache file if it was already prepared for viewing —
+        // avoids a redundant disk copy and makes sharing instant.
+        const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
+        const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
+        const viewCacheUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
+        const info = await FileSystem.getInfoAsync(viewCacheUri);
+        if (info.exists && (info as any).size > 0) {
+          shareUri = viewCacheUri;
+        } else {
+          // Fall back: write a deduplicated share_ file (keyed by item id, not timestamp)
+          const shareFile = `${FileSystem.cacheDirectory}share_${safeId}.${ext}`;
+          const shareInfo = await FileSystem.getInfoAsync(shareFile);
+          if (!shareInfo.exists) {
+            await FileSystem.copyAsync({ from: item.uri, to: shareFile });
+          }
+          shareUri = shareFile;
+        }
       }
 
       await Sharing.shareAsync(shareUri);
