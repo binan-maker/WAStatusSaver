@@ -281,6 +281,27 @@ export function registerPaymentRoutes(app: Express) {
       const orderSnap = await orderRef.get();
       const orderData = orderSnap.data();
 
+      // Idempotency + security guard: if this order was already verified, return
+      // the existing subscription without re-running verification.
+      // SECURITY: also assert the paymentId matches the one we already stored —
+      // this blocks any attacker who might try to re-use a legitimate order_id
+      // with a different (fraudulent) payment_id.
+      if (orderSnap.exists && orderData?.status === "verified" && orderData?.userId === authUser.uid) {
+        if (orderData?.paymentId && orderData.paymentId !== paymentId) {
+          return res.status(400).json({ message: "Payment ID mismatch on already-verified order" });
+        }
+        const subSnap = await db.collection("subscriptions").doc(authUser.uid).get();
+        const subData = subSnap.data() || {};
+        const paidUntilDate = subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate() : null;
+        const lifetime = Boolean(subData.lifetime);
+        return res.json({
+          active: lifetime || Boolean(paidUntilDate && paidUntilDate.getTime() > Date.now()),
+          lifetime,
+          planId: subData.planId || plan.id,
+          paidUntil: paidUntilDate ? paidUntilDate.toISOString() : null,
+        });
+      }
+
       if (!orderSnap.exists || orderData?.deviceId !== deviceId || orderData?.userId !== authUser.uid || orderData?.planId !== plan.id) {
         await orderRef.set(
           {

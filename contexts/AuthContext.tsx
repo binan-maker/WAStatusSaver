@@ -13,7 +13,7 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
-  getIdToken: () => Promise<string | null>;
+  getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -138,9 +138,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await firebaseSignOut(auth);
       try { await GoogleSignin.signOut(); } catch {}
     },
-    getIdToken: async () => {
+    getIdToken: async (forceRefresh = false) => {
       if (!user) return null;
-      return user.getIdToken();
+      return user.getIdToken(forceRefresh);
     },
   };
 
