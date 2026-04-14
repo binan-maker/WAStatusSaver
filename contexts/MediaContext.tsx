@@ -418,17 +418,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       if (hasPermission) {
         try {
-          // To avoid the "Allow StatusVault to modify this photo?" dialog on Android 11+,
-          // we use the localUri directly for internal app tracking and don't explicitly
-          // call createAssetAsync/createAlbumAsync if we want to avoid the system prompt.
-          // The file is already saved in the app's documentDirectory.
-          // If the user specifically wants it in the gallery without a prompt, 
-          // they would need "MANAGE_EXTERNAL_STORAGE" which is a restricted permission.
-          // For now, we'll keep it in the app's storage to ensure it's "Saved" within the app.
-          
-          // Commenting out MediaLibrary calls to prevent the system prompt on Android 11+
-          // const asset = await MediaLibrary.createAssetAsync(destUri);
-          // await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
+          const asset = await MediaLibrary.createAssetAsync(destUri);
+          await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
         } catch (err) {
           console.log('MediaLibrary save error:', err);
         }
@@ -500,8 +491,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     setImageSwipeCount(newCount);
     swipeCountRef.current = newCount;
     
-    // Show interstitial every 7-10 swipes (randomized)
-    const adFrequency = Math.floor(Math.random() * 4) + 7; // 7-10
+    // Show interstitial every 8 swipes (fixed)
+    const adFrequency = 8;
     if (newCount >= adFrequency) {
       setShowInterstitial(true);
       setImageSwipeCount(0);
@@ -546,7 +537,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // FIXED #6: Add aggressive cache cleanup to prevent ghost files
+  // Cleans up view_ and share_ cache files older than 4 hours to prevent storage leaks
   const cleanupCacheFiles = useCallback(async () => {
     try {
       const cacheDir = FileSystem.cacheDirectory;
@@ -554,7 +545,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       
       const files = await FileSystem.readDirectoryAsync(cacheDir);
       const now = Date.now();
-      const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // Reduced to 4 hours for more aggressive cleanup
+      const CACHE_LIFETIME = 4 * 60 * 60 * 1000;
       
       for (const file of files) {
         if (!file.startsWith('view_') && !file.startsWith('share_')) continue;
@@ -562,7 +553,6 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         const fileUri = `${cacheDir}${file}`;
         try {
           const info = await FileSystem.getInfoAsync(fileUri);
-          // Check both modificationTime and creation time for better cleanup
           const fileAge = info.modificationTime ? (now - info.modificationTime * 1000) : (now - 1000000);
           if (fileAge > CACHE_LIFETIME) {
             await FileSystem.deleteAsync(fileUri, { idempotent: true });
@@ -573,6 +563,11 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       console.log('Cache cleanup error:', e);
     }
   }, []);
+
+  // Run cache cleanup on every app startup in the background to prevent storage leaks
+  useEffect(() => {
+    cleanupCacheFiles().catch(() => {});
+  }, [cleanupCacheFiles]);
 
   const value: MediaContextValue = {
     statuses,
