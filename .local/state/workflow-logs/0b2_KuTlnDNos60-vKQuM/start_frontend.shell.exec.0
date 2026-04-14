@@ -1,0 +1,19 @@
+
+> expo-app@1.0.0 expo:dev
+> EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN:5000 expo start --localhost
+
+[1G[0K[90mStarting project at /home/runner/workspace[39m
+[31mTypeError: Error loading Metro config at: /home/runner/workspace/metro.config.js[39m
+[31mexclusionList is not a function[39m
+[90mTypeError: exclusionList is not a function[39m
+[90m    at Object.<anonymous> (/home/runner/workspace/metro.config.js:6:29)[39m
+[90m    at Module._compile (node:internal/modules/cjs/loader:1521:14)[39m
+[90m    at Object.Module._extensions..js (node:internal/modules/cjs/loader:1623:10)[39m
+[90m    at Module.load (node:internal/modules/cjs/loader:1266:32)[39m
+[90m    at Function.Module._load (node:internal/modules/cjs/loader:1091:12)[39m
+[90m    at cjsLoader (node:internal/modules/esm/translators:298:15)[39m
+[90m    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)[39m
+[90m    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)[39m
+[90m    at ModuleLoader.import (node:internal/modules/esm/loader:606:24)[39m
+[90m    at loadConfigFile (/home/runner/workspace/node_modules/metro-config/src/loadConfig.js:292:30)[39m
+[1G[0K⠙[1G[0K
