@@ -54,76 +54,78 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [panY, setPanY] = useState(0);
   const scaleRef = useRef(1);
   const lastDistanceRef = useRef<number | null>(null);
-  
-  // FIXED: Removed isPlaying state and simplified video source logic
+  const sourceReadyRef = useRef(false);
+
   const initialSource = useMemo(() => {
-    const s = 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-    // Ensure content:// URIs are handled correctly or fall back to original
-    return s;
+    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id, item.uri]);
 
-  // Only create a native video player for video items — images don't need one
-  const videoSource = item.type === 'video' ? initialSource : null;
-  const player = useVideoPlayer(videoSource, (p) => {
+  // Always start with null so the player never tries to decode a raw content://
+  // URI. The prepared file:// URI is loaded via player.replace() once it's ready.
+  const player = useVideoPlayer(null, (p) => {
     if (p) {
       p.loop = true;
-      p.muted = !isActive;
+      p.muted = true;
       if (Platform.OS === 'android') {
         p.staysActiveInBackground = false;
       }
     }
   });
 
-  // Handle source replacement when cache is ready
+  // Once the prepared (file://) URI is ready, load it into the player.
+  // A 100 ms delay after replace gives the decoder time to settle before play().
   useEffect(() => {
-    if (displayUri && displayUri !== initialSource && player) {
-      const replaceSource = async () => {
-        try {
-          // Only replace if it's actually a different valid URI
-          if (displayUri.startsWith('file://') || displayUri.startsWith('content://')) {
-            if (Platform.OS === 'ios') {
-              await player.replaceAsync(displayUri);
-            } else {
-              player.replace(displayUri);
-            }
-          }
-        } catch (e) {
-          console.log('Player replace error:', e);
-        }
-      };
-      replaceSource();
-    }
-  }, [displayUri, initialSource, player]);
+    if (item.type !== 'video' || !player || !displayUri) return;
 
-  // Sync muted state and playback with extra safety
-  useEffect(() => {
-    if (!player) return;
-    
     let isMounted = true;
-    const syncPlayback = async () => {
+    const load = async () => {
       try {
+        sourceReadyRef.current = false;
+        if (Platform.OS === 'ios') {
+          await player.replaceAsync(displayUri);
+        } else {
+          player.replace(displayUri);
+        }
+        // Short settle window so the decoder has a frame before play() arrives
+        await new Promise(r => setTimeout(r, 100));
+        if (!isMounted) return;
+        sourceReadyRef.current = true;
         if (isActive) {
           player.muted = false;
           player.play();
-        } else {
-          player.muted = true;
-          // Only pause if not near active to keep buffer
-          if (!isNearActive) {
-            player.pause();
-          }
         }
       } catch (e) {
-        if (isMounted) console.log('Player sync error:', e);
+        console.log('Player load error:', e);
       }
     };
-
-    syncPlayback();
+    load();
     return () => { isMounted = false; };
-  }, [isActive, isNearActive, player]);
+  }, [displayUri, item.type, player]);
 
+  // Sync playback/mute state whenever active flag changes.
+  // Only issue play() once the source is confirmed ready.
+  useEffect(() => {
+    if (item.type !== 'video' || !player) return;
+    try {
+      if (isActive) {
+        player.muted = false;
+        if (sourceReadyRef.current) player.play();
+      } else {
+        player.muted = true;
+        if (!isNearActive) player.pause();
+      }
+    } catch (e) {
+      console.log('Player sync error:', e);
+    }
+  }, [isActive, isNearActive, player, item.type]);
+
+  // Prepare the cache URI for both images and videos.
   useEffect(() => {
     if (!isNearActive) {
-      if (!isActive) setDisplayUri(null);
+      if (!isActive) {
+        setDisplayUri(null);
+        sourceReadyRef.current = false;
+      }
       return;
     }
 
@@ -131,26 +133,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     async function prepare() {
       try {
         if (!initialSource.startsWith('content://')) {
-          if (isMounted) {
-            setDisplayUri(initialSource);
-          }
+          if (isMounted) setDisplayUri(initialSource);
           return;
         }
-        
-        const prepared = await prepareStatusForViewing(item);
-        if (isMounted) {
-          setDisplayUri(prepared);
-        }
-      } catch (e) {
-        if (isMounted) {
-          setDisplayUri(initialSource);
-        }
+        const prepared = await prepareStatusForViewing(item as StatusItem);
+        if (isMounted) setDisplayUri(prepared);
+      } catch {
+        if (isMounted) setDisplayUri(initialSource);
       }
     }
-    
-    if (!displayUri || displayUri === initialSource) {
-      prepare();
-    }
+
+    if (!displayUri) prepare();
     return () => { isMounted = false; };
   }, [initialSource, item, isNearActive, isActive]);
 
@@ -221,19 +214,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         </Animated.View>
       ) : (
         <View style={styles.videoWrap}>
-          {player ? (
-            <VideoView
-              player={player}
-              style={styles.video}
-              contentFit="contain"
-              nativeControls={false}
-              showsPlaybackControls={false}
-            />
-          ) : (
-            <View style={styles.videoPlaceholder}>
-               <ActivityIndicator color={COLORS.PRIMARY} />
-            </View>
-          )}
+          <VideoView
+            key={item.id}
+            player={player}
+            style={styles.video}
+            contentFit="contain"
+            nativeControls={false}
+            showsPlaybackControls={false}
+          />
         </View>
       )}
     </TouchableOpacity>
