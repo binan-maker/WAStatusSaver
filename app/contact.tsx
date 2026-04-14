@@ -133,7 +133,7 @@ export default function ContactScreen() {
         activeType === 'bug' ? 'Bug Report Sent' : 'Feedback Sent',
         isSubscribed
           ? 'Thank you! As a Pro subscriber your report has been marked as priority and will be reviewed first.'
-          : 'Thank you! Your feedback has been received. We'll review it soon.',
+          : 'Thank you! Your feedback has been received. We ll review it soon.',
       );
     } catch {
       Alert.alert(

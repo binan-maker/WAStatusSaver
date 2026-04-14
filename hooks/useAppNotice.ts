@@ -9,7 +9,12 @@ export interface AppNotice {
   message: string;
 }
 
-const MAX_SHOWS = 2;
+// Key format: @notice_dismissed_{noticeId}
+// Value: "1" means the user tapped X and dismissed this specific notice.
+// Changing the `id` field in Firestore resets the counter and shows the notice again.
+function dismissedKey(noticeId: string) {
+  return `@notice_dismissed_${noticeId}`;
+}
 
 export function useAppNotice() {
   const [notice, setNotice] = useState<AppNotice | null>(null);
@@ -17,7 +22,7 @@ export function useAppNotice() {
 
   useEffect(() => {
     let mounted = true;
-    const fetch = async () => {
+    const load = async () => {
       try {
         const app = getFirebaseClientApp();
         if (!app) return;
@@ -27,30 +32,38 @@ export function useAppNotice() {
         if (!snap.exists()) return;
 
         const data = snap.data();
-        if (!data.active || !data.message) return;
+        // Skip if notice is inactive or has no message
+        if (!data.active || !data.message?.trim()) return;
 
-        const noticeId: string = data.id || 'default';
-        const key = `@notice_shown_${noticeId}`;
-        const stored = await AsyncStorage.getItem(key);
-        const count = stored ? parseInt(stored, 10) : 0;
+        const noticeId: string = (data.id || 'default').trim();
 
-        if (count >= MAX_SHOWS) return;
+        // If the user already dismissed this exact notice id — don't show it again
+        const dismissed = await AsyncStorage.getItem(dismissedKey(noticeId));
+        if (dismissed === '1') return;
 
         if (mounted) {
-          setNotice({ id: noticeId, title: data.title || 'Notice', message: data.message });
+          setNotice({
+            id: noticeId,
+            title: (data.title || 'Notice').trim(),
+            message: data.message.trim(),
+          });
           setVisible(true);
-          await AsyncStorage.setItem(key, String(count + 1));
         }
       } catch {
         // Non-critical — silent fail
       }
     };
 
-    fetch();
+    load();
     return () => { mounted = false; };
   }, []);
 
-  const dismiss = () => setVisible(false);
+  const dismiss = async () => {
+    setVisible(false);
+    if (notice?.id) {
+      await AsyncStorage.setItem(dismissedKey(notice.id), '1').catch(() => {});
+    }
+  };
 
   return { notice, visible, dismiss };
 }
