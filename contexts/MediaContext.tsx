@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY } from '@/constants/admob';
 
 export type MediaType = 'image' | 'video';
+export type StatusSource = 'whatsapp' | 'whatsapp_business';
 
 export interface StatusItem {
   id: string;
@@ -25,7 +26,7 @@ export interface StatusItem {
   name: string;
   modTime?: number;
   size?: number;
-  source: 'whatsapp' | 'whatsapp_business';
+  source: StatusSource;
 }
 
 export interface SavedItem extends StatusItem {
@@ -45,6 +46,7 @@ interface MediaContextValue {
   hasPermission: boolean;
   safGranted: boolean;
   safUri: string | null;
+  safUris: Partial<Record<StatusSource, string>>;
   androidVersion: number;
   storageMethod: AndroidStorageMethod;
   permissionStatus: MediaLibrary.PermissionStatus | null;
@@ -52,7 +54,7 @@ interface MediaContextValue {
   showInterstitial: boolean;
   pendingVideoUri: string | null;
   requestPermissions: () => Promise<boolean>;
-  requestSAF: () => Promise<void>;
+  requestSAF: (source?: StatusSource) => Promise<void>;
   loadStatuses: () => Promise<void>;
   refresh: () => Promise<void>;
   saveStatus: (item: StatusItem) => Promise<boolean>;
@@ -85,6 +87,12 @@ const WHATSAPP_SAF_PATHS = [
 const STORAGE_KEYS = {
   SAVED_ITEMS: '@statusvault_saved',
   SAF_URI: '@statusvault_saf_uri',
+  SAF_URIS: '@statusvault_saf_uris',
+};
+
+const SAF_INITIAL_URIS: Record<StatusSource, string> = {
+  whatsapp: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
+  whatsapp_business: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
 };
 
 function getFileId(path: string): string {
@@ -114,6 +122,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [safGranted, setSafGranted] = useState(false);
   const [safUri, setSafUri] = useState<string | null>(null);
+  const [safUris, setSafUris] = useState<Partial<Record<StatusSource, string>>>({});
   const [permissionStatus, setPermissionStatus] = useState<MediaLibrary.PermissionStatus | null>(null);
   const [videoViewCount, setVideoViewCount] = useState(0);
   const [imageSwipeCount, setImageSwipeCount] = useState(0);
@@ -158,9 +167,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   async function loadSAFUri() {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.SAF_URI);
-      if (stored) {
-        setSafUri(stored);
+      const [storedMap, storedLegacy] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.SAF_URIS),
+        AsyncStorage.getItem(STORAGE_KEYS.SAF_URI),
+      ]);
+      let parsed: Partial<Record<StatusSource, string>> = {};
+      if (storedMap) {
+        parsed = JSON.parse(storedMap);
+      } else if (storedLegacy) {
+        parsed = { whatsapp: storedLegacy };
+        await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(parsed));
+      }
+      if (parsed.whatsapp || parsed.whatsapp_business) {
+        setSafUris(parsed);
+        setSafUri(parsed.whatsapp || parsed.whatsapp_business || null);
         setSafGranted(true);
       }
     } catch {}
@@ -215,11 +235,10 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const [isRequestingSAF, setIsRequestingSAF] = useState(false);
 
-  const requestSAF = useCallback(async () => {
+  const requestSAF = useCallback(async (source: StatusSource = 'whatsapp') => {
     if (Platform.OS !== 'android') return;
     try {
-      // Use the specially encoded URI for Android/media/com.whatsapp/WhatsApp/Media
-      const initialUri = 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia';
+      const initialUri = SAF_INITIAL_URIS[source];
       
       setIsRequestingSAF(true);
       // Give a tiny delay for the overlay to mount before opening system picker
@@ -229,10 +248,21 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           setIsRequestingSAF(false);
           
           if (result.granted) {
+            const nextSafUris = { ...safUris, [source]: result.directoryUri };
+            await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
             await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
+            setSafUris(nextSafUris);
             setSafUri(result.directoryUri);
             setSafGranted(true);
-            await loadStatuses();
+            setIsLoading(true);
+            try {
+              const safEntries = Object.entries(nextSafUris) as [StatusSource, string][];
+              const results = await Promise.all(safEntries.map(([entrySource, uri]) => readFromSAF(uri, entrySource)));
+              const items = results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+              setStatuses(items);
+            } finally {
+              setIsLoading(false);
+            }
           }
         } catch (e) {
           setIsRequestingSAF(false);
@@ -243,7 +273,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       setIsRequestingSAF(false);
       Alert.alert('Permission Error', 'Could not access storage. Please try again.');
     }
-  }, [loadStatuses]);
+  }, [loadStatuses, safUris]);
 
   async function readFromLegacyPath(): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
@@ -277,7 +307,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     return items;
   }
 
-  async function readFromSAF(safDirUri: string): Promise<StatusItem[]> {
+  async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
     try {
       // FIXED #1: Optimize SAF access by reducing redundant checks
@@ -300,7 +330,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
       const isBusiness = decodeURIComponent(targetUri).toLowerCase().includes('w4b') || 
                         decodeURIComponent(targetUri).toLowerCase().includes('business');
-      const source = isBusiness ? 'whatsapp_business' : 'whatsapp';
+      const source = forcedSource || (isBusiness ? 'whatsapp_business' : 'whatsapp');
 
       // Process files in parallel to speed up SAF enumeration
       for (const fileUri of files) {
@@ -315,15 +345,27 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (e) {
-      setSafGranted(false);
-      setSafUri(null);
-      await AsyncStorage.removeItem(STORAGE_KEYS.SAF_URI);
+      if (forcedSource) {
+        const nextSafUris = { ...safUris };
+        delete nextSafUris[forcedSource];
+        setSafUris(nextSafUris);
+        setSafUri(nextSafUris.whatsapp || nextSafUris.whatsapp_business || null);
+        setSafGranted(Boolean(nextSafUris.whatsapp || nextSafUris.whatsapp_business));
+        await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
+      } else {
+        setSafGranted(false);
+        setSafUri(null);
+        setSafUris({});
+        await AsyncStorage.removeItem(STORAGE_KEYS.SAF_URI);
+        await AsyncStorage.removeItem(STORAGE_KEYS.SAF_URIS);
+      }
     }
     return items;
   }
 
   const loadStatuses = useCallback(async () => {
-    if (!hasPermission && Platform.OS === 'android') {
+    const needsMediaPermission = Platform.OS === 'android' && androidVersion < 30;
+    if (!hasPermission && needsMediaPermission) {
       const granted = await checkExistingPermissions();
       if (!granted) return;
     }
@@ -332,8 +374,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     try {
       let items: StatusItem[] = [];
 
-      if (androidVersion >= 30 && safGranted && safUri) {
-        items = await readFromSAF(safUri);
+      if (androidVersion >= 30 && safGranted) {
+        const safEntries = Object.entries(safUris) as [StatusSource, string][];
+        if (safEntries.length > 0) {
+          const results = await Promise.all(safEntries.map(([source, uri]) => readFromSAF(uri, source)));
+          items = results.flat();
+        } else if (safUri) {
+          items = await readFromSAF(safUri);
+        }
       } else {
         items = await readFromLegacyPath();
       }
@@ -345,7 +393,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [hasPermission, androidVersion, safGranted, safUri]);
+  }, [hasPermission, androidVersion, safGranted, safUri, safUris]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -536,6 +584,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     hasPermission,
     safGranted,
     safUri,
+    safUris,
     androidVersion,
     storageMethod,
     permissionStatus,

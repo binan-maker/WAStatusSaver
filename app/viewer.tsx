@@ -57,6 +57,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Ref keeps isActive current inside the event listener closure
   const isActiveRef = useRef(isActive);
   const isLoadingSource = useRef(false);
+  const isReadyToPlayRef = useRef(false);
 
   useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
@@ -76,17 +77,26 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   });
 
+  const tryStartPlayback = useCallback(() => {
+    if (item.type !== 'video' || !displayUri || isLoadingSource.current || !isReadyToPlayRef.current || !isActiveRef.current) {
+      return;
+    }
+
+    try {
+      player.muted = false;
+      player.play();
+    } catch (e) {
+      console.log('Player start error:', e);
+    }
+  }, [displayUri, item.type, player]);
+
   // ── Status listener ──────────────────────────────────────────────────────
   // play() is called ONLY when the player tells us it is truly ready.
   // This completely replaces the unreliable setTimeout approach.
   useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
     if (item.type !== 'video') return;
-    if (status === 'readyToPlay' && isActiveRef.current) {
-      try {
-        player.muted = false;
-        player.play();
-      } catch {}
-    }
+    isReadyToPlayRef.current = status === 'readyToPlay';
+    tryStartPlayback();
   });
 
   // ── Source loading ───────────────────────────────────────────────────────
@@ -96,12 +106,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     let cancelled = false;
     isLoadingSource.current = true;
+    isReadyToPlayRef.current = false;
 
     const load = async () => {
       try {
         await player.replaceAsync(displayUri);
         if (!cancelled) isLoadingSource.current = false;
-        // play() is handled by the statusChange listener — nothing to do here
+        tryStartPlayback();
       } catch (e) {
         if (!cancelled) {
           isLoadingSource.current = false;
@@ -114,8 +125,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return () => {
       cancelled = true;
       isLoadingSource.current = false;
+      isReadyToPlayRef.current = false;
     };
-  }, [displayUri, item.type, player]);
+  }, [displayUri, item.type, player, tryStartPlayback]);
 
   // ── Active / inactive sync ───────────────────────────────────────────────
   // Handles mute/pause when the user swipes away — only for already-loaded sources.
@@ -123,16 +135,23 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     if (item.type !== 'video' || !player || isLoadingSource.current) return;
     try {
       if (isActive) {
-        player.muted = false;
-        if ((player as any).status === 'readyToPlay') player.play();
+        tryStartPlayback();
       } else {
         player.muted = true;
-        if (!isNearActive) player.pause();
+        if (!isNearActive) {
+          player.pause();
+          isReadyToPlayRef.current = false;
+          if ((player as any).replaceAsync) {
+            (player as any).replaceAsync(null).catch(() => {});
+          } else {
+            (player as any).replace(null);
+          }
+        }
       }
     } catch (e) {
       console.log('Player sync error:', e);
     }
-  }, [isActive, isNearActive, player, item.type]);
+  }, [isActive, isNearActive, player, item.type, tryStartPlayback]);
 
   // ── URI preparation ──────────────────────────────────────────────────────
   // Copies content:// statuses to file:// cache before handing to the player.
@@ -142,7 +161,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       if (!isActive) {
         setDisplayUri(null);
         if (item.type === 'video' && player) {
-          try { player.pause(); } catch {}
+          isReadyToPlayRef.current = false;
+          try {
+            player.pause();
+            if ((player as any).replaceAsync) {
+              (player as any).replaceAsync(null).catch(() => {});
+            } else {
+              (player as any).replace(null);
+            }
+          } catch {}
         }
       }
       return;
@@ -197,6 +224,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [scale]);
 
   const mediaUri = displayUri || initialSource;
+  const videoViewKey = displayUri ? `${item.id}:${displayUri}` : item.id;
 
   return (
    <View style={styles.itemContainer}>
@@ -234,7 +262,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       ) : (
         <View style={styles.videoWrap}>
           <VideoView
-            key={item.id}
+            key={videoViewKey}
             player={player}
             style={styles.video}
             contentFit="contain"
