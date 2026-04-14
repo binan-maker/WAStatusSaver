@@ -353,14 +353,19 @@ export default function ViewerScreen() {
   const currentItem = items[currentIndex];
 
   // Pre-load the next 2 items in the background so they are in cache before the user swipes.
-  // This eliminates the black screen caused by on-demand file copying on fast swipes.
+  // Staggered 200ms apart so two concurrent disk writes don't congest slow storage on budget phones.
   useEffect(() => {
-    for (const offset of [1, 2]) {
-      const next = items[currentIndex + offset];
-      if (next && next.uri.startsWith('content://')) {
-        prepareStatusForViewing(next as StatusItem).catch(() => {});
-      }
+    const next1 = items[currentIndex + 1];
+    if (next1 && next1.uri.startsWith('content://')) {
+      prepareStatusForViewing(next1 as StatusItem).catch(() => {});
     }
+    const timer = setTimeout(() => {
+      const next2 = items[currentIndex + 2];
+      if (next2 && next2.uri.startsWith('content://')) {
+        prepareStatusForViewing(next2 as StatusItem).catch(() => {});
+      }
+    }, 200);
+    return () => clearTimeout(timer);
   }, [currentIndex, items, prepareStatusForViewing]);
 
   // Debounce ref: used to skip processing intermediate scroll positions during fast flicks.

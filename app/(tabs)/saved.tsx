@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,6 +37,7 @@ export default function SavedScreen() {
   const {
     savedItems,
     isRefreshing,
+    isInitializing,
     refresh,
     deleteFromSaved,
     shareStatus,
@@ -90,6 +92,14 @@ export default function SavedScreen() {
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
   const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
+
+  if (isInitializing) {
+    return (
+      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

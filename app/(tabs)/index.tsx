@@ -11,6 +11,7 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +19,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
 import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
+import { useAppNotice } from '@/hooks/useAppNotice';
+import { AppNoticeCard } from '@/components/AppNotice';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
 import { AdInterstitial } from '@/components/AdInterstitial';
@@ -220,6 +223,7 @@ function StatusSourceSelector({
 export default function StatusesScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('images');
   const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
+  const { notice, visible: noticeVisible, dismiss: dismissNotice } = useAppNotice();
   const {
     statuses,
     onImageSwipe,
@@ -259,6 +263,16 @@ export default function StatusesScreen() {
       loadStatuses();
     }
   }, [hasPermission, safGranted]);
+
+  // Auto-refresh when the user returns to the app from WhatsApp
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        refresh();
+      }
+    });
+    return () => sub.remove();
+  }, [refresh]);
 
   const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
   const selectedStatuses = useMemo(
@@ -404,6 +418,10 @@ export default function StatusesScreen() {
 
       <StatusSourceSelector selectedSource={selectedSource} onSelectSource={setSelectedSource} />
       <SAFGuideOverlay visible={isRequestingSAF} />
+
+      {notice && (
+        <AppNoticeCard notice={notice} visible={noticeVisible} onDismiss={dismissNotice} />
+      )}
 
       <SubTabBar
         activeTab={activeTab}

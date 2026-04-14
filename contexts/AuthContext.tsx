@@ -112,23 +112,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     deleteAccount: async () => {
       if (!user || !auth) return;
+      const idToken = await user.getIdToken();
+      const baseUrl = process.env.EXPO_PUBLIC_DOMAIN
+        ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+        : "http://localhost:5000";
+      // SAFETY: only sign out AFTER the server confirms deletion.
+      // If the network call fails, keep the user signed in and tell them to retry.
+      let serverConfirmed = false;
       try {
-        const idToken = await user.getIdToken();
-        const baseUrl = process.env.EXPO_PUBLIC_DOMAIN
-          ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-          : "http://localhost:5000";
-        await fetch(`${baseUrl}/api/users/delete-account`, {
+        const res = await fetch(`${baseUrl}/api/users/delete-account`, {
           method: "POST",
           headers: { Authorization: `Bearer ${idToken}` },
-        }).catch(() => {});
-        await firebaseSignOut(auth);
-        try {
-          await GoogleSignin.signOut();
-        } catch {}
+        });
+        serverConfirmed = res.ok;
       } catch {
-        await firebaseSignOut(auth).catch(() => {});
-        try { await GoogleSignin.signOut(); } catch {}
+        // Network / server unreachable
       }
+      if (!serverConfirmed) {
+        Alert.alert(
+          "Could Not Reach Server",
+          "Please check your internet connection and try again. Your account has NOT been deleted to keep your data safe.",
+        );
+        return;
+      }
+      await firebaseSignOut(auth);
+      try { await GoogleSignin.signOut(); } catch {}
     },
     getIdToken: async () => {
       if (!user) return null;
