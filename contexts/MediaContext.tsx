@@ -486,30 +486,12 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         return tempUri;
       }
 
-      // Race the copy against a 1.5s timeout. If the timeout wins, return the
-      // original URI and clean up any partial/late-arriving copy so stale cache
-      // files don't accumulate.
-      let timedOut = false;
-
-      const copyPromise = FileSystem.copyAsync({ from: item.uri, to: tempUri })
-        .then(() => {
-          if (timedOut) {
-            // Copy arrived late — discard it to avoid orphaned cache files
-            FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
-            return item.uri;
-          }
-          return tempUri;
-        })
-        .catch(() => item.uri);
-
-      const timeoutPromise = new Promise<string>((resolve) =>
-        setTimeout(() => {
-          timedOut = true;
-          resolve(item.uri);
-        }, 1500)
-      );
-
-      return Promise.race([copyPromise, timeoutPromise]);
+      // Always await the full copy before returning. The player must never
+      // receive a URI while the file is still being written — that causes
+      // the decoder to fail the video track and produce a black screen.
+      // A partial file is worse than a small delay.
+      await FileSystem.copyAsync({ from: item.uri, to: tempUri });
+      return tempUri;
     } catch (e) {
       console.error('Prepare for viewing error:', e);
       return item.uri;
