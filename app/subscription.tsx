@@ -207,7 +207,7 @@ export default function SubscriptionScreen() {
                 <Text style={styles.priceSymbol}>₹</Text>
                 <Text style={styles.priceAmount}>{plan.amount}</Text>
                 <Text style={styles.pricePer}>
-                  {plan.durationDays ? ` / ${plan.durationDays} days` : " forever"}
+                  {plan.id === "monthly" ? " / month" : plan.id === "yearly" ? " / year" : ` / ${plan.durationDays} days`}
                 </Text>
               </View>
 
@@ -265,7 +265,7 @@ export default function SubscriptionScreen() {
         <MaterialCommunityIcons name="lock-check" size={14} color={COLORS.TEXT_MUTED} />
         <Text style={styles.footerText}>
           Payments are handled securely by Razorpay. StatusVault does not store or process your financial data. Amount & signature verified on our server before activation. Subscription synced to your Google account across reinstalls.{"\n\n"}
-          Refund window: 48 hours for monthly & yearly plans, 7 days for the 2-year plan — only for verified app failures. All plans have a fixed expiry date; access continues until the end of your paid period.
+          Refund window: 48 hours for the yearly plan, only for verified app failures. Monthly plan: no refund. All plans have a fixed expiry date with no auto-renewal.
         </Text>
       </View>
     </ScrollView>
