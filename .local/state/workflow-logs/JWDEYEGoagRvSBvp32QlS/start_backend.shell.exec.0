@@ -1,0 +1,12 @@
+
+> expo-app@1.0.0 server:dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KServing static Expo files with dynamic manifest routing
+Expo routing: Checking expo-platform header on / and /manifest
+express server serving on port 5000
+baseUrl https://75e77a0c-805d-4161-9ec6-40418ca3b346-00-7r45h764pkcb.worf.replit.dev
+expsUrl 75e77a0c-805d-4161-9ec6-40418ca3b346-00-7r45h764pkcb.worf.replit.dev
+baseUrl https://75e77a0c-805d-4161-9ec6-40418ca3b346-00-7r45h764pkcb.worf.replit.dev
+expsUrl 75e77a0c-805d-4161-9ec6-40418ca3b346-00-7r45h764pkcb.worf.replit.dev
+POST /api/payments/razorpay/create-order 503 in 2ms :: {"message":"Payments are…
