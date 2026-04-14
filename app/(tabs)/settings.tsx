@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/SubscriptionPlansCard';
@@ -84,7 +85,9 @@ export default function SettingsScreen() {
   } = useMedia();
   const { language, setLanguage, t } = useLanguage();
   const { user, signInWithGoogle, signOut, deleteAccount } = useFirebaseAuth();
+  const { isSubscribed, refresh: refreshSubscription, loading: subLoading } = useSubscriptionStatus();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -156,6 +159,21 @@ export default function SettingsScreen() {
     saf: 'SAF (Android 11+)',
     unknown: 'Unknown',
   }[storageMethod];
+
+  const handleRestorePurchase = async () => {
+    setRestoring(true);
+    try {
+      await refreshSubscription();
+      Alert.alert(
+        'Sync Complete',
+        isSubscribed
+          ? 'Your Pro subscription is active. Ads are removed — enjoy StatusVault!'
+          : 'No active subscription found on your account. If you paid and still see ads, please contact us via the Play Store with your Razorpay Payment ID.',
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const handleClearCache = () => {
     Alert.alert(
@@ -310,6 +328,16 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Subscription" />
         <SubscriptionPlansCard />
+        <View style={styles.section}>
+          <SettingRow
+            icon="refresh-circle-outline"
+            iconBg={COLORS.PRIMARY + '22'}
+            label={restoring || subLoading ? 'Checking...' : 'Restore Purchase'}
+            sublabel="Paid but still seeing ads? Tap to re-sync"
+            onPress={restoring || subLoading ? undefined : handleRestorePurchase}
+            showArrow={!restoring && !subLoading}
+          />
+        </View>
 
         <SectionHeader title="Share" />
         <View style={styles.section}>

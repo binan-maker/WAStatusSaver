@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert, AppState, AppStateStatus, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
 import { getPaymentDeviceId } from "@/lib/device-identity";
@@ -187,6 +187,22 @@ export function useSubscriptionStatus() {
       safeSetStatus(freshStatus);
       AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(freshStatus)).catch(() => {});
     } catch (error) {
+      // Local shield: if the server is unreachable, keep any cached Pro status
+      // that hasn't expired yet rather than wiping the user's Pro access.
+      // This prevents "Ghost Ads" caused by a momentary network drop.
+      const cached = await AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY).catch(() => null);
+      if (cached) {
+        try {
+          const parsed: SubscriptionStatus = JSON.parse(cached);
+          if (parsed.active && parsed.paidUntil) {
+            const expiresAt = new Date(parsed.paidUntil).getTime();
+            if (expiresAt > Date.now()) {
+              safeSetStatus(parsed);
+              return;
+            }
+          }
+        } catch {}
+      }
       safeSetStatus({
         active: false,
         configured: false,
@@ -201,6 +217,22 @@ export function useSubscriptionStatus() {
     refresh();
     const interval = setInterval(refresh, 60 * 1000);
     return () => clearInterval(interval);
+  }, [refresh]);
+
+  // Foreground refresh: whenever the app comes back from background, re-sync
+  // subscription so ads disappear immediately for Pro users without a restart.
+  useEffect(() => {
+    const appStateRef = { current: AppState.currentState };
+    const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        next === "active"
+      ) {
+        refresh();
+      }
+      appStateRef.current = next;
+    });
+    return () => sub.remove();
   }, [refresh]);
 
   const startPayment = useCallback(
