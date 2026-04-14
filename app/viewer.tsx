@@ -61,6 +61,24 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
+  // Fix #4 — Zombie Video Decoder: explicitly release the hardware decoder when
+  // this ViewerItem unmounts (e.g. user presses Back). Without this, the native
+  // video player objects linger in memory for several seconds and exhaust the
+  // device's limited hardware decoder pool, causing the "audio only, no video" bug.
+  useEffect(() => {
+    return () => {
+      if (item.type === 'video' && player) {
+        try {
+          if ((player as any).replaceAsync) {
+            (player as any).replaceAsync(null).catch(() => {});
+          } else {
+            (player as any).replace(null);
+          }
+        } catch {}
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id, item.uri]);

@@ -54,7 +54,7 @@ interface MediaContextValue {
   showInterstitial: boolean;
   pendingVideoUri: string | null;
   requestPermissions: () => Promise<boolean>;
-  requestSAF: (source?: StatusSource) => Promise<void>;
+  requestSAF: (source?: StatusSource, manual?: boolean) => Promise<void>;
   loadStatuses: () => Promise<void>;
   refresh: () => Promise<void>;
   saveStatus: (item: StatusItem) => Promise<boolean>;
@@ -235,16 +235,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const [isRequestingSAF, setIsRequestingSAF] = useState(false);
 
-  const requestSAF = useCallback(async (source: StatusSource = 'whatsapp') => {
+  const requestSAF = useCallback(async (source: StatusSource = 'whatsapp', manual: boolean = false) => {
     if (Platform.OS !== 'android') return;
     try {
-      const initialUri = SAF_INITIAL_URIS[source];
+      // Fix #2 — Work Profile Blindspot: when `manual` is true (or the standard
+      // initial URI is unavailable), open the picker at the storage root so
+      // users with Dual Apps / Work Profiles can navigate to their second
+      // WhatsApp's media folder manually.
+      const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
       
       setIsRequestingSAF(true);
       // Give a tiny delay for the overlay to mount before opening system picker
       setTimeout(async () => {
         try {
-          const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+          const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
           setIsRequestingSAF(false);
           
           if (result.granted) {
@@ -410,6 +414,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         await FileSystem.makeDirectoryAsync(savedDir, { intermediates: true });
       }
 
+      // Fix #3 — Duplicate Save: check if an item with the same original filename
+      // or the same item ID already exists in the saved folder. If so, skip the copy
+      // and return true so the UI shows "Saved" without wasting disk space.
+      const duplicate = savedItems.find(
+        s => s.id === item.id || s.name === item.name
+      );
+      if (duplicate) {
+        try {
+          const dupInfo = await FileSystem.getInfoAsync(duplicate.localUri);
+          if (dupInfo.exists) return true;
+        } catch {}
+        // If the file is gone, fall through and re-save it
+      }
+
       const ext = item.name.split('.').pop() || 'jpg';
       const filename = `status_${Date.now()}.${ext}`;
       const destUri = `${savedDir}${filename}`;
@@ -512,6 +530,12 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     setImageSwipeCount(newCount);
     swipeCountRef.current = newCount;
     
+    // Fix #1 — Session Cache Bloat: every 10 swipes, purge view_/share_ files
+    // older than 30 minutes in the background so a long session never fills storage.
+    if (newCount % 10 === 0) {
+      cleanupCacheFiles(30 * 60 * 1000).catch(() => {});
+    }
+
     // Show interstitial every 8 swipes (fixed)
     const adFrequency = 8;
     if (newCount >= adFrequency) {
@@ -524,7 +548,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       // Persist current count
       AsyncStorage.setItem('swipeCountForAds', String(newCount)).catch(() => {});
     }
-  }, [imageSwipeCount]);
+  }, [imageSwipeCount, cleanupCacheFiles]);
 
   const dismissInterstitial = useCallback(() => {
     setShowInterstitial(false);
@@ -558,15 +582,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Cleans up view_ and share_ cache files older than 4 hours to prevent storage leaks
-  const cleanupCacheFiles = useCallback(async () => {
+  // Cleans up view_ and share_ cache files older than maxAgeMs (default 4 hours)
+  const cleanupCacheFiles = useCallback(async (maxAgeMs: number = 4 * 60 * 60 * 1000) => {
     try {
       const cacheDir = FileSystem.cacheDirectory;
       if (!cacheDir) return;
       
       const files = await FileSystem.readDirectoryAsync(cacheDir);
       const now = Date.now();
-      const CACHE_LIFETIME = 4 * 60 * 60 * 1000;
       
       for (const file of files) {
         if (!file.startsWith('view_') && !file.startsWith('share_')) continue;
@@ -575,7 +598,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         try {
           const info = await FileSystem.getInfoAsync(fileUri);
           const fileAge = info.modificationTime ? (now - info.modificationTime * 1000) : (now - 1000000);
-          if (fileAge > CACHE_LIFETIME) {
+          if (fileAge > maxAgeMs) {
             await FileSystem.deleteAsync(fileUri, { idempotent: true });
           }
         } catch {}
@@ -585,7 +608,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Run cache cleanup on every app startup in the background to prevent storage leaks
+  // Run full cache cleanup (4h lifetime) on every app startup
   useEffect(() => {
     cleanupCacheFiles().catch(() => {});
   }, [cleanupCacheFiles]);

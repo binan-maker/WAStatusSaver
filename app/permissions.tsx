@@ -135,6 +135,7 @@ export default function PermissionsScreen() {
                 tag={androidVersion >= 33 ? 'Android 13+' : androidVersion >= 29 ? 'Android 10+' : 'All versions'} />
 
               {needsSAF && (
+                <>
                 <StepCard
                   step={2}
                   icon={safGranted ? 'folder-open' : 'folder-outline'}
@@ -146,10 +147,24 @@ export default function PermissionsScreen() {
                   action={!safGranted
                     ? {
                       label: 'Select Media Folder',
-                      onPress: requestSAF,
+                      onPress: () => requestSAF('whatsapp', false),
                     }
                     : undefined}
                   tag="Android 11+" />
+                {!safGranted && (
+                  <TouchableOpacity
+                    style={styles.manualBrowseBtn}
+                    onPress={() => requestSAF('whatsapp', true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="folder-open-outline" size={15} color={COLORS.TEXT_SECONDARY} />
+                    <Text style={styles.manualBrowseText}>
+                      Using dual WhatsApp or Work Profile? Browse manually
+                    </Text>
+                    <Ionicons name="chevron-forward" size={14} color={COLORS.TEXT_SECONDARY} />
+                  </TouchableOpacity>
+                )}
+                </>
               )}
 
               <StepCard
@@ -417,5 +432,25 @@ const styles = StyleSheet.create({
     color: COLORS.PRIMARY,
     fontFamily: 'Nunito_600SemiBold',
     textDecorationLine: 'underline',
+  },
+  manualBrowseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.SM,
+    paddingVertical: SPACING.SM,
+    paddingHorizontal: SPACING.MD,
+    marginTop: 4,
+    marginBottom: SPACING.SM,
+    backgroundColor: COLORS.SURFACE,
+    borderRadius: RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderStyle: 'dashed',
+  },
+  manualBrowseText: {
+    flex: 1,
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
   },
 });
