@@ -7,8 +7,7 @@ import COLORS from "@/constants/colors";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 
-function formatRemaining(seconds: number, lifetime?: boolean) {
-  if (lifetime) return "Lifetime active";
+function formatRemaining(seconds: number) {
   const days = Math.floor(seconds / 86400);
   if (days > 0) return `${days} days left`;
   const hours = Math.floor(seconds / 3600);
@@ -17,7 +16,7 @@ function formatRemaining(seconds: number, lifetime?: boolean) {
 }
 
 export function SubscriptionPlansCard() {
-  const { plans, status, isSubscribed, remainingSeconds, loading } = useSubscriptionStatus();
+  const { plans, isSubscribed, remainingSeconds, loading } = useSubscriptionStatus();
   const monthlyPlan = plans.find((plan) => plan.id === "monthly");
 
   return (
@@ -29,7 +28,7 @@ export function SubscriptionPlansCard() {
         <View style={styles.bannerContent}>
           <Text style={styles.bannerTitle}>{isSubscribed ? "Ad-Free Active" : "Remove Ads"}</Text>
           <Text style={styles.bannerSubtitle}>
-            {isSubscribed ? formatRemaining(remainingSeconds, status.lifetime) : `Only ₹${monthlyPlan?.amount || 30} for 1 month`}
+            {isSubscribed ? formatRemaining(remainingSeconds) : `Only ₹${monthlyPlan?.amount || 30} for 1 month`}
           </Text>
         </View>
         {loading ? <ActivityIndicator color={COLORS.PRIMARY} size="small" /> : <Text style={styles.bannerCta}>{isSubscribed ? "Manage" : "Subscribe"}</Text>}

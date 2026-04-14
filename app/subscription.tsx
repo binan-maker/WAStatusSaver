@@ -43,8 +43,7 @@ const WHY = [
   },
 ];
 
-function formatRemaining(seconds: number, lifetime?: boolean) {
-  if (lifetime) return "Lifetime access active";
+function formatRemaining(seconds: number) {
   const days = Math.floor(seconds / 86400);
   if (days > 0) return `${days} days remaining`;
   const hours = Math.floor(seconds / 3600);
@@ -144,7 +143,7 @@ export default function SubscriptionScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.activeTitle}>Subscription Active</Text>
             <Text style={styles.activeSub}>
-              {formatRemaining(remainingSeconds, status.lifetime)}
+              {formatRemaining(remainingSeconds)}
             </Text>
           </View>
         </View>
@@ -265,8 +264,8 @@ export default function SubscriptionScreen() {
       <View style={styles.footer}>
         <MaterialCommunityIcons name="lock-check" size={14} color={COLORS.TEXT_MUTED} />
         <Text style={styles.footerText}>
-          Payments processed by Razorpay. Amount verified on our server before activation.
-          Subscription tied to your Google account and works across reinstalls.
+          Payments are handled securely by Razorpay. StatusVault does not store or process your financial data. Amount & signature verified on our server before activation. Subscription synced to your Google account across reinstalls.{"\n\n"}
+          Refund window: 48 hours for monthly & yearly plans, 7 days for the 2-year plan — only for verified app failures. All plans have a fixed expiry date; access continues until the end of your paid period.
         </Text>
       </View>
     </ScrollView>

@@ -436,11 +436,13 @@ export default function SettingsScreen() {
           <MaterialCommunityIcons name="shield-check" size={28} color={COLORS.PRIMARY} />
           <Text style={styles.footerTitle}>StatusVault</Text>
           <Text style={styles.footerSub}>
-            Your privacy-first WhatsApp Status Saver.{'\n'}
-            Works 100% offline. No data leaves your device.
+            100% Offline Processing: Your media never leaves your device.{'\n'}
+            The developer has zero access to your files.
           </Text>
           <Text style={styles.footerNote}>
-            This app is not affiliated with WhatsApp Inc. or Meta Platforms Inc.
+            WhatsApp is a registered trademark of WhatsApp LLC.{'\n'}
+            StatusVault is not affiliated with or endorsed by WhatsApp LLC or Meta Platforms Inc.{'\n'}
+            This is a personal project by an individual developer.
           </Text>
         </View>
       </ScrollView>
