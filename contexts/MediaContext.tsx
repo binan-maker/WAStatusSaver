@@ -422,6 +422,11 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
         } catch (err) {
           console.log('MediaLibrary save error:', err);
+          // File is saved inside the app (Saved tab will work), but gallery was denied.
+          Alert.alert(
+            'Gallery Access Denied',
+            'Status saved in the app, but could not be added to your Gallery. To see it in Photos, allow media access in your phone Settings.',
+          );
         }
       }
 

@@ -10,6 +10,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -224,6 +225,7 @@ export default function StatusesScreen() {
     onImageSwipe,
     isLoading,
     isRefreshing,
+    isInitializing,
     hasPermission,
     safGranted,
     safUris,
@@ -330,6 +332,16 @@ export default function StatusesScreen() {
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
+  // While MediaContext is still loading from AsyncStorage / checking permissions,
+  // show a full-screen spinner so users never see the "Setup Required" screen flicker.
+  if (isInitializing) {
+    return (
+      <View style={[styles.root, styles.initScreen]}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      </View>
+    );
+  }
+
   if (showPermScreen) {
     return (
       <View style={styles.root}>
@@ -415,8 +427,8 @@ export default function StatusesScreen() {
           ) : filteredImages.length === 0 ? (
             <EmptyState
               icon="images-outline"
-              title="No images found"
-              subtitle={`Open ${selectedSourceLabel}, view some statuses, then pull down to refresh.`}
+              title="No image statuses yet"
+              subtitle={`Open ${selectedSourceLabel} and view some image statuses first — they will appear here automatically!`}
               actionLabel="Refresh"
               onAction={refresh}
             />
@@ -461,8 +473,8 @@ export default function StatusesScreen() {
           ) : filteredVideos.length === 0 ? (
             <EmptyState
               icon="videocam-outline"
-              title="No videos found"
-              subtitle={`Open ${selectedSourceLabel}, view some statuses, then pull down to refresh.`}
+              title="No video statuses yet"
+              subtitle={`Open ${selectedSourceLabel} and view some video statuses first — they will appear here automatically!`}
               actionLabel="Refresh"
               onAction={refresh}
             />
@@ -509,6 +521,10 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
+  },
+  initScreen: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     backgroundColor: 'transparent',

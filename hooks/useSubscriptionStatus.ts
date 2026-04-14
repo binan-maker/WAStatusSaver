@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
 import { getPaymentDeviceId } from "@/lib/device-identity";
 import { SUBSCRIPTION_PLANS, SubscriptionPlanId } from "@/shared/subscription-plans";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
+
+const SUBSCRIPTION_CACHE_KEY = "@statusvault_subscription_status";
 
 type SubscriptionStatus = {
   active: boolean;
@@ -50,6 +53,20 @@ export function useSubscriptionStatus() {
   const [loading, setLoading] = useState(true);
   const [payingPlanId, setPayingPlanId] = useState<SubscriptionPlanId | null>(null);
 
+  // On mount: load the last-known subscription status from cache so paid users
+  // start in Pro Mode immediately — no ads flash while the server check runs.
+  useEffect(() => {
+    AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY)
+      .then((cached) => {
+        if (cached) {
+          const parsed: SubscriptionStatus = JSON.parse(cached);
+          // Only restore active subscriptions; expired/inactive can wait for server
+          if (parsed.active) setStatus(parsed);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     getPaymentDeviceId()
       .then(setDeviceId)
@@ -68,7 +85,10 @@ export function useSubscriptionStatus() {
         undefined,
         token ? { Authorization: `Bearer ${token}` } : undefined,
       );
-      setStatus(await response.json());
+      const freshStatus: SubscriptionStatus = await response.json();
+      setStatus(freshStatus);
+      // Persist to cache so next launch is instant for Pro users
+      AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(freshStatus)).catch(() => {});
     } catch (error) {
       setStatus({
         active: false,
