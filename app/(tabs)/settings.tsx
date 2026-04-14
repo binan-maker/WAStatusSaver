@@ -354,6 +354,17 @@ export default function SettingsScreen() {
           />
         </View>
 
+        <SectionHeader title="Support" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="chatbubble-ellipses-outline"
+            iconBg={COLORS.PRIMARY + '22'}
+            label="Feedback & Contact Us"
+            sublabel="Send feedback, report bugs, or reach us directly"
+            onPress={() => router.push('/contact')}
+          />
+        </View>
+
         {user && (
           <>
             <SectionHeader title="Account" />

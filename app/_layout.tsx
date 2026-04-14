@@ -119,6 +119,10 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
           headerStyle: { backgroundColor: COLORS.SURFACE },
         }}
       />
+      <Stack.Screen
+        name="contact"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
