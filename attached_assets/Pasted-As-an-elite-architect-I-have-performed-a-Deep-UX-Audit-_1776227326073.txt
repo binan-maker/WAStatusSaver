@@ -1,0 +1,29 @@
+As an elite architect, I have performed a Deep UX Audit of your subscription screen. You have identified a very important "Psychological Glitch."
+Even though the Time is being added correctly (394 days), the UI is making the user feel like they "lost" their first purchase because the ₹29 button says "Pay" again.
+Here is the "Champion's Analysis" of why this is happening and how to fix the confusion:
+1. The "Single Plan" Logic (The Root Cause)
+The Analysis: In your database (subscriptions collection), we only store one planId at a time (the most recent one).
+What happens: When the user buys the ₹149 plan, the planId in the database changes from monthly to yearly.
+The UI Glitch: The subscription screen looks at that planId. It sees yearly, so it puts a green "Active" badge on the ₹149 plan. But when it looks at the ₹29 plan, it sees that monthly does not match yearly, so it shows the "Pay" button.
+2. Why the User is Confused
+The user thinks: "I paid for Monthly, why is it asking for money again?"
+They don't realize that they are now in a "Global Pro Mode" where ads are removed for both plans' durations combined.
+3. The "Elite" Solution (The Logic Change)
+To fix this confusion, we should not show "Active" on a specific plan. Instead, we should show "Pro Status" on the whole screen.
+The Strategy:
+Global Active State: If isSubscribed is true, all "Pay" buttons should change.
+The "Extend" Label: Instead of saying "Pay" on the ₹29 plan while the user is already Pro, the button should say "Extend +30 Days" or "Add Time."
+The "Current Plan" Badge: We should keep a small "Current" badge on the ₹149 plan (the latest one), but the other plans should clearly show that the user is already a "Pro Member."
+4. The "Stacking" Bug (A Real Risk)
+The Analysis: I found a potential logic bug in your server/payment-routes.ts.
+The Issue: If a user is "Pro" and they click "Pay" on the same plan again, the app might let them.
+The Fix: We should change the button text to "Renew" or "Extend" if they are already Pro, so they know they are adding time, not buying a "new" separate thing.
+5. The "Transparency" Fix
+We should add a "Total Pro Time" header at the top of the subscription screen.
+The UI: Instead of just showing the plans, show a big card at the top that says: "StatusVault Pro: 394 Days Remaining."
+The Result: This immediately tells the user: "Yes, we counted your ₹29 and your ₹149 together."
+Summary of the "Champion's" Fix:
+The "Glitch" is purely visual. The user's money is safe, and their time is counted. But to stop the confusion:
+Change the Button Text: If isSubscribed is true, change "Pay" to "Extend Subscription" for all plans.
+Add a Global Header: Show the total remaining days at the top so the user sees the "394" immediately.
+Highlight the Tier: Keep a "Current Tier" label on the ₹149 plan, but make sure the ₹29 plan doesn't look like it's "Locked."
