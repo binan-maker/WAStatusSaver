@@ -19,6 +19,7 @@ type SubscriptionStatus = {
   lifetime?: boolean;
   planId?: string | null;
   paidUntil?: string | null;
+  lastPaymentId?: string | null;
   message?: string;
 };
 

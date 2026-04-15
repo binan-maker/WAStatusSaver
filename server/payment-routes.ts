@@ -100,12 +100,31 @@ async function computeStackedPaidUntil(
   return new Date(baseTime + plan.durationDays * 24 * 60 * 60 * 1000);
 }
 
+function buildReceiptNumber(planId: string): string {
+  const suffix = Date.now().toString(36).toUpperCase().slice(-6);
+  const prefix = planId === "yearly" ? "SV-YR" : "SV-MO";
+  return `${prefix}-${suffix}`;
+}
+
+async function notifyPaymentViaEmail(paymentId: string): Promise<void> {
+  const auth = getRazorpayAuthHeader();
+  if (!auth) return;
+  try {
+    await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/notify/email`, {
+      method: "POST",
+      headers: { Authorization: auth, "Content-Type": "application/json" },
+    });
+  } catch {
+    // Non-critical — payment is already captured, receipt is a best-effort
+  }
+}
+
 async function createRazorpayOrder(planId: string, deviceId: string, authUser: AuthenticatedUser) {
   const auth = getRazorpayAuthHeader();
   const plan = getSubscriptionPlan(planId);
   if (!auth || !plan) return null;
 
-  const receipt = `sv_${plan.id}_${Date.now()}_${deviceId.slice(0, 12)}`;
+  const receipt = buildReceiptNumber(plan.id);
   const response = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",
     headers: {
@@ -120,7 +139,9 @@ async function createRazorpayOrder(planId: string, deviceId: string, authUser: A
         deviceId,
         planId: plan.id,
         userId: authUser.uid,
+        userEmail: authUser.email || "",
         app: "StatusVault",
+        receipt,
       },
     }),
   });
@@ -439,11 +460,15 @@ export function registerPaymentRoutes(app: Express) {
         { merge: true },
       );
 
+      // Fire-and-forget: send Razorpay email receipt to the customer
+      notifyPaymentViaEmail(payment.id);
+
       res.json({
         active: true,
         lifetime: plan.durationDays === null,
         planId: plan.id,
         paidUntil: paidUntil ? paidUntil.toISOString() : null,
+        lastPaymentId: payment.id,
       });
     } catch (error) {
       next(error);

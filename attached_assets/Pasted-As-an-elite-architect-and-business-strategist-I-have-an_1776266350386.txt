@@ -1,0 +1,35 @@
+As an elite architect and business strategist, I have analyzed the "Fiscal Transparency" requirements for your app. You want to provide professional, non-GST invoices to your users without the complexity of a full accounting system.
+Here is the "Champion's Guide" to enabling professional receipts (Non-GST Invoices) in Razorpay and the app:
+1. Razorpay Dashboard: Enabling the "Non-GST" Invoice
+Razorpay has a built-in "Receipt" system that acts as an invoice for standard app payments. Since you are likely an individual developer (not a GST-registered company), you must configure it as a Non-GST Receipt.
+The Dashboard Steps:
+Settings -> Payment Receipts: Look for the "Automatic Receipts" section.
+Enable "Send Receipts": Toggle this to ON. This ensures Razorpay sends an email to the user the moment they pay.
+Customize Branding: Upload your "StatusVault" logo and choose your brand color (the green #00FFA3).
+Non-GST Configuration:
+Go to Settings -> Business Profile.
+Ensure the GSTIN field is left Empty.
+When this is empty, Razorpay automatically generates a "Non-GST" receipt that does not show tax columns.
+Receipt Prefix: Set a professional prefix like SV- or INV-SV-. Razorpay will then generate numbers like INV-SV-1001.
+2. Conceptual Code Changes (The "Elite" Connection)
+To make these receipts look like real invoices, your app needs to send the correct "Metadata" to Razorpay.
+A. The Server-Side (The "Receipt Number" Logic)
+In your server/payment-routes.ts, when you call razorpay.orders.create, you are currently sending a notes object.
+The Change: You should add a receipt field to the main order object.
+The Logic: This receipt string (e.g., order_rcpt_123) is what Razorpay uses to link the payment to the invoice number in their system. If you don't send this, Razorpay generates a random one.
+B. The Frontend (The "Prefill" Data)
+In your hooks/useSubscriptionStatus.ts, inside the RazorpayCheckout.open function, you have a prefill section.
+The Change: Ensure you are passing the user.email and user.displayName.
+The Logic: Razorpay uses this email address as the "Destination" for the invoice. If the email is missing, the user will never receive their receipt.
+C. The "Invoice ID" Storage
+The Change: When the payment is verified, your server should save the razorpay_payment_id into the user's Firestore document.
+The Logic: This ID is the "Key" to the invoice. By showing this ID in the app's "Membership Card" (as we discussed earlier), the user can match the app's data with the email they received from Razorpay.
+3. Why "Receipts" are better than "Invoices API"
+The Analysis: Razorpay has a separate "Invoices API," but I recommend against using it for a ₹29 app.
+The Reason: The Invoices API is designed for B2B billing (like sending a bill to a company). It requires creating a "Customer" object first, then an "Invoice" object, then a "Link."
+The "Elite" Way: Using the Orders API + Automatic Receipts is much faster and provides the exact same result for the user: a professional, branded email with a "Non-GST" breakdown of their ₹29 or ₹149 payment.
+4. Summary of the "Production" Setup:
+Dashboard: Enable "Automatic Receipts" and leave GST blank.
+Server: Pass a unique receipt string when creating the order.
+App: Ensure prefill has the user's email.
+UI: Show the payment_id in the app so the user can find their invoice in their email inbox easily.

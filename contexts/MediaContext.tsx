@@ -311,29 +311,55 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     return items;
   }
 
+  // Check if a URI refers to the .Statuses folder (handles all encoding variants)
+  function isStatusesUri(uri: string): boolean {
+    const d = decodeURIComponent(uri).toLowerCase();
+    return d.includes('/.statuses');
+  }
+
+  // Walk up to 2 levels deep from the granted URI to find the .Statuses folder.
+  // Covers: .Statuses granted directly, Media level, WhatsApp level, and device quirks
+  // where the picker ignores the initialUri hint and lands at a higher folder.
+  async function resolveStatusesUri(grantedUri: string): Promise<string> {
+    if (isStatusesUri(grantedUri)) return grantedUri;
+
+    // Level 1 — search immediate children
+    let level1: string[] = [];
+    try {
+      level1 = await FileSystem.StorageAccessFramework.readDirectoryAsync(grantedUri);
+    } catch {
+      return grantedUri; // can't read granted URI at all — use as-is
+    }
+
+    const direct = level1.find(c => isStatusesUri(c));
+    if (direct) return direct;
+
+    // Level 2 — search inside each child folder (handles WhatsApp → Media → .Statuses)
+    for (const child of level1.slice(0, 8)) {
+      try {
+        const level2 = await FileSystem.StorageAccessFramework.readDirectoryAsync(child);
+        const found = level2.find(c => isStatusesUri(c));
+        if (found) return found;
+      } catch {
+        // skip non-directories
+      }
+    }
+
+    // Absolute fallback — read whatever the user granted
+    return grantedUri;
+  }
+
   async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
     try {
-      const decodedUri = decodeURIComponent(safDirUri).toLowerCase();
-      const isStatusesFolder = decodedUri.endsWith('/.statuses');
-      const isMediaFolder = !isStatusesFolder && decodedUri.endsWith('/media');
-      let targetUri = safDirUri;
+      // Resolve the .Statuses folder regardless of which level the user granted:
+      // ✓ Granted exactly at .Statuses (new default, fast path)
+      // ✓ Granted at Media (legacy), WhatsApp, or any ancestor up to 2 levels
+      // ✓ Device OEM ignored our initialUri hint and opened at storage root
+      // ✓ WA Business variant with different path structure
+      const targetUri = await resolveStatusesUri(safDirUri);
 
-      if (isMediaFolder) {
-        // Legacy granted URI: Media folder — navigate into .Statuses
-        try {
-          const content = await FileSystem.StorageAccessFramework.readDirectoryAsync(safDirUri);
-          const statusFolder = content.find(uri => decodeURIComponent(uri).toLowerCase().endsWith('/.statuses'));
-          if (statusFolder) {
-            targetUri = statusFolder;
-          }
-        } catch (e) {
-          console.log('Error searching for .Statuses in Media folder:', e);
-        }
-      }
-      // If isStatusesFolder, targetUri is already correct — read directly
-
-      // FIXED #1: Cache folder metadata to reduce repeated directory reads
+      // Read the resolved .Statuses folder directly
       const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
       const isBusiness = decodeURIComponent(targetUri).toLowerCase().includes('w4b') || 
                         decodeURIComponent(targetUri).toLowerCase().includes('business');

@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Image,
+  Clipboard,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -85,9 +86,10 @@ export default function SettingsScreen() {
   } = useMedia();
   const { language, setLanguage, t } = useLanguage();
   const { user, signInWithGoogle, signOut, deleteAccount } = useFirebaseAuth();
-  const { isSubscribed, refresh: refreshSubscription, loading: subLoading } = useSubscriptionStatus();
+  const { isSubscribed, status, remainingSeconds, refresh: refreshSubscription, loading: subLoading } = useSubscriptionStatus();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -173,6 +175,14 @@ export default function SettingsScreen() {
     } finally {
       setRestoring(false);
     }
+  };
+
+  const handleCopyPaymentId = () => {
+    if (!status.lastPaymentId) return;
+    Clipboard.setString(status.lastPaymentId);
+    setCopiedId(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const handleClearCache = () => {
@@ -338,6 +348,81 @@ export default function SettingsScreen() {
             showArrow={!restoring && !subLoading}
           />
         </View>
+
+        {isSubscribed && (
+          <View style={styles.membershipCard}>
+            <LinearGradient
+              colors={[COLORS.PRIMARY + '18', COLORS.SURFACE]}
+              style={styles.membershipGradient}
+            >
+              <View style={styles.membershipHeader}>
+                <View style={styles.membershipBadge}>
+                  <MaterialCommunityIcons name="crown" size={14} color={COLORS.PRIMARY} />
+                  <Text style={styles.membershipBadgeText}>Pro Member</Text>
+                </View>
+                <Text style={styles.membershipActive}>Active</Text>
+              </View>
+
+              {status.paidUntil && (
+                <View style={styles.membershipRow}>
+                  <Ionicons name="calendar-outline" size={15} color={COLORS.TEXT_SECONDARY} />
+                  <Text style={styles.membershipLabel}>Valid Until</Text>
+                  <Text style={styles.membershipValue}>
+                    {new Date(status.paidUntil).toLocaleDateString('en-IN', {
+                      year: 'numeric', month: 'short', day: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              )}
+
+              {remainingSeconds > 0 && remainingSeconds !== Number.MAX_SAFE_INTEGER && (
+                <View style={styles.membershipRow}>
+                  <Ionicons name="time-outline" size={15} color={COLORS.TEXT_SECONDARY} />
+                  <Text style={styles.membershipLabel}>Days Left</Text>
+                  <Text style={[styles.membershipValue, { color: COLORS.PRIMARY }]}>
+                    {Math.ceil(remainingSeconds / 86400)} days
+                  </Text>
+                </View>
+              )}
+
+              {status.lastPaymentId ? (
+                <View style={styles.membershipRow}>
+                  <Ionicons name="receipt-outline" size={15} color={COLORS.TEXT_SECONDARY} />
+                  <Text style={styles.membershipLabel}>Payment ID</Text>
+                  <TouchableOpacity
+                    style={styles.membershipCopyRow}
+                    onPress={handleCopyPaymentId}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.membershipPaymentId} numberOfLines={1}>
+                      {status.lastPaymentId}
+                    </Text>
+                    <View style={styles.copyBadge}>
+                      <Ionicons
+                        name={copiedId ? 'checkmark' : 'copy-outline'}
+                        size={12}
+                        color={copiedId ? COLORS.SUCCESS : COLORS.PRIMARY}
+                      />
+                      <Text style={[styles.copyBadgeText, copiedId && { color: COLORS.SUCCESS }]}>
+                        {copiedId ? 'Copied!' : 'Copy'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.membershipRow}>
+                  <Ionicons name="receipt-outline" size={15} color={COLORS.TEXT_SECONDARY} />
+                  <Text style={styles.membershipLabel}>Payment ID</Text>
+                  <Text style={styles.membershipValueMuted}>Tap "Restore Purchase" to load</Text>
+                </View>
+              )}
+
+              <Text style={styles.membershipHint}>
+                Save your Payment ID for any refund or support request.
+              </Text>
+            </LinearGradient>
+          </View>
+        )}
 
         <SectionHeader title="Share" />
         <View style={styles.section}>
@@ -901,5 +986,103 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.SM,
     color: COLORS.TEXT_SECONDARY,
     fontFamily: 'Nunito_400Regular',
+  },
+  membershipCard: {
+    borderRadius: RADIUS.MD,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '44',
+  },
+  membershipGradient: {
+    padding: SPACING.MD,
+    gap: SPACING.SM,
+  },
+  membershipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.XS,
+  },
+  membershipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLORS.PRIMARY + '22',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  membershipBadgeText: {
+    fontSize: FONT_SIZE.XS,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    fontFamily: 'Nunito_700Bold',
+  },
+  membershipActive: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.SUCCESS,
+    fontFamily: 'Nunito_700Bold',
+    fontWeight: '700',
+  },
+  membershipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.SM,
+  },
+  membershipLabel: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_SECONDARY,
+    fontFamily: 'Nunito_400Regular',
+    width: 78,
+  },
+  membershipValue: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
+    fontWeight: '700',
+    flex: 1,
+  },
+  membershipValueMuted: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_400Regular',
+    flex: 1,
+  },
+  membershipCopyRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  membershipPaymentId: {
+    fontSize: 11,
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_400Regular',
+    flex: 1,
+    letterSpacing: 0.3,
+  },
+  copyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: COLORS.PRIMARY + '18',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + '44',
+  },
+  copyBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    fontFamily: 'Nunito_700Bold',
+  },
+  membershipHint: {
+    fontSize: 10,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_400Regular',
+    marginTop: SPACING.XS,
+    fontStyle: 'italic',
   },
 });
