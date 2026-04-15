@@ -138,15 +138,27 @@ export default function SubscriptionScreen() {
       </LinearGradient>
 
       {isSubscribed && (
-        <View style={styles.activeBox}>
-          <MaterialCommunityIcons name="shield-check" size={22} color={COLORS.PRIMARY} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.activeTitle}>Subscription Active</Text>
-            <Text style={styles.activeSub}>
-              {formatRemaining(remainingSeconds)}
-            </Text>
+        <LinearGradient
+          colors={["#031F16", "#063B2B", "#031F16"]}
+          style={styles.activeBox}
+        >
+          <View style={styles.activeBoxTop}>
+            <View style={styles.activeIconWrap}>
+              <MaterialCommunityIcons name="crown" size={24} color={COLORS.PRIMARY} />
+            </View>
+            <View style={styles.activeBoxBadge}>
+              <MaterialCommunityIcons name="check-circle" size={11} color={COLORS.PRIMARY} />
+              <Text style={styles.activeBoxBadgeText}>Pro Member</Text>
+            </View>
           </View>
-        </View>
+          <Text style={styles.activeTitle}>StatusVault Pro</Text>
+          <Text style={styles.activeDays}>
+            {formatRemaining(remainingSeconds)}
+          </Text>
+          <Text style={styles.activeSub}>
+            All ads removed · Time stacks when you extend
+          </Text>
+        </LinearGradient>
       )}
 
       {user && (
@@ -173,9 +185,8 @@ export default function SubscriptionScreen() {
       <Text style={styles.sectionLabel}>Choose your plan</Text>
       <View style={styles.plans}>
         {plans.map((plan, index) => {
-          const active = status.planId === plan.id && isSubscribed;
+          const isCurrentPlan = status.planId === plan.id && isSubscribed;
           const paying = payingPlanId === plan.id;
-          const isPopular = index === 0;
           const isValue = index === 1;
 
           return (
@@ -183,7 +194,7 @@ export default function SubscriptionScreen() {
               key={plan.id}
               style={[
                 styles.planCard,
-                active && styles.planCardActive,
+                isCurrentPlan && styles.planCardActive,
                 isValue && styles.planCardHighlight,
               ]}
             >
@@ -198,9 +209,16 @@ export default function SubscriptionScreen() {
                   <Text style={styles.planTitle}>{plan.title}</Text>
                   <Text style={styles.planDesc}>{plan.description}</Text>
                 </View>
-                <View style={styles.planBadge}>
-                  <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                </View>
+                {isCurrentPlan ? (
+                  <View style={styles.currentPlanBadge}>
+                    <MaterialCommunityIcons name="check-circle" size={12} color={COLORS.PRIMARY} />
+                    <Text style={styles.currentPlanBadgeText}>Current</Text>
+                  </View>
+                ) : (
+                  <View style={styles.planBadge}>
+                    <Text style={styles.planBadgeText}>{plan.badge}</Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.planPriceRow}>
@@ -213,20 +231,20 @@ export default function SubscriptionScreen() {
 
               <TouchableOpacity
                 onPress={() => handlePay(plan.id)}
-                disabled={isBusy || active}
+                disabled={isBusy}
                 style={[
                   styles.payButton,
-                  active && styles.payButtonActive,
-                  isValue && !active && styles.payButtonHighlight,
+                  isSubscribed && styles.payButtonExtend,
+                  isValue && !isSubscribed && styles.payButtonHighlight,
                 ]}
                 activeOpacity={0.82}
               >
                 {paying || (signingIn && pendingPlanRef.current === plan.id) ? (
-                  <ActivityIndicator color="#06100C" size="small" />
-                ) : active ? (
+                  <ActivityIndicator color={isSubscribed ? COLORS.PRIMARY : "#06100C"} size="small" />
+                ) : isSubscribed ? (
                   <>
-                    <MaterialCommunityIcons name="check-circle" size={16} color={COLORS.PRIMARY} />
-                    <Text style={[styles.payButtonText, styles.payButtonActiveText]}>Active Plan</Text>
+                    <MaterialCommunityIcons name="plus-circle-outline" size={16} color={COLORS.PRIMARY} />
+                    <Text style={[styles.payButtonText, styles.payButtonExtendText]}>Extend Pro Access</Text>
                   </>
                 ) : (
                   <>
@@ -236,9 +254,14 @@ export default function SubscriptionScreen() {
                 )}
               </TouchableOpacity>
 
-              {!user && !active && (
+              {!user && !isSubscribed && (
                 <Text style={styles.signInHint}>
                   Tap to sign in with Google, then pay instantly
+                </Text>
+              )}
+              {isSubscribed && (
+                <Text style={styles.extendHint}>
+                  +{plan.durationDays} days will be added to your current Pro time
                 </Text>
               )}
             </View>
@@ -347,26 +370,63 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito_700Bold",
   },
   activeBox: {
+    borderRadius: RADIUS.LG,
+    padding: SPACING.XL,
+    gap: SPACING.XS,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "55",
+    alignItems: "center",
+  },
+  activeBoxTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: SPACING.MD,
-    backgroundColor: COLORS.PRIMARY + "12",
-    borderRadius: RADIUS.LG,
-    padding: SPACING.LG,
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: SPACING.SM,
+  },
+  activeIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.PRIMARY + "18",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activeBoxBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: COLORS.PRIMARY + "18",
+    paddingHorizontal: SPACING.SM,
+    paddingVertical: 5,
+    borderRadius: RADIUS.FULL,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY + "44",
+    borderColor: COLORS.PRIMARY + "40",
+  },
+  activeBoxBadgeText: {
+    color: COLORS.PRIMARY,
+    fontSize: 11,
+    fontFamily: "Nunito_700Bold",
   },
   activeTitle: {
-    color: COLORS.PRIMARY,
-    fontSize: FONT_SIZE.MD,
+    color: COLORS.TEXT,
+    fontSize: FONT_SIZE.LG,
     fontWeight: "900",
     fontFamily: "Nunito_800ExtraBold",
   },
+  activeDays: {
+    color: COLORS.PRIMARY,
+    fontSize: 32,
+    fontWeight: "900",
+    fontFamily: "Nunito_800ExtraBold",
+    letterSpacing: -0.5,
+  },
   activeSub: {
     color: COLORS.TEXT_SECONDARY,
-    fontSize: FONT_SIZE.SM,
+    fontSize: FONT_SIZE.XS,
     fontFamily: "Nunito_400Regular",
-    marginTop: 2,
+    textAlign: "center",
+    marginTop: SPACING.XS,
   },
   accountRow: {
     flexDirection: "row",
@@ -536,6 +596,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.PRIMARY + "55",
   },
+  payButtonExtend: {
+    backgroundColor: COLORS.SURFACE_3,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "55",
+  },
   payButtonText: {
     color: "#06100C",
     fontSize: FONT_SIZE.MD,
@@ -545,7 +610,34 @@ const styles = StyleSheet.create({
   payButtonActiveText: {
     color: COLORS.PRIMARY,
   },
+  payButtonExtendText: {
+    color: COLORS.PRIMARY,
+  },
+  currentPlanBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.PRIMARY + "22",
+    paddingHorizontal: SPACING.SM,
+    paddingVertical: 4,
+    borderRadius: RADIUS.FULL,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "55",
+  },
+  currentPlanBadgeText: {
+    color: COLORS.PRIMARY,
+    fontSize: 10,
+    fontFamily: "Nunito_700Bold",
+  },
   signInHint: {
+    color: COLORS.TEXT_MUTED,
+    fontSize: FONT_SIZE.XS,
+    fontFamily: "Nunito_400Regular",
+    textAlign: "center",
+    marginTop: -SPACING.XS,
+  },
+  extendHint: {
     color: COLORS.TEXT_MUTED,
     fontSize: FONT_SIZE.XS,
     fontFamily: "Nunito_400Regular",

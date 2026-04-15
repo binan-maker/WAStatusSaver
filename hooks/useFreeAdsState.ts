@@ -52,10 +52,10 @@ export function useFreeAdsState() {
 
   const setFreeAdsFor5Hours = async () => {
     try {
-      const freeUntil = Date.now() + 5 * 60 * 60 * 1000; // 5 hours
+      const freeUntil = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
       await AsyncStorage.setItem(FREE_ADS_UNTIL_KEY, freeUntil.toString());
       setIsRewardFreeAds(true);
-      setTimeRemaining(5 * 60 * 60);
+      setTimeRemaining(2 * 60 * 60);
     } catch (error) {
       console.error('Error setting free ads:', error);
     }

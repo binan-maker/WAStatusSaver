@@ -71,7 +71,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
             </View>
             <View style={styles.rowTextWrap}>
               <Text style={styles.rowTitle}>Watch Ad for Free Access</Text>
-              <Text style={styles.rowSubtitle}>Get 30 minutes completely ad-free</Text>
+              <Text style={styles.rowSubtitle}>Get 2 hours completely ad-free</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -111,7 +111,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
           />
           <View style={styles.fullText}>
             <Text style={[styles.fullTitle, isFreeAds && { color: COLORS.PRIMARY }]}>
-              {isFreeAds ? 'Ads-Free Active' : 'Watch Ad — 30 Min Free'}
+              {isFreeAds ? 'Ads-Free Active' : 'Watch Ad — 2 Hours Free'}
             </Text>
             <Text style={[styles.fullSubtitle, isFreeAds && { color: COLORS.TEXT_SECONDARY }]}>
               {isFreeAds ? `${formatTimeRemaining(timeRemaining)} left` : 'Watch one reward ad to remove all ads'}
@@ -142,7 +142,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
           </LinearGradient>
           <View style={styles.gridBottom}>
             <Text style={styles.gridTitle}>Watch Ad</Text>
-            <Text style={styles.gridSub}>30 min free</Text>
+            <Text style={styles.gridSub}>2 Hours Free</Text>
             <TouchableOpacity
               onPress={handleWatchAd}
               disabled={isLoading}
