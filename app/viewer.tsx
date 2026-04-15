@@ -49,31 +49,26 @@ function formatTime(millis: number) {
 function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
+  // Shows static thumbnail until the hardware decoder has frames to display.
+  // Without this, the SurfaceView is black while the player warms up.
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [scale, setScale] = useState(1);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const scaleRef = useRef(1);
   const lastDistanceRef = useRef<number | null>(null);
-  // Ref keeps isActive current inside the event listener closure
   const isActiveRef = useRef(isActive);
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
 
   useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
-  // Fix #4 — Zombie Video Decoder: explicitly release the hardware decoder when
-  // this ViewerItem unmounts (e.g. user presses Back). Without this, the native
-  // video player objects linger in memory for several seconds and exhaust the
-  // device's limited hardware decoder pool, causing the "audio only, no video" bug.
+  // Release the hardware decoder on unmount so the decoder pool isn't exhausted.
   useEffect(() => {
     return () => {
       if (item.type === 'video' && player) {
         try {
-          if ((player as any).replaceAsync) {
-            (player as any).replaceAsync(null).catch(() => {});
-          } else {
-            (player as any).replace(null);
-          }
+          (player as any).replaceAsync?.(null).catch?.(() => {});
         } catch {}
       }
     };
@@ -83,8 +78,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id, item.uri]);
 
-  // Player always starts with no source — raw content:// URIs are never fed
-  // directly to the decoder. The prepared file:// URI arrives via replaceAsync.
+  // Player starts with no source. A file:// URI is fed in via replaceAsync once
+  // the content:// file has been fully copied to the cache dir.
   const player = useVideoPlayer(null, (p) => {
     if (p) {
       p.loop = true;
@@ -96,9 +91,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   });
 
   const tryStartPlayback = useCallback(() => {
-    if (item.type !== 'video' || !displayUri || isLoadingSource.current || !isReadyToPlayRef.current || !isActiveRef.current) {
-      return;
-    }
+    if (
+      item.type !== 'video' ||
+      !displayUri ||
+      isLoadingSource.current ||
+      !isReadyToPlayRef.current ||
+      !isActiveRef.current
+    ) return;
 
     try {
       player.muted = false;
@@ -109,16 +108,24 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [displayUri, item.type, player]);
 
   // ── Status listener ──────────────────────────────────────────────────────
-  // play() is called ONLY when the player tells us it is truly ready.
-  // This completely replaces the unreliable setTimeout approach.
+  // Key fix: play() is called ONLY after statusChange === 'readyToPlay'.
+  // We also flip isVideoReady so the thumbnail overlay disappears exactly
+  // when the first decoded frame is available — no more black flash.
   useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
     if (item.type !== 'video') return;
-    isReadyToPlayRef.current = status === 'readyToPlay';
-    tryStartPlayback();
+    const ready = status === 'readyToPlay';
+    isReadyToPlayRef.current = ready;
+    setIsVideoReady(ready);
+    if (ready) tryStartPlayback();
   });
 
+  // Reset the "ready" flag whenever the source changes so the thumbnail
+  // overlay re-appears while the new file is being decoded.
+  useEffect(() => {
+    setIsVideoReady(false);
+  }, [displayUri]);
+
   // ── Source loading ───────────────────────────────────────────────────────
-  // replaceAsync on ALL platforms — never blocks the UI thread.
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
 
@@ -148,7 +155,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [displayUri, item.type, player, tryStartPlayback]);
 
   // ── Active / inactive sync ───────────────────────────────────────────────
-  // Handles mute/pause when the user swipes away — only for already-loaded sources.
   useEffect(() => {
     if (item.type !== 'video' || !player || isLoadingSource.current) return;
     try {
@@ -159,11 +165,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         if (!isNearActive) {
           player.pause();
           isReadyToPlayRef.current = false;
-          if ((player as any).replaceAsync) {
-            (player as any).replaceAsync(null).catch(() => {});
-          } else {
-            (player as any).replace(null);
-          }
+          setIsVideoReady(false);
+          (player as any).replaceAsync?.(null).catch?.(() => {});
         }
       }
     } catch (e) {
@@ -172,21 +175,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [isActive, isNearActive, player, item.type, tryStartPlayback]);
 
   // ── URI preparation ──────────────────────────────────────────────────────
-  // Copies content:// statuses to file:// cache before handing to the player.
-  // The player only receives a URI once the file is 100% written.
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
         setDisplayUri(null);
+        setIsVideoReady(false);
         if (item.type === 'video' && player) {
           isReadyToPlayRef.current = false;
           try {
             player.pause();
-            if ((player as any).replaceAsync) {
-              (player as any).replaceAsync(null).catch(() => {});
-            } else {
-              (player as any).replace(null);
-            }
+            (player as any).replaceAsync?.(null).catch?.(() => {});
           } catch {}
         }
       }
@@ -211,19 +209,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return () => { isMounted = false; };
   }, [initialSource, item, isNearActive, isActive]);
 
-  // Pinch-to-zoom gesture handler for images
+  // Pinch-to-zoom for images
   const handleTouchMove = useCallback((e: GestureResponderEvent) => {
     if (item.type !== 'image') return;
-    
     const touches = e.nativeEvent.touches;
     if (touches.length === 2) {
       const dx = touches[0].pageX - touches[1].pageX;
       const dy = touches[0].pageY - touches[1].pageY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
       if (lastDistanceRef.current !== null) {
-        const scale = distance / lastDistanceRef.current;
-        const newScale = Math.min(Math.max(scaleRef.current * scale, 1), 4);
+        const s = distance / lastDistanceRef.current;
+        const newScale = Math.min(Math.max(scaleRef.current * s, 1), 4);
         scaleRef.current = newScale;
         setScale(newScale);
       }
@@ -242,55 +238,83 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [scale]);
 
   const mediaUri = displayUri || initialSource;
-  const videoViewKey = displayUri ? `${item.id}:${displayUri}` : item.id;
 
   return (
-   <View style={styles.itemContainer}>
-    <TouchableOpacity
-      style={StyleSheet.absoluteFill}
-      activeOpacity={1}
-      onPress={onToggleControls}
-      onMoveShouldSetResponder={() => item.type === 'image' && scale > 1}
-      onResponderMove={handleTouchMove}
-      onResponderRelease={handleTouchEnd}
-    >
-      {item.type === 'image' ? (
-        <Animated.View
-          style={[
-            styles.imageContainer,
-            {
-              transform: [
-                { scale: scale },
-                { translateX: panX },
-                { translateY: panY },
-              ],
-            },
-          ]}
-        >
-          <Image
-            source={{ uri: mediaUri }}
-            style={styles.image}
-            contentFit="contain"
-            cachePolicy="disk"
-            transition={0}
-            priority="high"
-            recyclingKey={item.id}
-          />
-        </Animated.View>
-      ) : (
-        <View style={styles.videoWrap}>
-          <VideoView
-            key={videoViewKey}
-            player={player}
-            style={styles.video}
-            contentFit="contain"
-            nativeControls={false}
-            showsPlaybackControls={false}
-          />
-        </View>
-      )}
-    </TouchableOpacity>
-</View>
+    <View style={styles.itemContainer}>
+      <TouchableOpacity
+        style={StyleSheet.absoluteFill}
+        activeOpacity={1}
+        onPress={onToggleControls}
+        onMoveShouldSetResponder={() => item.type === 'image' && scale > 1}
+        onResponderMove={handleTouchMove}
+        onResponderRelease={handleTouchEnd}
+      >
+        {item.type === 'image' ? (
+          <Animated.View
+            style={[
+              styles.imageContainer,
+              { transform: [{ scale }, { translateX: panX }, { translateY: panY }] },
+            ]}
+          >
+            <Image
+              source={{ uri: mediaUri }}
+              style={styles.image}
+              contentFit="contain"
+              cachePolicy="disk"
+              transition={0}
+              priority="high"
+              recyclingKey={item.id}
+            />
+          </Animated.View>
+        ) : (
+          <View style={styles.videoWrap}>
+            {/*
+              VideoView has NO key prop — the native Android SurfaceView stays
+              permanently attached to the player throughout its lifecycle.
+              Changing the key would unmount/remount the SurfaceView right as
+              the decoder starts, causing the surface to be detached — video
+              frames go nowhere and you hear audio with a black screen.
+              replaceAsync() updates the source without needing a remount.
+            */}
+            {isNearActive && (
+              <VideoView
+                player={player}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                nativeControls={false}
+                allowsFullscreen={false}
+              />
+            )}
+
+            {/*
+              Static thumbnail shown while loading (or when not near-active).
+              This covers the black SurfaceView until the first decoded frame
+              is ready, and also acts as the lightweight placeholder when the
+              item is just pre-loaded but not yet active.
+            */}
+            {(!isNearActive || !isVideoReady) && (
+              <Image
+                source={{ uri: initialSource }}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                transition={0}
+                recyclingKey={item.id}
+              />
+            )}
+
+            {/* Spinner during the decode warm-up phase */}
+            {isNearActive && !isVideoReady && (
+              <ActivityIndicator
+                color={COLORS.PRIMARY}
+                size="large"
+                style={styles.videoSpinner}
+              />
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -521,7 +545,7 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        removeClippedSubviews={Platform.OS === 'android'}
+        removeClippedSubviews={false}
         updateCellsBatchingPeriod={50}
       />
 
@@ -622,9 +646,15 @@ const styles = StyleSheet.create({
     width: SW,
     height: SH,
   },
+  videoSpinner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '50%',
+    marginTop: -18,
+  },
   videoPlaceholder: {
     flex: 1,
-    backgroundColor: '#000', // Black background while video loads
+    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
