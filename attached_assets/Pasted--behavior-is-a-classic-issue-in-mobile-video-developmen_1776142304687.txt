@@ -1,0 +1,27 @@
+ behavior is a classic issue in mobile video development, especially when dealing with Scoped Storage (SAF) and high-performance video components like expo-video.
+Here is the analysis of why this is happening and how to fix it:
+1. The iOS replaceAsync Warning
+The warning is telling you that VideoPlayer.replace is "blocking." On iOS, if you call replace, the app stops everything (freezes the UI) until the video file is opened.
+The Fix: You must use await player.replaceAsync(uri) instead of player.replace(uri).
+Why it matters: If the user is on a slow connection or a large video file, the app will look like it crashed for 1-2 seconds while loading.
+2. The "Black Screen with Sound" Issue (Android/iOS)
+This is the most frustrating bug. If you hear sound but see a black screen, it means the Audio Engine is working, but the Video Surface (the "screen" inside the app) failed to connect to the player.
+The Causes:
+The "Same ID" Trap: In your viewer.tsx, you use key={item.id} on the VideoView. If the user clicks the same video thumbnail again, the id doesn't change. React thinks: "The ID is the same, I don't need to reset the screen." The player tries to load the new video into an "old" screen that is already busy, resulting in a black screen.
+The Race Condition: You are using a setTimeout(r, 100) to wait for the video to load. 100ms is a "guess." If the phone is slow, the video isn't ready in 100ms. If you call player.play() before the video is "buffered," the UI engine sometimes gives up on rendering the frames, leaving you with just audio.
+The content:// vs file:// Conflict: WhatsApp statuses are content:// URIs. You are copying them to file:// in the cache. If the user opens a video while the copyAsync is still working, the player might try to read a "half-finished" file. This causes the decoder to fail the video track but sometimes keep the audio track.
+3. How to fix it (The Strategy)
+To solve this, you need to change how the viewer.tsx communicates with the hardware:
+Force a Reset: Instead of just key={item.id}, use a "Status Key" that changes every time the video is opened or closed. This forces the VideoView to be destroyed and recreated cleanly.
+Listen to the Player, Don't Guess: Stop using setTimeout. expo-video has a status or isReadyToPlay property. You should only call play() when the player explicitly tells the app: "I have loaded the frames and I am ready."
+Handle the "Null" State: When the user closes a video, you must explicitly set the player source to null and unload it. If you don't, the phone's "Video Memory" stays full, and the next video won't have enough memory to show the picture.
+Async All the Way: Ensure prepareStatusForViewing is fully completed before the player.replace is even called.
+Summary of the "Black Screen" Logic:
+What happens	Why it's Black	The Solution
+User clicks thumbnail	UI tries to reuse old player	Force VideoView to unmount/remount.
+Sound starts	Audio track loads faster than Video	Wait for onStatusChange before playing.
+Swiping works	Swiping forces a new id (new key)	Ensure the "Click to Open" also forces a new key.
+iOS Warning	Synchronous loading	Always use replaceAsync with await.
+Where to edit:
+WAStatusSaver/app/viewer.tsx: Update the useEffect to use replaceAsync and remove the setTimeout in favor of a status listener.
+WAStatusSaver/contexts/MediaContext.tsx: Ensure prepareStatusForViewing doesn't return a URI until the file is 100% written and closed.

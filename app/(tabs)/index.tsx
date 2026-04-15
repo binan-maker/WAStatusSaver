@@ -10,19 +10,24 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
-import { useMedia, StatusItem } from '@/contexts/MediaContext';
+import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
+import { useAppNotice } from '@/hooks/useAppNotice';
+import { AppNoticeCard } from '@/components/AppNotice';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
 import { AdInterstitial } from '@/components/AdInterstitial';
 import { EmptyState } from '@/components/EmptyState';
 import { LoadingShimmer } from '@/components/LoadingShimmer';
 import { RewardAdButton } from '@/components/RewardAdButton';
+import { SAFGuideOverlay } from '@/components/SAFGuideOverlay';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
 
@@ -33,6 +38,21 @@ type TabType = 'images' | 'videos';
 
 const TAB_BAR_APPROX = 60;
 const BANNER_HEIGHT = ADMOB.BANNER_HEIGHT;
+
+const STATUS_SOURCE_OPTIONS: { value: StatusSource; label: string; sublabel: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  {
+    value: 'whatsapp',
+    label: 'WhatsApp',
+    sublabel: 'Android/media/com.whatsapp',
+    icon: 'whatsapp',
+  },
+  {
+    value: 'whatsapp_business',
+    label: 'WhatsApp Business',
+    sublabel: 'Android/media/com.whatsapp.w4b',
+    icon: 'briefcase-outline',
+  },
+];
 
 function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
   const insets = useSafeAreaInsets();
@@ -138,16 +158,84 @@ function SubTabBar({
   );
 }
 
+function StatusSourceSelector({
+  selectedSource,
+  onSelectSource,
+}: {
+  selectedSource: StatusSource;
+  onSelectSource: (source: StatusSource) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = STATUS_SOURCE_OPTIONS.find(option => option.value === selectedSource) || STATUS_SOURCE_OPTIONS[0];
+
+  return (
+    <View style={styles.sourceWrap}>
+      <TouchableOpacity
+        style={styles.sourceButton}
+        onPress={() => setOpen(current => !current)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.sourceLeft}>
+          <View style={styles.sourceIconWrap}>
+            <MaterialCommunityIcons name={selected.icon} size={18} color={COLORS.PRIMARY} />
+          </View>
+          <View>
+            <Text style={styles.sourceLabel}>{selected.label}</Text>
+            <Text style={styles.sourceSub}>Choose status folder</Text>
+          </View>
+        </View>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.TEXT_SECONDARY} />
+      </TouchableOpacity>
+
+      {open && (
+        <View style={styles.sourceMenu}>
+          {STATUS_SOURCE_OPTIONS.map(option => {
+            const active = option.value === selectedSource;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[styles.sourceOption, active && styles.sourceOptionActive]}
+                onPress={() => {
+                  onSelectSource(option.value);
+                  setOpen(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <View style={styles.sourceLeft}>
+                  <View style={[styles.sourceIconWrap, active && styles.sourceIconWrapActive]}>
+                    <MaterialCommunityIcons name={option.icon} size={18} color={active ? '#fff' : COLORS.PRIMARY} />
+                  </View>
+                  <View>
+                    <Text style={[styles.sourceOptionLabel, active && styles.sourceOptionLabelActive]}>{option.label}</Text>
+                    <Text style={styles.sourceOptionSub}>{option.sublabel}</Text>
+                  </View>
+                </View>
+                {active && <Ionicons name="checkmark-circle" size={18} color={COLORS.PRIMARY} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function StatusesScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('images');
+  const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
+  const { notice, visible: noticeVisible, dismiss: dismissNotice } = useAppNotice();
   const {
     statuses,
     onImageSwipe,
     isLoading,
     isRefreshing,
+    isInitializing,
     hasPermission,
     safGranted,
+    safUris,
+    isRequestingSAF,
     androidVersion,
+    requestSAF,
     loadStatuses,
     refresh,
     saveStatus,
@@ -176,17 +264,33 @@ export default function StatusesScreen() {
     }
   }, [hasPermission, safGranted]);
 
-  const imageCnt = useMemo(() => statuses.filter(s => s.type === 'image').length, [statuses]);
-  const videoCnt = useMemo(() => statuses.filter(s => s.type === 'video').length, [statuses]);
+  // Auto-refresh when the user returns to the app from WhatsApp
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        refresh();
+      }
+    });
+    return () => sub.remove();
+  }, [refresh]);
+
+  const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
+  const selectedStatuses = useMemo(
+    () => statuses.filter(s => s.source === selectedSource),
+    [statuses, selectedSource]
+  );
+
+  const imageCnt = useMemo(() => selectedStatuses.filter(s => s.type === 'image').length, [selectedStatuses]);
+  const videoCnt = useMemo(() => selectedStatuses.filter(s => s.type === 'video').length, [selectedStatuses]);
 
   const filteredImages = useMemo(
-    () => statuses.filter(s => s.type === 'image'),
-    [statuses]
+    () => selectedStatuses.filter(s => s.type === 'image'),
+    [selectedStatuses]
   );
 
   const filteredVideos = useMemo(
-    () => statuses.filter(s => s.type === 'video'),
-    [statuses]
+    () => selectedStatuses.filter(s => s.type === 'video'),
+    [selectedStatuses]
   );
 
   const handlePress = useCallback((item: StatusItem) => {
@@ -225,16 +329,39 @@ export default function StatusesScreen() {
     []
   );
 
-  const needsPermission = !hasPermission && Platform.OS === 'android';
-  const needsSAF = Platform.OS === 'android' && androidVersion >= 30 && !safGranted;
-  const showPermScreen = needsPermission || (needsSAF && statuses.length === 0);
+  const selectedSafGranted = Platform.OS === 'android' && androidVersion >= 30
+    ? Boolean(safUris[selectedSource])
+    : safGranted;
+  const needsPermission = !hasPermission && Platform.OS === 'android' && androidVersion < 30;
+  const needsSAF = Platform.OS === 'android' && androidVersion >= 30 && !selectedSafGranted;
+  const showPermScreen = needsPermission || needsSAF;
+
+  const handleGrantAccess = useCallback(() => {
+    if (Platform.OS === 'android' && androidVersion >= 30) {
+      requestSAF(selectedSource);
+      return;
+    }
+    router.push('/permissions');
+  }, [androidVersion, requestSAF, selectedSource]);
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
+
+  // While MediaContext is still loading from AsyncStorage / checking permissions,
+  // show a full-screen spinner so users never see the "Setup Required" screen flicker.
+  if (isInitializing) {
+    return (
+      <View style={[styles.root, styles.initScreen]}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+      </View>
+    );
+  }
 
   if (showPermScreen) {
     return (
       <View style={styles.root}>
       <StatusHeader onInfoPress={() => router.push('/permissions')} />
+        <StatusSourceSelector selectedSource={selectedSource} onSelectSource={setSelectedSource} />
+        <SAFGuideOverlay visible={isRequestingSAF} />
         <View style={styles.permScreen}>
           <LinearGradient
             colors={[COLORS.PRIMARY + '22', 'transparent']}
@@ -243,17 +370,18 @@ export default function StatusesScreen() {
           <View style={styles.permIconWrap}>
             <MaterialCommunityIcons name="folder-lock-open-outline" size={52} color={COLORS.PRIMARY} />
           </View>
-          <Text style={styles.permTitle}>Setup Required</Text>
+          <Text style={styles.permTitle}>{selectedSourceLabel} Setup Required</Text>
           <Text style={styles.permSub}>
-            Grant storage access to view WhatsApp statuses.{'\n'}Android {androidVersion} detected.
+            Grant folder access to view {selectedSourceLabel} statuses.{'\n'}
+            The picker will open directly to the {selectedSourceLabel} Media folder.
           </Text>
           <TouchableOpacity
             style={styles.permBtn}
-            onPress={() => router.push('/permissions')}
+            onPress={handleGrantAccess}
             activeOpacity={0.85}
           >
             <Ionicons name="shield-checkmark" size={17} color="#fff" />
-            <Text style={styles.permBtnText}>Grant Access</Text>
+            <Text style={styles.permBtnText}>Grant {selectedSourceLabel}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.guideLink} onPress={() => router.push('/guide')}>
             <Ionicons name="book-outline" size={14} color={COLORS.PRIMARY} />
@@ -288,6 +416,13 @@ export default function StatusesScreen() {
     <View style={styles.root}>
       <StatusHeader onInfoPress={() => router.push('/permissions')} />
 
+      <StatusSourceSelector selectedSource={selectedSource} onSelectSource={setSelectedSource} />
+      <SAFGuideOverlay visible={isRequestingSAF} />
+
+      {notice && (
+        <AppNoticeCard notice={notice} visible={noticeVisible} onDismiss={dismissNotice} />
+      )}
+
       <SubTabBar
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -307,11 +442,11 @@ export default function StatusesScreen() {
         <View style={{ width: SW }}>
           {isLoading ? (
             <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
-          ) : statuses.filter(s => s.type === 'image').length === 0 ? (
+          ) : filteredImages.length === 0 ? (
             <EmptyState
               icon="images-outline"
-              title="No images found"
-              subtitle="Open WhatsApp, view some statuses, then pull down to refresh."
+              title="No image statuses yet"
+              subtitle={`Open ${selectedSourceLabel} and view some image statuses first — they will appear here automatically!`}
               actionLabel="Refresh"
               onAction={refresh}
             />
@@ -353,11 +488,11 @@ export default function StatusesScreen() {
         <View style={{ width: SW }}>
           {isLoading ? (
             <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
-          ) : statuses.filter(s => s.type === 'video').length === 0 ? (
+          ) : filteredVideos.length === 0 ? (
             <EmptyState
               icon="videocam-outline"
-              title="No videos found"
-              subtitle="Open WhatsApp, view some statuses, then pull down to refresh."
+              title="No video statuses yet"
+              subtitle={`Open ${selectedSourceLabel} and view some video statuses first — they will appear here automatically!`}
               actionLabel="Refresh"
               onAction={refresh}
             />
@@ -404,6 +539,10 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,
+  },
+  initScreen: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     backgroundColor: 'transparent',
@@ -453,6 +592,87 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.SURFACE_2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sourceWrap: {
+    paddingHorizontal: SPACING.LG,
+    paddingBottom: SPACING.SM,
+    zIndex: 10,
+  },
+  sourceButton: {
+    minHeight: 48,
+    borderRadius: RADIUS.MD,
+    backgroundColor: COLORS.SURFACE,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.SM,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sourceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.SM,
+  },
+  sourceIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.PRIMARY + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceIconWrapActive: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  sourceLabel: {
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '800',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_800ExtraBold',
+  },
+  sourceSub: {
+    fontSize: 10,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_600SemiBold',
+    marginTop: 1,
+  },
+  sourceMenu: {
+    marginTop: SPACING.XS,
+    borderRadius: RADIUS.MD,
+    backgroundColor: COLORS.SURFACE,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    overflow: 'hidden',
+  },
+  sourceOption: {
+    minHeight: 58,
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.SM,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  sourceOptionActive: {
+    backgroundColor: COLORS.PRIMARY + '10',
+  },
+  sourceOptionLabel: {
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '700',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_700Bold',
+  },
+  sourceOptionLabelActive: {
+    color: COLORS.PRIMARY,
+  },
+  sourceOptionSub: {
+    fontSize: 10,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_400Regular',
+    marginTop: 2,
   },
   subTabBar: {
     flexDirection: 'row',

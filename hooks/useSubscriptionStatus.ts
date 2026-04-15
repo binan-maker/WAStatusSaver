@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Platform } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, AppState, AppStateStatus, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
 import { getPaymentDeviceId } from "@/lib/device-identity";
 import { SUBSCRIPTION_PLANS, SubscriptionPlanId } from "@/shared/subscription-plans";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
+
+const SUBSCRIPTION_CACHE_KEY = "@statusvault_subscription_status";
+
+// Fix #1 — Internet Drop Trap: persist payment details right after Razorpay
+// window closes so we can retry verification if the network drops before the
+// /verify API call completes.
+const PENDING_PAYMENT_KEY = "@statusvault_pending_payment";
 
 type SubscriptionStatus = {
   active: boolean;
@@ -12,6 +20,15 @@ type SubscriptionStatus = {
   planId?: string | null;
   paidUntil?: string | null;
   message?: string;
+};
+
+type PendingPayment = {
+  planId: SubscriptionPlanId;
+  deviceId: string;
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+  savedAt: number;
 };
 
 type CreateOrderResponse = {
@@ -50,17 +67,115 @@ export function useSubscriptionStatus() {
   const [loading, setLoading] = useState(true);
   const [payingPlanId, setPayingPlanId] = useState<SubscriptionPlanId | null>(null);
 
+  // Fix #3 — Unmounted State Crash: guard every state update with this ref so
+  // React never receives a setState call after the subscriber screen unmounts.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  const safeSetStatus = useCallback((s: SubscriptionStatus) => {
+    if (isMountedRef.current) setStatus(s);
+  }, []);
+  const safeSetLoading = useCallback((v: boolean) => {
+    if (isMountedRef.current) setLoading(v);
+  }, []);
+  const safeSetPayingPlanId = useCallback((v: SubscriptionPlanId | null) => {
+    if (isMountedRef.current) setPayingPlanId(v);
+  }, []);
+
+  // On mount: restore last-known subscription so Pro users see no ad flash.
+  useEffect(() => {
+    AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY)
+      .then((cached) => {
+        if (cached) {
+          const parsed: SubscriptionStatus = JSON.parse(cached);
+          if (parsed.active) safeSetStatus(parsed);
+        }
+      })
+      .catch(() => {});
+  }, [safeSetStatus]);
+
   useEffect(() => {
     getPaymentDeviceId()
       .then(setDeviceId)
-      .catch(() => setStatus({ active: false, message: "Device setup failed" }));
+      .catch(() => safeSetStatus({ active: false, message: "Device setup failed" }));
+  }, [safeSetStatus]);
+
+  // Core verify helper — used by both startPayment and the pending-payment retry.
+  const verifyPaymentDetails = useCallback(async (
+    pending: PendingPayment,
+    freshToken: string,
+  ): Promise<SubscriptionStatus | null> => {
+    try {
+      const verifyResponse = await apiRequest(
+        "POST",
+        "/api/payments/razorpay/verify",
+        {
+          planId: pending.planId,
+          deviceId: pending.deviceId,
+          razorpay_payment_id: pending.razorpay_payment_id,
+          razorpay_order_id: pending.razorpay_order_id,
+          razorpay_signature: pending.razorpay_signature,
+        },
+        { Authorization: `Bearer ${freshToken}` },
+      );
+      if (!verifyResponse.ok) return null;
+      return (await verifyResponse.json()) as SubscriptionStatus;
+    } catch {
+      return null;
+    }
   }, []);
+
+  // Fix #1 — Retry any pending payment that was interrupted by a network drop.
+  // Runs automatically when the device ID and user are both ready (app open).
+  useEffect(() => {
+    if (!deviceId || !user) return;
+
+    const retryPending = async () => {
+      const raw = await AsyncStorage.getItem(PENDING_PAYMENT_KEY).catch(() => null);
+      if (!raw) return;
+
+      let pending: PendingPayment;
+      try {
+        pending = JSON.parse(raw);
+      } catch {
+        await AsyncStorage.removeItem(PENDING_PAYMENT_KEY).catch(() => {});
+        return;
+      }
+
+      // Discard records older than 24 hours — the Razorpay payment window
+      // itself will have expired by then, so verification would fail anyway.
+      if (Date.now() - pending.savedAt > 24 * 60 * 60 * 1000) {
+        await AsyncStorage.removeItem(PENDING_PAYMENT_KEY).catch(() => {});
+        return;
+      }
+
+      // Fix #4 — Stale Token: always force-refresh before calling verify.
+      const freshToken = await getIdToken(true).catch(() => null);
+      if (!freshToken) return;
+
+      const result = await verifyPaymentDetails(pending, freshToken);
+      if (result?.active) {
+        await AsyncStorage.removeItem(PENDING_PAYMENT_KEY).catch(() => {});
+        await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(result)).catch(() => {});
+        safeSetStatus(result);
+        Alert.alert(
+          "Pro Access Activated",
+          "Your previous payment has been verified. Ads are now removed!",
+        );
+      }
+    };
+
+    retryPending().catch(() => {});
+  }, [deviceId, user, getIdToken, verifyPaymentDetails, safeSetStatus]);
 
   const refresh = useCallback(async () => {
     if (!deviceId) return;
 
     try {
-      setLoading(true);
+      safeSetLoading(true);
       const token = await getIdToken();
       const response = await apiRequest(
         "GET",
@@ -68,17 +183,35 @@ export function useSubscriptionStatus() {
         undefined,
         token ? { Authorization: `Bearer ${token}` } : undefined,
       );
-      setStatus(await response.json());
+      const freshStatus: SubscriptionStatus = await response.json();
+      safeSetStatus(freshStatus);
+      AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(freshStatus)).catch(() => {});
     } catch (error) {
-      setStatus({
+      // Local shield: if the server is unreachable, keep any cached Pro status
+      // that hasn't expired yet rather than wiping the user's Pro access.
+      // This prevents "Ghost Ads" caused by a momentary network drop.
+      const cached = await AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY).catch(() => null);
+      if (cached) {
+        try {
+          const parsed: SubscriptionStatus = JSON.parse(cached);
+          if (parsed.active && parsed.paidUntil) {
+            const expiresAt = new Date(parsed.paidUntil).getTime();
+            if (expiresAt > Date.now()) {
+              safeSetStatus(parsed);
+              return;
+            }
+          }
+        } catch {}
+      }
+      safeSetStatus({
         active: false,
         configured: false,
         message: error instanceof Error ? error.message : "Unable to check subscription",
       });
     } finally {
-      setLoading(false);
+      safeSetLoading(false);
     }
-  }, [deviceId, getIdToken]);
+  }, [deviceId, getIdToken, safeSetLoading, safeSetStatus]);
 
   useEffect(() => {
     refresh();
@@ -86,42 +219,77 @@ export function useSubscriptionStatus() {
     return () => clearInterval(interval);
   }, [refresh]);
 
+  // Foreground refresh: whenever the app comes back from background, re-sync
+  // subscription so ads disappear immediately for Pro users without a restart.
+  useEffect(() => {
+    const appStateRef = { current: AppState.currentState };
+    const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        next === "active"
+      ) {
+        refresh();
+      }
+      appStateRef.current = next;
+    });
+    return () => sub.remove();
+  }, [refresh]);
+
   const startPayment = useCallback(
     async (planId: SubscriptionPlanId) => {
       if (!deviceId || payingPlanId) return false;
 
+      // Pre-flight: token check before showing anything to the user.
       const token = await getIdToken();
       if (!user || !token) {
-        Alert.alert("Sign in required", "Please sign in with Google first so your subscription is saved safely in Firebase.");
+        Alert.alert("Sign in required", "Please sign in with Google first so your subscription is safely saved.");
         return false;
       }
 
       if (Platform.OS === "web") {
-        Alert.alert("Open on phone", "Razorpay checkout is available in the Android app build.");
+        Alert.alert("Open on phone", "Razorpay checkout is only available in the Android app build.");
         return false;
       }
 
       const RazorpayCheckout = getRazorpayCheckout();
       if (!RazorpayCheckout) {
-        Alert.alert("Payment setup needed", "Razorpay checkout is not available in this build. Create a development or production Android build after installing the payment module.");
+        Alert.alert("Payment setup needed", "Razorpay is not available in this build. Create an Android development or production build first.");
         return false;
       }
 
-      setPayingPlanId(planId);
+      safeSetPayingPlanId(planId);
 
+      // ── PHASE 1: Create order ────────────────────────────────────────────────
+      // Fix #2 — Order Creation Panic: isolated try/catch so the user ONLY sees
+      // a "server busy" message — never a scary "money may have been taken" alert
+      // at a stage where no payment has even been attempted yet.
+      let order: CreateOrderResponse;
       try {
         const orderResponse = await apiRequest(
           "POST",
           "/api/payments/razorpay/create-order",
-          {
-            planId,
-            deviceId,
-          },
+          { planId, deviceId },
           { Authorization: `Bearer ${token}` },
         );
-        const order = (await orderResponse.json()) as CreateOrderResponse;
+        if (!orderResponse.ok) {
+          const errBody = await orderResponse.json().catch(() => ({})) as any;
+          const msg = errBody?.message || "Could not create payment order";
+          throw new Error(msg);
+        }
+        order = (await orderResponse.json()) as CreateOrderResponse;
+      } catch (orderError) {
+        safeSetPayingPlanId(null);
+        Alert.alert(
+          "Server Busy",
+          "Could not start payment. No money has been charged. Please try again in a moment.",
+        );
+        return false;
+      }
 
-        const result = (await RazorpayCheckout.open({
+      // ── PHASE 2: Open Razorpay checkout ─────────────────────────────────────
+      let razorpayResult: RazorpaySuccess;
+      try {
+        razorpayResult = (await RazorpayCheckout.open({
           key: order.keyId,
           amount: order.amount,
           currency: order.currency,
@@ -139,32 +307,68 @@ export function useSubscriptionStatus() {
             googleUid: user?.uid || "",
           },
         })) as RazorpaySuccess;
+      } catch (checkoutError: any) {
+        safeSetPayingPlanId(null);
+        // Razorpay error code 0 = user dismissed/cancelled — no alert needed.
+        const code = checkoutError?.code ?? checkoutError?.error?.code;
+        if (code !== 0 && code !== "0") {
+          Alert.alert("Payment Cancelled", "No payment was made.");
+        }
+        return false;
+      }
 
-        const verifyResponse = await apiRequest(
-          "POST",
-          "/api/payments/razorpay/verify",
-          {
-            planId,
-            deviceId,
-            razorpay_payment_id: result.razorpay_payment_id,
-            razorpay_order_id: result.razorpay_order_id,
-            razorpay_signature: result.razorpay_signature,
-          },
-          { Authorization: `Bearer ${token}` },
+      // ── PHASE 3: Persist payment before verifying (Fix #1) ──────────────────
+      // The payment IS complete at this point — Razorpay has the money.
+      // We MUST save details locally first so no payment is ever "lost" if the
+      // network drops in the next step.
+      const pendingPayment: PendingPayment = {
+        planId,
+        deviceId,
+        razorpay_payment_id: razorpayResult.razorpay_payment_id,
+        razorpay_order_id: razorpayResult.razorpay_order_id,
+        razorpay_signature: razorpayResult.razorpay_signature,
+        savedAt: Date.now(),
+      };
+      await AsyncStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingPayment)).catch(() => {});
+
+      // ── PHASE 4: Force-refresh token before verification (Fix #4) ───────────
+      // Razorpay checkout can take several minutes (UPI OTP, card entry, etc.).
+      // Firebase tokens expire after 60 minutes — force a fresh token so the
+      // /verify call never fails with 401 Unauthorized.
+      const freshToken = await getIdToken(true).catch(() => null);
+      if (!freshToken) {
+        safeSetPayingPlanId(null);
+        Alert.alert(
+          "Payment Received — Activating...",
+          "Your payment was received but we lost your session. Reopen the app and your Pro access will activate automatically.",
         );
+        return false;
+      }
 
-        setStatus(await verifyResponse.json());
-        Alert.alert("Payment successful", "Ads are now removed for your selected plan.");
+      // ── PHASE 5: Verify with server ─────────────────────────────────────────
+      const verifiedStatus = await verifyPaymentDetails(pendingPayment, freshToken);
+
+      if (verifiedStatus?.active) {
+        // Payment verified successfully — clear the pending record.
+        await AsyncStorage.removeItem(PENDING_PAYMENT_KEY).catch(() => {});
+        await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(verifiedStatus)).catch(() => {});
+        safeSetStatus(verifiedStatus);
+        safeSetPayingPlanId(null);
+        Alert.alert("Payment Successful 🎉", "Ads are now removed. Enjoy StatusVault Pro!");
         return true;
-      } catch (error) {
-        Alert.alert("Payment not completed", error instanceof Error ? error.message : "Your subscription was not activated. If money was debited, contact support with your Razorpay payment ID.");
+      } else {
+        // Server call failed but payment WAS taken — pending record stays so
+        // the next app open will retry automatically. Reassure the user clearly.
+        safeSetPayingPlanId(null);
+        Alert.alert(
+          "Payment Received — Activating...",
+          "Your payment was received successfully. Your Pro access will activate automatically the next time you open the app. You will NOT be charged again.",
+        );
         await refresh();
         return false;
-      } finally {
-        setPayingPlanId(null);
       }
     },
-    [deviceId, getIdToken, payingPlanId, refresh, user],
+    [deviceId, getIdToken, payingPlanId, refresh, user, safeSetPayingPlanId, safeSetStatus, verifyPaymentDetails],
   );
 
   const remainingSeconds = useMemo(() => getRemainingSeconds(status), [status]);

@@ -70,11 +70,34 @@ async function getAuthenticatedUser(req: Request): Promise<AuthenticatedUser | n
   }
 }
 
-function getPaidUntil(planId: string) {
+// Time-stacking: if the user already has an active subscription, add the new
+// plan's duration on top of their existing expiry date so they never lose a
+// single day they already paid for. A downgrade/same-plan re-purchase just
+// extends from whichever is later: now or the current expiry.
+async function computeStackedPaidUntil(
+  planId: string,
+  userId: string,
+  db: ReturnType<typeof getFirestoreDb>,
+): Promise<Date | null> {
   const plan = getSubscriptionPlan(planId);
   if (!plan) return null;
-  if (plan.durationDays === null) return null;
-  return new Date(Date.now() + plan.durationDays * 24 * 60 * 60 * 1000);
+
+  const now = Date.now();
+  let baseTime = now;
+
+  try {
+    const snap = await db.collection("subscriptions").doc(userId).get();
+    if (snap.exists) {
+      const data = snap.data() || {};
+      const existingPaidUntil = data.paidUntil?.toDate?.();
+      if (existingPaidUntil instanceof Date && existingPaidUntil.getTime() > now) {
+        // Stack on top — every second of the old plan is preserved
+        baseTime = existingPaidUntil.getTime();
+      }
+    }
+  } catch {}
+
+  return new Date(baseTime + plan.durationDays * 24 * 60 * 60 * 1000);
 }
 
 async function createRazorpayOrder(planId: string, deviceId: string, authUser: AuthenticatedUser) {
@@ -281,6 +304,27 @@ export function registerPaymentRoutes(app: Express) {
       const orderSnap = await orderRef.get();
       const orderData = orderSnap.data();
 
+      // Idempotency + security guard: if this order was already verified, return
+      // the existing subscription without re-running verification.
+      // SECURITY: also assert the paymentId matches the one we already stored —
+      // this blocks any attacker who might try to re-use a legitimate order_id
+      // with a different (fraudulent) payment_id.
+      if (orderSnap.exists && orderData?.status === "verified" && orderData?.userId === authUser.uid) {
+        if (orderData?.paymentId && orderData.paymentId !== paymentId) {
+          return res.status(400).json({ message: "Payment ID mismatch on already-verified order" });
+        }
+        const subSnap = await db.collection("subscriptions").doc(authUser.uid).get();
+        const subData = subSnap.data() || {};
+        const paidUntilDate = subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate() : null;
+        const lifetime = Boolean(subData.lifetime);
+        return res.json({
+          active: lifetime || Boolean(paidUntilDate && paidUntilDate.getTime() > Date.now()),
+          lifetime,
+          planId: subData.planId || plan.id,
+          paidUntil: paidUntilDate ? paidUntilDate.toISOString() : null,
+        });
+      }
+
       if (!orderSnap.exists || orderData?.deviceId !== deviceId || orderData?.userId !== authUser.uid || orderData?.planId !== plan.id) {
         await orderRef.set(
           {
@@ -334,13 +378,14 @@ export function registerPaymentRoutes(app: Express) {
         return res.status(400).json({ message: "Payment was not captured correctly" });
       }
 
-      const paidUntil = getPaidUntil(plan.id);
+      // Time-stacking: adds new plan duration on top of any existing active subscription
+      const paidUntil = await computeStackedPaidUntil(plan.id, authUser.uid, db);
       const subscriptionPayload = {
         deviceId,
         userId: authUser.uid,
         userEmail: authUser.email || null,
         active: true,
-        lifetime: plan.durationDays === null,
+        lifetime: false,
         planId: plan.id,
         amount: plan.amount,
         currency: plan.currency,

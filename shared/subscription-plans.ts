@@ -1,4 +1,4 @@
-export type SubscriptionPlanId = "monthly" | "yearly" | "lifetime";
+export type SubscriptionPlanId = "monthly" | "yearly";
 
 export type SubscriptionPlan = {
   id: SubscriptionPlanId;
@@ -6,7 +6,7 @@ export type SubscriptionPlan = {
   shortTitle: string;
   amount: number;
   currency: "INR";
-  durationDays: number | null;
+  durationDays: number;
   badge: string;
   description: string;
 };
@@ -14,9 +14,9 @@ export type SubscriptionPlan = {
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "monthly",
-    title: "1 Month Ad-Free",
+    title: "1 Month Basic Pro",
     shortTitle: "Monthly",
-    amount: 30,
+    amount: 29,
     currency: "INR",
     durationDays: 30,
     badge: "Most Popular",
@@ -24,23 +24,13 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   },
   {
     id: "yearly",
-    title: "1 Year Ad-Free",
+    title: "1 Year Standard Pro",
     shortTitle: "Yearly",
-    amount: 199,
+    amount: 149,
     currency: "INR",
     durationDays: 365,
     badge: "Best Value",
-    description: "Save more with one full year",
-  },
-  {
-    id: "lifetime",
-    title: "Lifetime Ad-Free",
-    shortTitle: "Lifetime",
-    amount: 499,
-    currency: "INR",
-    durationDays: null,
-    badge: "One Time",
-    description: "Pay once and remove ads forever",
+    description: "No ads + priority support for a full year",
   },
 ];
 

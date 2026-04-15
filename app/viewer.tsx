@@ -54,14 +54,37 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [panY, setPanY] = useState(0);
   const scaleRef = useRef(1);
   const lastDistanceRef = useRef<number | null>(null);
-  const sourceReadyRef = useRef(false);
+  // Ref keeps isActive current inside the event listener closure
+  const isActiveRef = useRef(isActive);
+  const isLoadingSource = useRef(false);
+  const isReadyToPlayRef = useRef(false);
+
+  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
+
+  // Fix #4 — Zombie Video Decoder: explicitly release the hardware decoder when
+  // this ViewerItem unmounts (e.g. user presses Back). Without this, the native
+  // video player objects linger in memory for several seconds and exhaust the
+  // device's limited hardware decoder pool, causing the "audio only, no video" bug.
+  useEffect(() => {
+    return () => {
+      if (item.type === 'video' && player) {
+        try {
+          if ((player as any).replaceAsync) {
+            (player as any).replaceAsync(null).catch(() => {});
+          } else {
+            (player as any).replace(null);
+          }
+        } catch {}
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id, item.uri]);
 
-  // Always start with null so the player never tries to decode a raw content://
-  // URI. The prepared file:// URI is loaded via player.replace() once it's ready.
+  // Player always starts with no source — raw content:// URIs are never fed
+  // directly to the decoder. The prepared file:// URI arrives via replaceAsync.
   const player = useVideoPlayer(null, (p) => {
     if (p) {
       p.loop = true;
@@ -72,59 +95,100 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   });
 
-  // Once the prepared (file://) URI is ready, load it into the player.
-  // A 100 ms delay after replace gives the decoder time to settle before play().
+  const tryStartPlayback = useCallback(() => {
+    if (item.type !== 'video' || !displayUri || isLoadingSource.current || !isReadyToPlayRef.current || !isActiveRef.current) {
+      return;
+    }
+
+    try {
+      player.muted = false;
+      player.play();
+    } catch (e) {
+      console.log('Player start error:', e);
+    }
+  }, [displayUri, item.type, player]);
+
+  // ── Status listener ──────────────────────────────────────────────────────
+  // play() is called ONLY when the player tells us it is truly ready.
+  // This completely replaces the unreliable setTimeout approach.
+  useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
+    if (item.type !== 'video') return;
+    isReadyToPlayRef.current = status === 'readyToPlay';
+    tryStartPlayback();
+  });
+
+  // ── Source loading ───────────────────────────────────────────────────────
+  // replaceAsync on ALL platforms — never blocks the UI thread.
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
 
-    let isMounted = true;
+    let cancelled = false;
+    isLoadingSource.current = true;
+    isReadyToPlayRef.current = false;
+
     const load = async () => {
       try {
-        sourceReadyRef.current = false;
-        if (Platform.OS === 'ios') {
-          await player.replaceAsync(displayUri);
-        } else {
-          player.replace(displayUri);
-        }
-        // Short settle window so the decoder has a frame before play() arrives
-        await new Promise(r => setTimeout(r, 100));
-        if (!isMounted) return;
-        sourceReadyRef.current = true;
-        if (isActive) {
-          player.muted = false;
-          player.play();
-        }
+        await player.replaceAsync(displayUri);
+        if (!cancelled) isLoadingSource.current = false;
+        tryStartPlayback();
       } catch (e) {
-        console.log('Player load error:', e);
+        if (!cancelled) {
+          isLoadingSource.current = false;
+          console.log('Player load error:', e);
+        }
       }
     };
-    load();
-    return () => { isMounted = false; };
-  }, [displayUri, item.type, player]);
 
-  // Sync playback/mute state whenever active flag changes.
-  // Only issue play() once the source is confirmed ready.
+    load();
+    return () => {
+      cancelled = true;
+      isLoadingSource.current = false;
+      isReadyToPlayRef.current = false;
+    };
+  }, [displayUri, item.type, player, tryStartPlayback]);
+
+  // ── Active / inactive sync ───────────────────────────────────────────────
+  // Handles mute/pause when the user swipes away — only for already-loaded sources.
   useEffect(() => {
-    if (item.type !== 'video' || !player) return;
+    if (item.type !== 'video' || !player || isLoadingSource.current) return;
     try {
       if (isActive) {
-        player.muted = false;
-        if (sourceReadyRef.current) player.play();
+        tryStartPlayback();
       } else {
         player.muted = true;
-        if (!isNearActive) player.pause();
+        if (!isNearActive) {
+          player.pause();
+          isReadyToPlayRef.current = false;
+          if ((player as any).replaceAsync) {
+            (player as any).replaceAsync(null).catch(() => {});
+          } else {
+            (player as any).replace(null);
+          }
+        }
       }
     } catch (e) {
       console.log('Player sync error:', e);
     }
-  }, [isActive, isNearActive, player, item.type]);
+  }, [isActive, isNearActive, player, item.type, tryStartPlayback]);
 
-  // Prepare the cache URI for both images and videos.
+  // ── URI preparation ──────────────────────────────────────────────────────
+  // Copies content:// statuses to file:// cache before handing to the player.
+  // The player only receives a URI once the file is 100% written.
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
         setDisplayUri(null);
-        sourceReadyRef.current = false;
+        if (item.type === 'video' && player) {
+          isReadyToPlayRef.current = false;
+          try {
+            player.pause();
+            if ((player as any).replaceAsync) {
+              (player as any).replaceAsync(null).catch(() => {});
+            } else {
+              (player as any).replace(null);
+            }
+          } catch {}
+        }
       }
       return;
     }
@@ -178,6 +242,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [scale]);
 
   const mediaUri = displayUri || initialSource;
+  const videoViewKey = displayUri ? `${item.id}:${displayUri}` : item.id;
 
   return (
    <View style={styles.itemContainer}>
@@ -215,7 +280,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       ) : (
         <View style={styles.videoWrap}>
           <VideoView
-            key={item.id}
+            key={videoViewKey}
             player={player}
             style={styles.video}
             contentFit="contain"
@@ -245,7 +310,8 @@ export default function ViewerScreen() {
     hasPermission,
     onImageSwipe,
     dismissInterstitial,
-    showInterstitial
+    showInterstitial,
+    prepareStatusForViewing,
   } = useMedia();
 
   const isSavedView = isSavedParam === '1';
@@ -257,7 +323,7 @@ export default function ViewerScreen() {
       loadStatuses();
     }
   }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
-  
+
   const items = useMemo(() => {
     if (isSavedView) {
       const startItem = savedItems.find(s => s.id === id || decodeURIComponent(s.id) === id);
@@ -303,6 +369,25 @@ export default function ViewerScreen() {
   }, [initialIndex, items.length, id]);
 
   const currentItem = items[currentIndex];
+
+  // Pre-load the next 2 items in the background so they are in cache before the user swipes.
+  // Staggered 200ms apart so two concurrent disk writes don't congest slow storage on budget phones.
+  useEffect(() => {
+    const next1 = items[currentIndex + 1];
+    if (next1 && next1.uri.startsWith('content://')) {
+      prepareStatusForViewing(next1 as StatusItem).catch(() => {});
+    }
+    const timer = setTimeout(() => {
+      const next2 = items[currentIndex + 2];
+      if (next2 && next2.uri.startsWith('content://')) {
+        prepareStatusForViewing(next2 as StatusItem).catch(() => {});
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [currentIndex, items, prepareStatusForViewing]);
+
+  // Debounce ref: used to skip processing intermediate scroll positions during fast flicks.
+  const scrollSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showControls, setShowControls] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -370,29 +455,24 @@ const toggleControls = useCallback(() => {
     if (isScrollingRef.current) return;
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SW);
-    if (index !== currentIndex && index >= 0 && index < items.length) {
+    if (index < 0 || index >= items.length) return;
+
+    // Debounce: if the user is flicking fast through multiple pages, skip intermediate
+    // positions and only process the final settled index. This prevents the disk I/O
+    // "clog" that causes black screens when swiping rapidly.
+    if (scrollSettleRef.current) clearTimeout(scrollSettleRef.current);
+    scrollSettleRef.current = setTimeout(() => {
       setCurrentIndex(index);
-      // Reset controls visibility when swiping to a new item
       setShowControls(true);
       controlsOpacity.setValue(1);
-      
-      // Trigger image swipe ad logic if it's an image AND index changed
       if (index !== prevIndex.current) {
-        if (items[index].type === 'image') {
+        if (items[index]?.type === 'image') {
           onImageSwipe();
         }
-        
-        // Interstitial ad logic for video views (7 image/video swipes)
-        if (index > 0 && index % 7 === 0) {
-           // Interstitial logic is handled by onVideoOpen in useMedia usually, 
-           // but we'll use showInterstitial state directly here if needed or let onImageSwipe handle it.
-           // User asked for video ads (interstitial) every 7 swipes.
-        }
-
         prevIndex.current = index;
       }
-    }
-  }, [currentIndex, items, onImageSwipe]);
+    }, 60);
+  }, [items, onImageSwipe, controlsOpacity]);
 
   const onScrollBeginDrag = useCallback(() => {
     isScrollingRef.current = true;
@@ -439,10 +519,10 @@ const toggleControls = useCallback(() => {
           flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
         }}
         windowSize={3}
-        initialNumToRender={3}
-        maxToRenderPerBatch={3}
+        initialNumToRender={1}
+        maxToRenderPerBatch={1}
         removeClippedSubviews={Platform.OS === 'android'}
-        updateCellsBatchingPeriod={10}
+        updateCellsBatchingPeriod={50}
       />
 
       <Animated.View

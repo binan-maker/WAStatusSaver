@@ -38,12 +38,13 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
 1. **Android Version Detection** — Detects API level and uses correct storage method:
    - Legacy (Android < 10): Direct file system access
    - Scoped (Android 10): Scoped storage with READ_EXTERNAL_STORAGE
-   - SAF (Android 11+): StorageAccessFramework for .Statuses folder
+   - SAF (Android 11+): StorageAccessFramework with separate direct-folder grants for WhatsApp and WhatsApp Business
 
 2. **WhatsApp Status Paths**:
    - `/storage/emulated/0/WhatsApp/Media/.Statuses`
    - `/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/.Statuses`
    - WhatsApp Business variants
+   - Home screen includes a top source selector with WhatsApp as default and WhatsApp Business as the second option; each selection opens the Android folder picker directly at the matching Media folder.
 
 3. **AdMob Integration** (placeholder):
    - Banner ads: `AdBanner` component (60px height)
@@ -61,6 +62,7 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
    - View images and videos
    - Save to device gallery (StatusVault album)
    - Share to any app or directly to WhatsApp
+   - Video viewer uses prepared file URIs, a URI-based hard reset key, ready-state playback gating, and explicit decoder release when videos leave the nearby swipe window to reduce Android black-screen-with-audio issues.
 
 ## Project Structure
 ```

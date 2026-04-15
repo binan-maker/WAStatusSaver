@@ -1,0 +1,32 @@
+As an elite product strategist, I have analyzed the "Refund & Cancellation" logic for digital utility apps. Handling money correctly is the difference between a professional business and a "scam" app.
+Here is the "Champion's Refund Blueprint" for StatusVault:
+1. The "No-Refund" Standard (Industry Default)
+For digital goods like "Ad-Free" access, the industry standard (used by Netflix, Spotify, and most Play Store apps) is: "All sales are final. No refunds."
+Why: Because once a user has seen the app without ads for even 1 hour, they have already "consumed" the product.
+The Risk: If you offer easy refunds, users will buy the app, save 50 statuses in one day, and then ask for a refund. They got the service for free, and you lost the transaction fee.
+2. The "Fair Play" Exception (The 48-Hour Rule)
+To keep your Google Play rating high and avoid legal issues, you should implement a "Cooling-off Period":
+Policy: Full refund only if requested within 24 to 48 hours of purchase.
+Condition: Only if the user can prove the app is not working on their specific device (e.g., "Videos not playing").
+Logic: After 48 hours, the money is "locked."
+3. Refund Logic by Plan:
+Plan	Refund Policy	Logic
+1 Month (₹29)	Strictly No Refund	The amount is too small. The transaction fee from Razorpay will eat up half the money anyway.
+1 Year (₹149)	48-Hour Window	Only refundable if requested within 2 days. No "Prorated" refunds (e.g., getting money back after 6 months).
+2/3 Years (₹349)	7-Day Window	Since this is a larger commitment, give them 7 days. If they hate the app in the first week, give them their money back.
+4. Cancellation vs. Refund (The Difference)
+Cancellation: This means the user stops the "Auto-Renewal" (if you have it set up). They keep their "Pro" status until the end of their paid time, but they won't be charged again. No money is returned.
+Refund: This is a "Reversal." You take the money back from your bank and give it to them. Their "Pro" status must be revoked immediately.
+5. How the User Gets Money Back (Razorpay Flow)
+The Request: The user contacts you via your new Contact Us page with their Payment ID.
+The Trigger: You log into your Razorpay Dashboard, find the payment, and click "Issue Refund."
+The Source: Razorpay automatically sends the money back to the original source (if they paid via UPI, it goes to their bank; if via Card, it goes to their card).
+The Timeline: It usually takes 5 to 7 business days for the money to show up in their account. You should tell the user this so they don't message you every day.
+6. Preventing "Refund Abuse" (The Elite Shield)
+To stop people from cheating your system:
+One-Time Refund: A user can only get a refund once in their lifetime. If they buy again and ask for a second refund, you deny it.
+Blacklisting: If a user forces a "Chargeback" through their bank, your server should permanently ban their Google ID from ever buying Pro again.
+Summary Recommendation:
+Update your Privacy Policy: Add a section called "Refund Policy" stating the 48-hour rule.
+Manual Refunds: Do not automate refunds. Make users email you. This "friction" stops 90% of people from asking for a refund unless they really have a problem.
+Revoke Access: Ensure your backend is set up to listen to Razorpay Webhooks so that if you click "Refund" in the dashboard, the app automatically turns the ads back on for that user.

@@ -19,6 +19,7 @@
     "android": {
       "package": "com.binan.statussaver",
       "softwareKeyboardLayoutMode": "pan",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png"

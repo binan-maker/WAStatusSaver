@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { AdBanner } from '@/components/AdBanner';
 import { RewardAdButton } from '@/components/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/SubscriptionPlansCard';
@@ -84,7 +85,9 @@ export default function SettingsScreen() {
   } = useMedia();
   const { language, setLanguage, t } = useLanguage();
   const { user, signInWithGoogle, signOut, deleteAccount } = useFirebaseAuth();
+  const { isSubscribed, refresh: refreshSubscription, loading: subLoading } = useSubscriptionStatus();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -156,6 +159,21 @@ export default function SettingsScreen() {
     saf: 'SAF (Android 11+)',
     unknown: 'Unknown',
   }[storageMethod];
+
+  const handleRestorePurchase = async () => {
+    setRestoring(true);
+    try {
+      await refreshSubscription();
+      Alert.alert(
+        'Sync Complete',
+        isSubscribed
+          ? 'Your Pro subscription is active. Ads are removed — enjoy StatusVault!'
+          : 'No active subscription found on your account. If you paid and still see ads, please contact us via the Play Store with your Razorpay Payment ID.',
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   const handleClearCache = () => {
     Alert.alert(
@@ -310,6 +328,16 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Subscription" />
         <SubscriptionPlansCard />
+        <View style={styles.section}>
+          <SettingRow
+            icon="refresh-circle-outline"
+            iconBg={COLORS.PRIMARY + '22'}
+            label={restoring || subLoading ? 'Checking...' : 'Restore Purchase'}
+            sublabel="Paid but still seeing ads? Tap to re-sync"
+            onPress={restoring || subLoading ? undefined : handleRestorePurchase}
+            showArrow={!restoring && !subLoading}
+          />
+        </View>
 
         <SectionHeader title="Share" />
         <View style={styles.section}>
@@ -351,6 +379,17 @@ export default function SettingsScreen() {
             label="Select Language"
             sublabel="Change app language"
             onPress={() => router.push('/languages')}
+          />
+        </View>
+
+        <SectionHeader title="Support" />
+        <View style={styles.section}>
+          <SettingRow
+            icon="chatbubble-ellipses-outline"
+            iconBg={COLORS.PRIMARY + '22'}
+            label="Feedback & Contact Us"
+            sublabel="Send feedback, report bugs, or reach us directly"
+            onPress={() => router.push('/contact')}
           />
         </View>
 
@@ -425,11 +464,13 @@ export default function SettingsScreen() {
           <MaterialCommunityIcons name="shield-check" size={28} color={COLORS.PRIMARY} />
           <Text style={styles.footerTitle}>StatusVault</Text>
           <Text style={styles.footerSub}>
-            Your privacy-first WhatsApp Status Saver.{'\n'}
-            Works 100% offline. No data leaves your device.
+            100% Offline Processing: Your media never leaves your device.{'\n'}
+            The developer has zero access to your files.
           </Text>
           <Text style={styles.footerNote}>
-            This app is not affiliated with WhatsApp Inc. or Meta Platforms Inc.
+            WhatsApp is a registered trademark of WhatsApp LLC.{'\n'}
+            StatusVault is not affiliated with or endorsed by WhatsApp LLC or Meta Platforms Inc.{'\n'}
+            This is a personal project by an individual developer.
           </Text>
         </View>
       </ScrollView>

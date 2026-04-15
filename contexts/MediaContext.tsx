@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY } from '@/constants/admob';
 
 export type MediaType = 'image' | 'video';
+export type StatusSource = 'whatsapp' | 'whatsapp_business';
 
 export interface StatusItem {
   id: string;
@@ -25,7 +26,7 @@ export interface StatusItem {
   name: string;
   modTime?: number;
   size?: number;
-  source: 'whatsapp' | 'whatsapp_business';
+  source: StatusSource;
 }
 
 export interface SavedItem extends StatusItem {
@@ -45,6 +46,7 @@ interface MediaContextValue {
   hasPermission: boolean;
   safGranted: boolean;
   safUri: string | null;
+  safUris: Partial<Record<StatusSource, string>>;
   androidVersion: number;
   storageMethod: AndroidStorageMethod;
   permissionStatus: MediaLibrary.PermissionStatus | null;
@@ -52,7 +54,7 @@ interface MediaContextValue {
   showInterstitial: boolean;
   pendingVideoUri: string | null;
   requestPermissions: () => Promise<boolean>;
-  requestSAF: () => Promise<void>;
+  requestSAF: (source?: StatusSource, manual?: boolean) => Promise<void>;
   loadStatuses: () => Promise<void>;
   refresh: () => Promise<void>;
   saveStatus: (item: StatusItem) => Promise<boolean>;
@@ -85,6 +87,12 @@ const WHATSAPP_SAF_PATHS = [
 const STORAGE_KEYS = {
   SAVED_ITEMS: '@statusvault_saved',
   SAF_URI: '@statusvault_saf_uri',
+  SAF_URIS: '@statusvault_saf_uris',
+};
+
+const SAF_INITIAL_URIS: Record<StatusSource, string> = {
+  whatsapp: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
+  whatsapp_business: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
 };
 
 function getFileId(path: string): string {
@@ -114,6 +122,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [safGranted, setSafGranted] = useState(false);
   const [safUri, setSafUri] = useState<string | null>(null);
+  const [safUris, setSafUris] = useState<Partial<Record<StatusSource, string>>>({});
   const [permissionStatus, setPermissionStatus] = useState<MediaLibrary.PermissionStatus | null>(null);
   const [videoViewCount, setVideoViewCount] = useState(0);
   const [imageSwipeCount, setImageSwipeCount] = useState(0);
@@ -158,9 +167,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   async function loadSAFUri() {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEYS.SAF_URI);
-      if (stored) {
-        setSafUri(stored);
+      const [storedMap, storedLegacy] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.SAF_URIS),
+        AsyncStorage.getItem(STORAGE_KEYS.SAF_URI),
+      ]);
+      let parsed: Partial<Record<StatusSource, string>> = {};
+      if (storedMap) {
+        parsed = JSON.parse(storedMap);
+      } else if (storedLegacy) {
+        parsed = { whatsapp: storedLegacy };
+        await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(parsed));
+      }
+      if (parsed.whatsapp || parsed.whatsapp_business) {
+        setSafUris(parsed);
+        setSafUri(parsed.whatsapp || parsed.whatsapp_business || null);
         setSafGranted(true);
       }
     } catch {}
@@ -215,24 +235,38 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const [isRequestingSAF, setIsRequestingSAF] = useState(false);
 
-  const requestSAF = useCallback(async () => {
+  const requestSAF = useCallback(async (source: StatusSource = 'whatsapp', manual: boolean = false) => {
     if (Platform.OS !== 'android') return;
     try {
-      // Use the specially encoded URI for Android/media/com.whatsapp/WhatsApp/Media
-      const initialUri = 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia';
+      // Fix #2 — Work Profile Blindspot: when `manual` is true (or the standard
+      // initial URI is unavailable), open the picker at the storage root so
+      // users with Dual Apps / Work Profiles can navigate to their second
+      // WhatsApp's media folder manually.
+      const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
       
       setIsRequestingSAF(true);
       // Give a tiny delay for the overlay to mount before opening system picker
       setTimeout(async () => {
         try {
-          const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+          const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
           setIsRequestingSAF(false);
           
           if (result.granted) {
+            const nextSafUris = { ...safUris, [source]: result.directoryUri };
+            await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
             await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
+            setSafUris(nextSafUris);
             setSafUri(result.directoryUri);
             setSafGranted(true);
-            await loadStatuses();
+            setIsLoading(true);
+            try {
+              const safEntries = Object.entries(nextSafUris) as [StatusSource, string][];
+              const results = await Promise.all(safEntries.map(([entrySource, uri]) => readFromSAF(uri, entrySource)));
+              const items = results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+              setStatuses(items);
+            } finally {
+              setIsLoading(false);
+            }
           }
         } catch (e) {
           setIsRequestingSAF(false);
@@ -243,7 +277,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       setIsRequestingSAF(false);
       Alert.alert('Permission Error', 'Could not access storage. Please try again.');
     }
-  }, [loadStatuses]);
+  }, [loadStatuses, safUris]);
 
   async function readFromLegacyPath(): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
@@ -277,7 +311,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     return items;
   }
 
-  async function readFromSAF(safDirUri: string): Promise<StatusItem[]> {
+  async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
     try {
       // FIXED #1: Optimize SAF access by reducing redundant checks
@@ -300,7 +334,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
       const isBusiness = decodeURIComponent(targetUri).toLowerCase().includes('w4b') || 
                         decodeURIComponent(targetUri).toLowerCase().includes('business');
-      const source = isBusiness ? 'whatsapp_business' : 'whatsapp';
+      const source = forcedSource || (isBusiness ? 'whatsapp_business' : 'whatsapp');
 
       // Process files in parallel to speed up SAF enumeration
       for (const fileUri of files) {
@@ -315,15 +349,27 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (e) {
-      setSafGranted(false);
-      setSafUri(null);
-      await AsyncStorage.removeItem(STORAGE_KEYS.SAF_URI);
+      if (forcedSource) {
+        const nextSafUris = { ...safUris };
+        delete nextSafUris[forcedSource];
+        setSafUris(nextSafUris);
+        setSafUri(nextSafUris.whatsapp || nextSafUris.whatsapp_business || null);
+        setSafGranted(Boolean(nextSafUris.whatsapp || nextSafUris.whatsapp_business));
+        await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
+      } else {
+        setSafGranted(false);
+        setSafUri(null);
+        setSafUris({});
+        await AsyncStorage.removeItem(STORAGE_KEYS.SAF_URI);
+        await AsyncStorage.removeItem(STORAGE_KEYS.SAF_URIS);
+      }
     }
     return items;
   }
 
   const loadStatuses = useCallback(async () => {
-    if (!hasPermission && Platform.OS === 'android') {
+    const needsMediaPermission = Platform.OS === 'android' && androidVersion < 30;
+    if (!hasPermission && needsMediaPermission) {
       const granted = await checkExistingPermissions();
       if (!granted) return;
     }
@@ -332,8 +378,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     try {
       let items: StatusItem[] = [];
 
-      if (androidVersion >= 30 && safGranted && safUri) {
-        items = await readFromSAF(safUri);
+      if (androidVersion >= 30 && safGranted) {
+        const safEntries = Object.entries(safUris) as [StatusSource, string][];
+        if (safEntries.length > 0) {
+          const results = await Promise.all(safEntries.map(([source, uri]) => readFromSAF(uri, source)));
+          items = results.flat();
+        } else if (safUri) {
+          items = await readFromSAF(safUri);
+        }
       } else {
         items = await readFromLegacyPath();
       }
@@ -345,7 +397,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [hasPermission, androidVersion, safGranted, safUri]);
+  }, [hasPermission, androidVersion, safGranted, safUri, safUris]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -362,6 +414,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         await FileSystem.makeDirectoryAsync(savedDir, { intermediates: true });
       }
 
+      // Fix #3 — Duplicate Save: check if an item with the same original filename
+      // or the same item ID already exists in the saved folder. If so, skip the copy
+      // and return true so the UI shows "Saved" without wasting disk space.
+      const duplicate = savedItems.find(
+        s => s.id === item.id || s.name === item.name
+      );
+      if (duplicate) {
+        try {
+          const dupInfo = await FileSystem.getInfoAsync(duplicate.localUri);
+          if (dupInfo.exists) return true;
+        } catch {}
+        // If the file is gone, fall through and re-save it
+      }
+
       const ext = item.name.split('.').pop() || 'jpg';
       const filename = `status_${Date.now()}.${ext}`;
       const destUri = `${savedDir}${filename}`;
@@ -370,19 +436,15 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       if (hasPermission) {
         try {
-          // To avoid the "Allow StatusVault to modify this photo?" dialog on Android 11+,
-          // we use the localUri directly for internal app tracking and don't explicitly
-          // call createAssetAsync/createAlbumAsync if we want to avoid the system prompt.
-          // The file is already saved in the app's documentDirectory.
-          // If the user specifically wants it in the gallery without a prompt, 
-          // they would need "MANAGE_EXTERNAL_STORAGE" which is a restricted permission.
-          // For now, we'll keep it in the app's storage to ensure it's "Saved" within the app.
-          
-          // Commenting out MediaLibrary calls to prevent the system prompt on Android 11+
-          // const asset = await MediaLibrary.createAssetAsync(destUri);
-          // await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
+          const asset = await MediaLibrary.createAssetAsync(destUri);
+          await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
         } catch (err) {
           console.log('MediaLibrary save error:', err);
+          // File is saved inside the app (Saved tab will work), but gallery was denied.
+          Alert.alert(
+            'Gallery Access Denied',
+            'Status saved in the app, but could not be added to your Gallery. To see it in Photos, allow media access in your phone Settings.',
+          );
         }
       }
 
@@ -416,15 +478,31 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const shareStatus = useCallback(async (item: StatusItem | SavedItem) => {
     try {
-      let shareUri = item.uri;
+      let shareUri: string;
 
       if ('localUri' in item) {
-        shareUri = item.localUri;
-      } else if (item.uri.startsWith('content://')) {
-        const ext = item.name.split('.').pop() || 'jpg';
-        const tempUri = `${FileSystem.cacheDirectory}share_${Date.now()}.${ext}`;
-        await FileSystem.copyAsync({ from: item.uri, to: tempUri });
-        shareUri = tempUri;
+        // Already a saved local file — use it directly, no copy needed
+        shareUri = (item as SavedItem).localUri;
+      } else if (!item.uri.startsWith('content://')) {
+        shareUri = item.uri;
+      } else {
+        // Reuse the view_ cache file if it was already prepared for viewing —
+        // avoids a redundant disk copy and makes sharing instant.
+        const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
+        const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
+        const viewCacheUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
+        const info = await FileSystem.getInfoAsync(viewCacheUri);
+        if (info.exists && (info as any).size > 0) {
+          shareUri = viewCacheUri;
+        } else {
+          // Fall back: write a deduplicated share_ file (keyed by item id, not timestamp)
+          const shareFile = `${FileSystem.cacheDirectory}share_${safeId}.${ext}`;
+          const shareInfo = await FileSystem.getInfoAsync(shareFile);
+          if (!shareInfo.exists) {
+            await FileSystem.copyAsync({ from: item.uri, to: shareFile });
+          }
+          shareUri = shareFile;
+        }
       }
 
       await Sharing.shareAsync(shareUri);
@@ -452,8 +530,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     setImageSwipeCount(newCount);
     swipeCountRef.current = newCount;
     
-    // Show interstitial every 7-10 swipes (randomized)
-    const adFrequency = Math.floor(Math.random() * 4) + 7; // 7-10
+    // Fix #1 — Session Cache Bloat: every 10 swipes, purge view_/share_ files
+    // older than 30 minutes in the background so a long session never fills storage.
+    if (newCount % 10 === 0) {
+      cleanupCacheFiles(30 * 60 * 1000).catch(() => {});
+    }
+
+    // Show interstitial every 8 swipes (fixed)
+    const adFrequency = 8;
     if (newCount >= adFrequency) {
       setShowInterstitial(true);
       setImageSwipeCount(0);
@@ -464,7 +548,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       // Persist current count
       AsyncStorage.setItem('swipeCountForAds', String(newCount)).catch(() => {});
     }
-  }, [imageSwipeCount]);
+  }, [imageSwipeCount, cleanupCacheFiles]);
 
   const dismissInterstitial = useCallback(() => {
     setShowInterstitial(false);
@@ -486,45 +570,26 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         return tempUri;
       }
 
-      // Race the copy against a 1.5s timeout. If the timeout wins, return the
-      // original URI and clean up any partial/late-arriving copy so stale cache
-      // files don't accumulate.
-      let timedOut = false;
-
-      const copyPromise = FileSystem.copyAsync({ from: item.uri, to: tempUri })
-        .then(() => {
-          if (timedOut) {
-            // Copy arrived late — discard it to avoid orphaned cache files
-            FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
-            return item.uri;
-          }
-          return tempUri;
-        })
-        .catch(() => item.uri);
-
-      const timeoutPromise = new Promise<string>((resolve) =>
-        setTimeout(() => {
-          timedOut = true;
-          resolve(item.uri);
-        }, 1500)
-      );
-
-      return Promise.race([copyPromise, timeoutPromise]);
+      // Always await the full copy before returning. The player must never
+      // receive a URI while the file is still being written — that causes
+      // the decoder to fail the video track and produce a black screen.
+      // A partial file is worse than a small delay.
+      await FileSystem.copyAsync({ from: item.uri, to: tempUri });
+      return tempUri;
     } catch (e) {
       console.error('Prepare for viewing error:', e);
       return item.uri;
     }
   }, []);
 
-  // FIXED #6: Add aggressive cache cleanup to prevent ghost files
-  const cleanupCacheFiles = useCallback(async () => {
+  // Cleans up view_ and share_ cache files older than maxAgeMs (default 4 hours)
+  const cleanupCacheFiles = useCallback(async (maxAgeMs: number = 4 * 60 * 60 * 1000) => {
     try {
       const cacheDir = FileSystem.cacheDirectory;
       if (!cacheDir) return;
       
       const files = await FileSystem.readDirectoryAsync(cacheDir);
       const now = Date.now();
-      const CACHE_LIFETIME = 4 * 60 * 60 * 1000; // Reduced to 4 hours for more aggressive cleanup
       
       for (const file of files) {
         if (!file.startsWith('view_') && !file.startsWith('share_')) continue;
@@ -532,9 +597,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         const fileUri = `${cacheDir}${file}`;
         try {
           const info = await FileSystem.getInfoAsync(fileUri);
-          // Check both modificationTime and creation time for better cleanup
           const fileAge = info.modificationTime ? (now - info.modificationTime * 1000) : (now - 1000000);
-          if (fileAge > CACHE_LIFETIME) {
+          if (fileAge > maxAgeMs) {
             await FileSystem.deleteAsync(fileUri, { idempotent: true });
           }
         } catch {}
@@ -543,6 +607,11 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       console.log('Cache cleanup error:', e);
     }
   }, []);
+
+  // Run full cache cleanup (4h lifetime) on every app startup
+  useEffect(() => {
+    cleanupCacheFiles().catch(() => {});
+  }, [cleanupCacheFiles]);
 
   const value: MediaContextValue = {
     statuses,
@@ -554,6 +623,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     hasPermission,
     safGranted,
     safUri,
+    safUris,
     androidVersion,
     storageMethod,
     permissionStatus,
