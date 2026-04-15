@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Based on a full analysis of your source code, here are the remaining issues and areas for improvement that need to be addressed to make StatusVault production-ready:
 1. The "WhatsApp Business" SAF Barrier
 Currently, your app hardcodes the initial folder for the SAF picker to the regular WhatsApp path.
@@ -38,3 +39,45 @@ Video Player Fix: (The black screen issue we discussed).
 SAF Pathing: To support WhatsApp Business users properly.
 Gallery Saving: So users don't lose their data.
 Cache Cleanup: To prevent the app from eating up phone storage.
+=======
+Based on a full analysis of your source code, here are the remaining issues and areas for improvement that need to be addressed to make StatusVault production-ready:
+1. The "WhatsApp Business" SAF Barrier
+Currently, your app hardcodes the initial folder for the SAF picker to the regular WhatsApp path.
+The Issue: In MediaContext.tsx, the initialUri is fixed to com.whatsapp. If a user only uses WhatsApp Business, they are dropped into the wrong folder and must navigate manually through the complex Android file system.
+The Risk: Most users will get confused and think the app is broken.
+The Fix: You should detect which apps are installed or provide two separate buttons ("Grant WhatsApp" and "Grant WhatsApp Business") that set the correct initialUri for each.
+2. The "Ghost" Gallery Problem
+When a user clicks "Save," the app currently copies the file to its own private storage.
+The Issue: The code that adds the media to the phone's public gallery (MediaLibrary.createAssetAsync) is commented out.
+The Risk: Users expect "Saved" statuses to appear in their Google Photos or Gallery app. Right now, they only exist inside StatusVault. If the user deletes the app, they lose their saved statuses forever.
+The Fix: You need to uncomment and properly handle the MediaLibrary logic, while explaining to the user that Android 11+ will show a one-time system prompt to "Allow StatusVault to modify this photo."
+3. Sequential Loading Performance
+Your app reads statuses one by one from the storage.
+The Issue: In readFromSAF, you use a for...of loop with await inside it. This means if a user has 200 statuses, the app waits for file #1 to finish before even looking at file #2.
+The Risk: On older phones, the "Loading" shimmer will stay on the screen for a long time, making the app feel slow.
+The Fix: You should use Promise.all to process the file metadata in parallel, which can make the loading 5x to 10x faster.
+4. Cache Accumulation (Storage Leak)
+You have a function called cleanupCacheFiles to delete old video files, but it is never called.
+The Issue: Every time a user views a video, a copy is made in the cacheDirectory. Since the cleanup function isn't running, these files will stay there forever.
+The Risk: After a few weeks of use, StatusVault could take up 1GB or 2GB of the user's phone storage, leading to "Storage Full" warnings.
+The Fix: You must call cleanupCacheFiles inside the useEffect hook when the app first starts.
+5. Ad Frequency Unpredictability
+The current logic shows an interstitial ad every 7 to 10 swipes, chosen randomly.
+The Issue: Randomness can sometimes feel "unfair" to the user (e.g., getting two ads very close together).
+The Risk: High "churn" rate (users deleting the app) if an ad pops up at a frustrating moment.
+The Fix: Use a fixed, predictable counter (e.g., exactly every 8 swipes) and consider adding a small "Loading Ad..." toast 1 second before it appears so the user isn't startled.
+6. The "Double-Tap" Navigation Bug
+In index.tsx, you have a navigationRef to prevent double-tapping, but it's not used in all navigation paths.
+The Issue: If a user taps a status very quickly twice, the app might try to push the viewer screen onto the stack twice.
+The Risk: When the user tries to go back, they have to click "Back" twice, or the app might crash with a "Duplicate Key" error.
+7. Razorpay "Missing Info" Edge Case
+Your payment prefill logic assumes the user always has a name and email in their Google profile.
+The Issue: Some Google accounts (especially those created with just a phone number) might have a null displayName.
+The Risk: Razorpay might fail to open or show an error if the prefill data is invalid.
+The Fix: Add a fallback (e.g., user?.email || "customer@statusvault.app") to ensure the payment window always opens.
+Summary of Priority:
+Video Player Fix: (The black screen issue we discussed).
+SAF Pathing: To support WhatsApp Business users properly.
+Gallery Saving: So users don't lose their data.
+Cache Cleanup: To prevent the app from eating up phone storage.
+>>>>>>> 871c44ea5f2c872a02dbd1d0db01bb5243836cdf

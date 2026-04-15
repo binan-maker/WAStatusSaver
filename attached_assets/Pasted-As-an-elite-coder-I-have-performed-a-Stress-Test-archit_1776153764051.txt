@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 As an elite coder, I have performed a "Stress Test" architectural analysis of your entire source code. You have successfully eliminated the major "Black Screen" and "Flicker" bugs, but I have identified 4 hidden technical loopholes that could still cause issues for power users or on specific devices.
 Here is the "Champion's Final Audit":
 1. The "Session Cache Bloat" (Storage Bug)
@@ -24,3 +25,31 @@ The Problem: You are using replaceAsync(null) when a video is not active. This i
 The Bug: However, when the user clicks the "Back" button to leave the Viewer, the FlatList is destroyed, but the VideoPlayer objects might still be held in memory for a few seconds by the React Native garbage collector.
 The Risk: If the user immediately clicks another video from the grid, the phone might run out of "Hardware Decoders" because the old ones haven't fully "died" yet. This results in the "Audio only, no video" bug returning.
 The Fix: You should explicitly call player.replaceAsync(null) for the currently active player inside a useEffect cleanup function that runs when the ViewerScreen unmounts.
+=======
+As an elite coder, I have performed a "Stress Test" architectural analysis of your entire source code. You have successfully eliminated the major "Black Screen" and "Flicker" bugs, but I have identified 4 hidden technical loopholes that could still cause issues for power users or on specific devices.
+Here is the "Champion's Final Audit":
+1. The "Session Cache Bloat" (Storage Bug)
+Location: contexts/MediaContext.tsx
+The Problem: You implemented cleanupCacheFiles, but it only runs once when the app starts.
+The Bug: Your new "Pre-loading" logic in the viewer is very aggressive (it copies the next 2 items to the cache). If a user swipes through 100+ statuses in a single session, the app will accumulate hundreds of megabytes of temporary files in the cacheDirectory during that session.
+The Risk: Users with low storage might see a "Storage Full" warning while using the app, even though the files would be deleted the next time they open it.
+The Fix: You should trigger a "Light Cleanup" every time the user closes the Viewer screen, or set a limit (e.g., delete files older than 30 minutes every 10 swipes).
+2. The "Work Profile" Blindspot (Android Bug)
+Location: contexts/MediaContext.tsx (SAF URIs)
+The Problem: Your SAF paths are hardcoded to primary:Android/media/....
+The Bug: Many users (especially in India) use "Dual Apps," "Parallel Space," or "Work Profiles" to run two WhatsApp accounts. These accounts store data in different partitions (e.g., storage/emulated/999/ instead of primary).
+The Risk: Users with cloned WhatsApp apps will find that StatusVault cannot see their second account's statuses, leading to "It doesn't work for my second WhatsApp" complaints.
+The Fix: You need to implement a fallback that allows the user to manually browse and select any folder if the hardcoded "primary" path fails to open.
+3. The "Duplicate Save" Waste (Performance Bug)
+Location: contexts/MediaContext.tsx (in saveStatus)
+The Problem: When a user clicks "Save," the app copies the file to the StatusVault folder.
+The Bug: If a user clicks "Save" on the same image three times, the app will create three identical copies (e.g., image_1.jpg, image_2.jpg, image_3.jpg) in their gallery.
+The Risk: This wastes the user's storage and litters their gallery with duplicates.
+The Fix: Before copying, the app should check if a file with the same "Original Name" or "Size" already exists in the StatusVault folder. If it does, just show the "Saved" success message without wasting disk space.
+4. The "Zombie" Video Decoder (Hardware Bug)
+Location: app/viewer.tsx
+The Problem: You are using replaceAsync(null) when a video is not active. This is excellent.
+The Bug: However, when the user clicks the "Back" button to leave the Viewer, the FlatList is destroyed, but the VideoPlayer objects might still be held in memory for a few seconds by the React Native garbage collector.
+The Risk: If the user immediately clicks another video from the grid, the phone might run out of "Hardware Decoders" because the old ones haven't fully "died" yet. This results in the "Audio only, no video" bug returning.
+The Fix: You should explicitly call player.replaceAsync(null) for the currently active player inside a useEffect cleanup function that runs when the ViewerScreen unmounts.
+>>>>>>> 871c44ea5f2c872a02dbd1d0db01bb5243836cdf
