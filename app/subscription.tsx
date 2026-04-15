@@ -16,6 +16,7 @@ import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { SubscriptionPlanId } from "@/shared/subscription-plans";
+import { PaymentSuccessModal } from "@/components/PaymentSuccessModal";
 
 const FEATURES = [
   { icon: "block-helper", label: "Zero ads — completely removed" },
@@ -62,6 +63,9 @@ export default function SubscriptionScreen() {
     payingPlanId,
     loading,
     startPayment,
+    paymentJustSucceeded,
+    successPlanId,
+    dismissPaymentSuccess,
   } = useSubscriptionStatus();
 
   const pendingPlanRef = useRef<SubscriptionPlanId | null>(null);
@@ -91,7 +95,17 @@ export default function SubscriptionScreen() {
 
   const isBusy = Boolean(payingPlanId) || loading || signingIn || authLoading;
 
+  const successPlan = plans.find(p => p.id === successPlanId);
+  const successRemainingDays = Math.floor(remainingSeconds / 86400);
+
   return (
+    <>
+    <PaymentSuccessModal
+      visible={paymentJustSucceeded}
+      planTitle={successPlan?.title ?? 'Pro'}
+      remainingDays={successRemainingDays}
+      onDismiss={dismissPaymentSuccess}
+    />
     <ScrollView
       style={styles.root}
       contentContainerStyle={[
@@ -292,6 +306,7 @@ export default function SubscriptionScreen() {
         </Text>
       </View>
     </ScrollView>
+    </>
   );
 }
 

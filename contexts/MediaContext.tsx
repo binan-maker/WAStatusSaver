@@ -91,8 +91,8 @@ const STORAGE_KEYS = {
 };
 
 const SAF_INITIAL_URIS: Record<StatusSource, string> = {
-  whatsapp: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
-  whatsapp_business: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
+  whatsapp: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses',
+  whatsapp_business: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia%2F.Statuses',
 };
 
 function getFileId(path: string): string {
@@ -314,11 +314,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
     try {
-      // FIXED #1: Optimize SAF access by reducing redundant checks
-      const isMediaFolder = decodeURIComponent(safDirUri).toLowerCase().endsWith('/media');
+      const decodedUri = decodeURIComponent(safDirUri).toLowerCase();
+      const isStatusesFolder = decodedUri.endsWith('/.statuses');
+      const isMediaFolder = !isStatusesFolder && decodedUri.endsWith('/media');
       let targetUri = safDirUri;
 
       if (isMediaFolder) {
+        // Legacy granted URI: Media folder — navigate into .Statuses
         try {
           const content = await FileSystem.StorageAccessFramework.readDirectoryAsync(safDirUri);
           const statusFolder = content.find(uri => decodeURIComponent(uri).toLowerCase().endsWith('/.statuses'));
@@ -329,6 +331,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           console.log('Error searching for .Statuses in Media folder:', e);
         }
       }
+      // If isStatusesFolder, targetUri is already correct — read directly
 
       // FIXED #1: Cache folder metadata to reduce repeated directory reads
       const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);

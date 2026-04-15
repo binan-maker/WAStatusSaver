@@ -141,12 +141,12 @@ export default function PermissionsScreen() {
                   icon={safGranted ? 'folder-open' : 'folder-outline'}
                   title="WhatsApp Folder Access"
                   desc={safGranted
-                    ? 'WhatsApp Media folder access granted.'
-                    : 'On Android 11+, the system will open a folder picker.\n\n1. Navigate to Android → media → com.whatsapp → WhatsApp → Media\n2. Press "Use this folder" at the bottom\n3. Confirm with "Allow"\n\nThe app will then scan this folder for statuses.'}
+                    ? 'WhatsApp Status folder access granted.'
+                    : 'A folder picker will open directly at your WhatsApp Status folder.\n\n1. Press "Use this folder" at the bottom\n2. Tap "Allow" to confirm\n\nThat\'s it — StatusVault will automatically scan your statuses.'}
                   done={safGranted}
                   action={!safGranted
                     ? {
-                      label: 'Select Media Folder',
+                      label: 'Grant Status Folder Access',
                       onPress: () => requestSAF('whatsapp', false),
                     }
                     : undefined}

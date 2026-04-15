@@ -66,6 +66,8 @@ export function useSubscriptionStatus() {
   const [status, setStatus] = useState<SubscriptionStatus>({ active: false });
   const [loading, setLoading] = useState(true);
   const [payingPlanId, setPayingPlanId] = useState<SubscriptionPlanId | null>(null);
+  const [paymentJustSucceeded, setPaymentJustSucceeded] = useState(false);
+  const [successPlanId, setSuccessPlanId] = useState<SubscriptionPlanId | null>(null);
 
   // Fix #3 — Unmounted State Crash: guard every state update with this ref so
   // React never receives a setState call after the subscriber screen unmounts.
@@ -83,6 +85,12 @@ export function useSubscriptionStatus() {
   }, []);
   const safeSetPayingPlanId = useCallback((v: SubscriptionPlanId | null) => {
     if (isMountedRef.current) setPayingPlanId(v);
+  }, []);
+  const safeSetPaymentJustSucceeded = useCallback((v: boolean) => {
+    if (isMountedRef.current) setPaymentJustSucceeded(v);
+  }, []);
+  const safeSetSuccessPlanId = useCallback((v: SubscriptionPlanId | null) => {
+    if (isMountedRef.current) setSuccessPlanId(v);
   }, []);
 
   // On mount: restore last-known subscription so Pro users see no ad flash.
@@ -354,7 +362,8 @@ export function useSubscriptionStatus() {
         await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(verifiedStatus)).catch(() => {});
         safeSetStatus(verifiedStatus);
         safeSetPayingPlanId(null);
-        Alert.alert("Payment Successful 🎉", "Ads are now removed. Enjoy StatusVault Pro!");
+        safeSetSuccessPlanId(planId);
+        safeSetPaymentJustSucceeded(true);
         return true;
       } else {
         // Server call failed but payment WAS taken — pending record stays so
@@ -373,6 +382,11 @@ export function useSubscriptionStatus() {
 
   const remainingSeconds = useMemo(() => getRemainingSeconds(status), [status]);
 
+  const dismissPaymentSuccess = useCallback(() => {
+    safeSetPaymentJustSucceeded(false);
+    safeSetSuccessPlanId(null);
+  }, [safeSetPaymentJustSucceeded, safeSetSuccessPlanId]);
+
   return {
     deviceId,
     status,
@@ -380,8 +394,11 @@ export function useSubscriptionStatus() {
     isSubscribed: Boolean(status.active),
     remainingSeconds,
     payingPlanId,
+    paymentJustSucceeded,
+    successPlanId,
     plans: SUBSCRIPTION_PLANS,
     refresh,
     startPayment,
+    dismissPaymentSuccess,
   };
 }
