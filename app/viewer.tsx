@@ -11,9 +11,9 @@ import {
   Platform,
   ActivityIndicator,
   FlatList,
-  PanResponder,
-  GestureResponderEvent,
 } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,17 +49,18 @@ function formatTime(millis: number) {
 function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
-  // Shows static thumbnail until the hardware decoder has frames to display.
-  // Without this, the SurfaceView is black while the player warms up.
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [scale, setScale] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const scaleRef = useRef(1);
-  const lastDistanceRef = useRef<number | null>(null);
   const isActiveRef = useRef(isActive);
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
+
+  // Reanimated shared values for smooth pinch-to-zoom on images
+  const imageScale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
 
   useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
@@ -213,53 +214,100 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return () => { isMounted = false; };
   }, [initialSource, item, isNearActive, isActive]);
 
-  // Pinch-to-zoom for images
-  const handleTouchMove = useCallback((e: GestureResponderEvent) => {
-    if (item.type !== 'image') return;
-    const touches = e.nativeEvent.touches;
-    if (touches.length === 2) {
-      const dx = touches[0].pageX - touches[1].pageX;
-      const dy = touches[0].pageY - touches[1].pageY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (lastDistanceRef.current !== null) {
-        const s = distance / lastDistanceRef.current;
-        const newScale = Math.min(Math.max(scaleRef.current * s, 1), 4);
-        scaleRef.current = newScale;
-        setScale(newScale);
-      }
-      lastDistanceRef.current = distance;
-    }
-  }, [item.type]);
-
-  const handleTouchEnd = useCallback(() => {
-    lastDistanceRef.current = null;
-    if (scale < 1.2) {
-      scaleRef.current = 1;
-      setScale(1);
-      setPanX(0);
-      setPanY(0);
-    }
-  }, [scale]);
-
   const mediaUri = displayUri || initialSource;
+
+  // Reset zoom whenever a different item becomes active
+  useEffect(() => {
+    imageScale.value = 1;
+    savedScale.value = 1;
+    translateX.value = 0;
+    translateY.value = 0;
+    savedTranslateX.value = 0;
+    savedTranslateY.value = 0;
+  }, [item.id]);
+
+  // ── Image gesture handlers ────────────────────────────────────────────────
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((e) => {
+      const next = Math.min(Math.max(savedScale.value * e.scale, 1), 6);
+      imageScale.value = next;
+    })
+    .onEnd(() => {
+      if (imageScale.value < 1.15) {
+        imageScale.value = withSpring(1);
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedScale.value = 1;
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        savedScale.value = imageScale.value;
+      }
+    });
+
+  // Pan is only activated when zoomed in; otherwise the FlatList scrolls.
+  const panGesture = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesMove((_e, state) => {
+      if (imageScale.value > 1) state.activate();
+      else state.fail();
+    })
+    .onUpdate((e) => {
+      translateX.value = savedTranslateX.value + e.translationX;
+      translateY.value = savedTranslateY.value + e.translationY;
+    })
+    .onEnd(() => {
+      savedTranslateX.value = translateX.value;
+      savedTranslateY.value = translateY.value;
+    });
+
+  const doubleTapGesture = Gesture.Tap()
+    .numberOfTaps(2)
+    .maxDuration(250)
+    .onEnd(() => {
+      if (imageScale.value > 1) {
+        imageScale.value = withSpring(1);
+        translateX.value = withSpring(0);
+        translateY.value = withSpring(0);
+        savedScale.value = 1;
+        savedTranslateX.value = 0;
+        savedTranslateY.value = 0;
+      } else {
+        imageScale.value = withSpring(2.5);
+        savedScale.value = 2.5;
+      }
+    });
+
+  const singleTapGesture = Gesture.Tap()
+    .numberOfTaps(1)
+    .onEnd(() => {
+      runOnJS(onToggleControls)();
+    });
+
+  // Simultaneous: pinch zoom + pan (when zoomed) + exclusive tap recognition
+  const imageGesture = Gesture.Simultaneous(
+    pinchGesture,
+    panGesture,
+    Gesture.Exclusive(doubleTapGesture, singleTapGesture),
+  );
+
+  const videoTapGesture = Gesture.Tap().onEnd(() => {
+    runOnJS(onToggleControls)();
+  });
+
+  const imageAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: imageScale.value },
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
 
   return (
     <View style={styles.itemContainer}>
-      <TouchableOpacity
-        style={StyleSheet.absoluteFill}
-        activeOpacity={1}
-        onPress={onToggleControls}
-        onMoveShouldSetResponder={() => item.type === 'image' && scale > 1}
-        onResponderMove={handleTouchMove}
-        onResponderRelease={handleTouchEnd}
-      >
-        {item.type === 'image' ? (
-          <Animated.View
-            style={[
-              styles.imageContainer,
-              { transform: [{ scale }, { translateX: panX }, { translateY: panY }] },
-            ]}
-          >
+      {item.type === 'image' ? (
+        <GestureDetector gesture={imageGesture}>
+          <Reanimated.View style={[StyleSheet.absoluteFill, imageAnimatedStyle]}>
             <Image
               source={{ uri: mediaUri }}
               style={styles.image}
@@ -269,18 +317,20 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               priority="high"
               recyclingKey={item.id}
             />
-          </Animated.View>
-        ) : (
-          <View style={styles.videoWrap}>
-            {/*
-              VideoView has NO key prop — the native Android SurfaceView stays
-              permanently attached to the player throughout its lifecycle.
-              Changing the key would unmount/remount the SurfaceView right as
-              the decoder starts, causing the surface to be detached — video
-              frames go nowhere and you hear audio with a black screen.
-              replaceAsync() updates the source without needing a remount.
-            */}
-            {isNearActive && (
+          </Reanimated.View>
+        </GestureDetector>
+      ) : (
+        <GestureDetector gesture={videoTapGesture}>
+          <View style={StyleSheet.absoluteFill}>
+            <View style={styles.videoWrap}>
+              {/*
+                VideoView is ALWAYS rendered (never conditionally mounted).
+                On Android the SurfaceView must stay attached to the player
+                for the entire lifecycle — unmounting it while the decoder is
+                active detaches the output surface, so audio plays but the
+                screen is black. replaceAsync(null) pauses the player without
+                ever tearing down the surface.
+              */}
               <VideoView
                 player={player}
                 style={StyleSheet.absoluteFill}
@@ -288,36 +338,30 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 nativeControls={false}
                 allowsFullscreen={false}
               />
-            )}
 
-            {/*
-              Static thumbnail shown while loading (or when not near-active).
-              This covers the black SurfaceView until the first decoded frame
-              is ready, and also acts as the lightweight placeholder when the
-              item is just pre-loaded but not yet active.
-            */}
-            {(!isNearActive || !isVideoReady) && (
-              <Image
-                source={{ uri: initialSource }}
-                style={StyleSheet.absoluteFill}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                transition={0}
-                recyclingKey={item.id}
-              />
-            )}
+              {/* Thumbnail covers the VideoView until the first frame is ready */}
+              {(!isNearActive || !isVideoReady) && (
+                <Image
+                  source={{ uri: initialSource }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                  transition={0}
+                  recyclingKey={item.id}
+                />
+              )}
 
-            {/* Spinner during the decode warm-up phase */}
-            {isNearActive && !isVideoReady && (
-              <ActivityIndicator
-                color={COLORS.PRIMARY}
-                size="large"
-                style={styles.videoSpinner}
-              />
-            )}
+              {isNearActive && !isVideoReady && (
+                <ActivityIndicator
+                  color={COLORS.PRIMARY}
+                  size="large"
+                  style={styles.videoSpinner}
+                />
+              )}
+            </View>
           </View>
-        )}
-      </TouchableOpacity>
+        </GestureDetector>
+      )}
     </View>
   );
 }

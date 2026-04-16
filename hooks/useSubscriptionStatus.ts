@@ -7,11 +7,13 @@ import { SUBSCRIPTION_PLANS, SubscriptionPlanId } from "@/shared/subscription-pl
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 
 const SUBSCRIPTION_CACHE_KEY = "@statusvault_subscription_status";
-
-// Fix #1 — Internet Drop Trap: persist payment details right after Razorpay
-// window closes so we can retry verification if the network drops before the
-// /verify API call completes.
 const PENDING_PAYMENT_KEY = "@statusvault_pending_payment";
+
+// Smart cache TTLs — skip the Firebase read entirely when the cache is fresh.
+// Pro users: 6 hours (subscription doesn't change spontaneously).
+// Free users: 30 minutes (enough precision without burning reads).
+const CACHE_TTL_PRO_MS  = 6 * 60 * 60 * 1000;
+const CACHE_TTL_FREE_MS = 30 * 60 * 1000;
 
 type SubscriptionStatus = {
   active: boolean;
@@ -21,6 +23,7 @@ type SubscriptionStatus = {
   paidUntil?: string | null;
   lastPaymentId?: string | null;
   message?: string;
+  cachedAt?: number;
 };
 
 type PendingPayment = {
@@ -180,8 +183,31 @@ export function useSubscriptionStatus() {
     retryPending().catch(() => {});
   }, [deviceId, user, getIdToken, verifyPaymentDetails, safeSetStatus]);
 
-  const refresh = useCallback(async () => {
+  // force=true bypasses the smart cache (used right after a payment or app foreground).
+  const refresh = useCallback(async (force = false) => {
     if (!deviceId) return;
+
+    // ── Smart cache guard ─────────────────────────────────────────────────
+    // Skip the Firebase read if the locally cached status is still fresh.
+    // Pro status is trusted for 6 h; Free status for 30 min.
+    // This is the primary lever that keeps Firestore reads near-zero for most
+    // sessions — a user who opens the app every hour costs 1 read/day instead
+    // of 288 reads/day (old 5-min polling × 24 h × 12 polls/h).
+    if (!force) {
+      const raw = await AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY).catch(() => null);
+      if (raw) {
+        try {
+          const cached: SubscriptionStatus = JSON.parse(raw);
+          const ttl = cached.active ? CACHE_TTL_PRO_MS : CACHE_TTL_FREE_MS;
+          const age = Date.now() - (cached.cachedAt ?? 0);
+          if (age < ttl) {
+            safeSetStatus(cached);
+            safeSetLoading(false);
+            return; // Cache is fresh — no network call needed
+          }
+        } catch {}
+      }
+    }
 
     try {
       safeSetLoading(true);
@@ -193,12 +219,12 @@ export function useSubscriptionStatus() {
         token ? { Authorization: `Bearer ${token}` } : undefined,
       );
       const freshStatus: SubscriptionStatus = await response.json();
-      safeSetStatus(freshStatus);
-      AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(freshStatus)).catch(() => {});
+      const withTimestamp = { ...freshStatus, cachedAt: Date.now() };
+      safeSetStatus(withTimestamp);
+      AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(withTimestamp)).catch(() => {});
     } catch (error) {
       // Local shield: if the server is unreachable, keep any cached Pro status
       // that hasn't expired yet rather than wiping the user's Pro access.
-      // This prevents "Ghost Ads" caused by a momentary network drop.
       const cached = await AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY).catch(() => null);
       if (cached) {
         try {
@@ -222,9 +248,11 @@ export function useSubscriptionStatus() {
     }
   }, [deviceId, getIdToken, safeSetLoading, safeSetStatus]);
 
+  // Safety-net polling every 30 min. In practice the smart cache means most
+  // of these fire are no-ops (cache hit → instant return, 0 Firebase reads).
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 5 * 60 * 1000);
+    const interval = setInterval(() => refresh(false), 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [refresh]);
 
@@ -374,7 +402,7 @@ export function useSubscriptionStatus() {
           "Payment Received — Activating...",
           "Your payment was received successfully. Your Pro access will activate automatically the next time you open the app. You will NOT be charged again.",
         );
-        await refresh();
+        await refresh(true); // Force-bypass cache after payment to get fresh status
         return false;
       }
     },

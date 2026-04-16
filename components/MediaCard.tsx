@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
-import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import COLORS from '@/constants/colors';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
@@ -22,26 +21,6 @@ interface MediaCardProps {
   onDelete?: () => void;
 }
 
-// Module-level cache persists across re-renders and list recycling.
-// Maps source URI → generated thumbnail file URI.
-const thumbnailCache = new Map<string, string>();
-// Track URIs that have already failed so we don't retry on every re-render.
-const thumbnailFailed = new Set<string>();
-
-async function generateThumbnail(uri: string): Promise<string | null> {
-  // Try progressively longer time offsets to handle short/slow-starting videos.
-  const offsets = [500, 1500, 4000];
-  for (const time of offsets) {
-    try {
-      const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uri, { time });
-      return thumbUri;
-    } catch {
-      // Try next offset
-    }
-  }
-  return null;
-}
-
 function MediaCardInner({
   item,
   isSaved,
@@ -54,34 +33,6 @@ function MediaCardInner({
 }: MediaCardProps) {
   const uri = 'localUri' in item ? item.localUri : item.uri;
 
-  // Initialise from cache immediately so recycled cards show thumbnail at once
-  const [thumbnailUri, setThumbnailUri] = useState<string | null>(
-    item.type === 'video' ? (thumbnailCache.get(uri) ?? null) : null
-  );
-
-  useEffect(() => {
-    if (item.type !== 'video') return;
-    if (thumbnailCache.has(uri)) {
-      setThumbnailUri(thumbnailCache.get(uri)!);
-      return;
-    }
-    // Skip URIs that previously failed to avoid hammering disk on every render.
-    if (thumbnailFailed.has(uri)) return;
-
-    let cancelled = false;
-    generateThumbnail(uri).then((thumbUri) => {
-      if (cancelled) return;
-      if (thumbUri) {
-        thumbnailCache.set(uri, thumbUri);
-        setThumbnailUri(thumbUri);
-      } else {
-        thumbnailFailed.add(uri);
-      }
-    });
-
-    return () => { cancelled = true; };
-  }, [uri, item.type]);
-
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -90,25 +41,28 @@ function MediaCardInner({
         style={styles.touchable}
       >
         {item.type === 'video' ? (
-          /* Show thumbnail if available, otherwise fall back to the video URI
-             (expo-image / Glide on Android can extract a frame from file:// and
-             some content:// video URIs natively). Overlay darkens if no thumb yet. */
+          /*
+            expo-image on Android uses Glide which can natively extract a video
+            frame from file:// URIs (and many content:// URIs) without any extra
+            native library. The videoTimestamp prop (expo-image ≥ 1.11) requests
+            the frame at 500 ms for a representative thumbnail.
+            A dark play-button overlay is always shown on top.
+          */
           <View style={styles.image}>
             <Image
-              source={{ uri: thumbnailUri ?? uri }}
+              source={{ uri }}
               style={styles.image}
               contentFit="cover"
               cachePolicy="memory-disk"
-              recyclingKey={thumbnailUri ?? uri}
+              recyclingKey={uri}
             />
-            <View style={[styles.videoOverlay, !thumbnailUri && styles.videoOverlayDark]}>
+            <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
                 <Ionicons name="play" size={16} color="#fff" />
               </View>
             </View>
           </View>
         ) : (
-          /* Image: expo-image reads content:// natively on Android */
           <Image
             source={{ uri }}
             style={styles.image}
@@ -181,12 +135,9 @@ const styles = StyleSheet.create({
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  videoOverlayDark: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   playButton: {
     width: 36,
