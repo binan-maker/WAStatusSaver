@@ -194,7 +194,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     let isMounted = true;
     async function prepare() {
       try {
-        if (!initialSource.startsWith('content://')) {
+        // expo-image reads content:// URIs natively on Android via ContentProvider —
+        // no copy needed for images. Only videos need a file:// copy because
+        // ExoPlayer requires seekable random access which SAF content:// does not
+        // guarantee for large files.
+        if (!initialSource.startsWith('content://') || item.type === 'image') {
           if (isMounted) setDisplayUri(initialSource);
           return;
         }

@@ -130,6 +130,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   const [pendingVideoUri, setPendingVideoUri] = useState<string | null>(null);
   const swipeCountRef = useRef<number>(0);
   const initLoadDoneRef = useRef(false);
+  // In-memory cache: grantedUri → resolved .Statuses URI.
+  // Prevents re-walking the folder tree on every loadStatuses call.
+  const resolvedUriCache = useRef<Map<string, string>>(new Map());
 
   const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
 
@@ -311,41 +314,72 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     return items;
   }
 
-  // Check if a URI refers to the .Statuses folder (handles all encoding variants)
+  // Known folder names that lie on the path from any SAF root to .Statuses.
+  // The BFS only descends into these folders, so we never waste time on
+  // Downloads, DCIM, or any other unrelated directory.
+  const SAF_INTERESTING_NAMES = new Set([
+    '.statuses',          // target — found it
+    'media',              // both "WhatsApp/Media" and "Android/media"
+    'android',            // Internal Storage/Android
+    'com.whatsapp',       // Android/media/com.whatsapp
+    'com.whatsapp.w4b',   // Android/media/com.whatsapp.w4b
+    'whatsapp',           // com.whatsapp/WhatsApp
+    'whatsapp business',  // com.whatsapp.w4b/WhatsApp Business
+  ]);
+
   function isStatusesUri(uri: string): boolean {
-    const d = decodeURIComponent(uri).toLowerCase();
-    return d.includes('/.statuses');
+    return decodeURIComponent(uri).toLowerCase().includes('/.statuses');
   }
 
-  // Walk up to 2 levels deep from the granted URI to find the .Statuses folder.
-  // Covers: .Statuses granted directly, Media level, WhatsApp level, and device quirks
-  // where the picker ignores the initialUri hint and lands at a higher folder.
+  // Smart BFS: follows only known folder names toward .Statuses up to 6 levels
+  // deep. Works regardless of which level the user granted:
+  //   Root → Android → media → com.whatsapp → WhatsApp → Media → .Statuses
+  // Results are cached in resolvedUriCache (per app session) so the walk
+  // is never repeated for the same granted URI.
   async function resolveStatusesUri(grantedUri: string): Promise<string> {
-    if (isStatusesUri(grantedUri)) return grantedUri;
+    const cache = resolvedUriCache.current;
 
-    // Level 1 — search immediate children
-    let level1: string[] = [];
-    try {
-      level1 = await FileSystem.StorageAccessFramework.readDirectoryAsync(grantedUri);
-    } catch {
-      return grantedUri; // can't read granted URI at all — use as-is
+    if (cache.has(grantedUri)) return cache.get(grantedUri)!;
+    if (isStatusesUri(grantedUri)) {
+      cache.set(grantedUri, grantedUri);
+      return grantedUri;
     }
 
-    const direct = level1.find(c => isStatusesUri(c));
-    if (direct) return direct;
+    // BFS queue: [uri, depth]
+    const queue: Array<[string, number]> = [[grantedUri, 0]];
+    const visited = new Set<string>();
 
-    // Level 2 — search inside each child folder (handles WhatsApp → Media → .Statuses)
-    for (const child of level1.slice(0, 8)) {
+    while (queue.length > 0) {
+      const [current, depth] = queue.shift()!;
+      if (depth > 6 || visited.has(current)) continue;
+      visited.add(current);
+
+      let children: string[] = [];
       try {
-        const level2 = await FileSystem.StorageAccessFramework.readDirectoryAsync(child);
-        const found = level2.find(c => isStatusesUri(c));
-        if (found) return found;
+        children = await FileSystem.StorageAccessFramework.readDirectoryAsync(current);
       } catch {
-        // skip non-directories
+        continue; // not a readable directory — skip
+      }
+
+      // Immediately check all children for the .Statuses folder
+      const target = children.find(c => isStatusesUri(c));
+      if (target) {
+        cache.set(grantedUri, target);
+        return target;
+      }
+
+      // Enqueue children whose names are on the known path to .Statuses
+      for (const child of children) {
+        const decoded = decodeURIComponent(child).toLowerCase();
+        const name = decoded.split('/').pop() || decoded.split('%2f').pop() || '';
+        if (SAF_INTERESTING_NAMES.has(name)) {
+          queue.push([child, depth + 1]);
+        }
       }
     }
 
-    // Absolute fallback — read whatever the user granted
+    // No .Statuses found — fall back to the granted URI as-is
+    cache.set(grantedUri, grantedUri);
     return grantedUri;
   }
 

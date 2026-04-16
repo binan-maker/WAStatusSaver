@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import COLORS from '@/constants/colors';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
@@ -40,22 +41,30 @@ function MediaCardInner({
         onPress={onPress}
         style={styles.touchable}
       >
-        <Image
-          source={{ uri }}
-          style={styles.image}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-          transition={150}
-          recyclingKey={uri}
-          placeholderContentFit="cover"
-        />
-
-        {item.type === 'video' && (
-          <View style={styles.videoOverlay}>
-            <View style={styles.playButton}>
-              <Ionicons name="play" size={16} color="#fff" />
+        {item.type === 'video' ? (
+          /* Video: zero-cost gradient placeholder — never tries to decode a video
+             file as an image (which always fails and wastes I/O on the main thread).
+             The thumbnail will be visible once the user opens the viewer. */
+          <LinearGradient
+            colors={['#1a1a2e', '#0d0d1a']}
+            style={styles.image}
+          >
+            <View style={styles.videoPlayCenter}>
+              <View style={styles.playButton}>
+                <Ionicons name="play" size={18} color="#fff" />
+              </View>
             </View>
-          </View>
+          </LinearGradient>
+        ) : (
+          /* Image: expo-image reads content:// natively on Android — no copy needed */
+          <Image
+            source={{ uri }}
+            style={styles.image}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={100}
+            recyclingKey={uri}
+          />
         )}
 
         {item.source === 'whatsapp_business' && (
@@ -117,6 +126,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  videoPlayCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
