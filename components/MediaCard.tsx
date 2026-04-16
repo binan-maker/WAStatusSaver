@@ -55,6 +55,7 @@ function MediaCardInner({
               contentFit="cover"
               cachePolicy="memory-disk"
               recyclingKey={uri}
+              videoTimestamp={500}
             />
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>

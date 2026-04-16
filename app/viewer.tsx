@@ -46,10 +46,40 @@ function formatTime(millis: number) {
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
+// ── Branded skeleton shimmer for image loading ────────────────────────────────
+const shimmerAnim = new Animated.Value(0);
+let shimmerRunning = false;
+function ensureShimmer() {
+  if (shimmerRunning) return;
+  shimmerRunning = true;
+  Animated.loop(
+    Animated.sequence([
+      Animated.timing(shimmerAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(shimmerAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
+    ])
+  ).start();
+}
+
+function ImageSkeleton() {
+  useEffect(() => { ensureShimmer(); }, []);
+  const opacity = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.08, 0.22] });
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.PRIMARY, opacity }]} />
+      <ActivityIndicator
+        color={COLORS.PRIMARY}
+        size="large"
+        style={{ position: 'absolute', alignSelf: 'center', top: '50%', marginTop: -20 }}
+      />
+    </View>
+  );
+}
+
 function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const isActiveRef = useRef(isActive);
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
@@ -109,9 +139,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [displayUri, item.type, player]);
 
   // ── Status listener ──────────────────────────────────────────────────────
-  // Key fix: play() is called ONLY after statusChange === 'readyToPlay'.
-  // We also flip isVideoReady so the thumbnail overlay disappears exactly
-  // when the first decoded frame is available — no more black flash.
   useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
     if (item.type !== 'video') return;
     const ready = status === 'readyToPlay';
@@ -120,13 +147,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     if (ready) tryStartPlayback();
   });
 
-  // Reset the "ready" flag whenever the source changes so the thumbnail
-  // overlay re-appears while the new file is being decoded.
+  // Reset the "ready" flag whenever the source changes.
   useEffect(() => {
     setIsVideoReady(false);
   }, [displayUri]);
 
   // ── Source loading ───────────────────────────────────────────────────────
+  // KEY FIX: 50ms delay before replaceAsync so the VideoView surface has time
+  // to bind before we push data into the decoder. Without this, on Android the
+  // SurfaceView is not yet attached, causing audio-only playback (black screen).
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
 
@@ -136,6 +165,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     const load = async () => {
       try {
+        // Give VideoView's native surface 50ms to fully bind before we decode.
+        await new Promise<void>(resolve => setTimeout(resolve, 50));
+        if (cancelled) return;
         await player.replaceAsync(displayUri);
         if (!cancelled) isLoadingSource.current = false;
         tryStartPlayback();
@@ -195,10 +227,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     let isMounted = true;
     async function prepare() {
       try {
-        // expo-image reads content:// URIs natively on Android via ContentProvider —
-        // no copy needed for images. Only videos need a file:// copy because
-        // ExoPlayer requires seekable random access which SAF content:// does not
-        // guarantee for large files.
         if (!initialSource.startsWith('content://') || item.type === 'image') {
           if (isMounted) setDisplayUri(initialSource);
           return;
@@ -216,7 +244,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const mediaUri = displayUri || initialSource;
 
-  // Reset zoom whenever a different item becomes active
+  // Reset zoom and image-loaded state whenever a different item becomes active
   useEffect(() => {
     imageScale.value = 1;
     savedScale.value = 1;
@@ -224,6 +252,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     translateY.value = 0;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
+    setImageLoaded(false);
   }, [item.id]);
 
   // ── Image gesture handlers ────────────────────────────────────────────────
@@ -242,10 +271,22 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         savedTranslateY.value = 0;
       } else {
         savedScale.value = imageScale.value;
+        // Clamp translation to bounds after scale settles
+        const maxX = ((imageScale.value - 1) * SW) / 2;
+        const maxY = ((imageScale.value - 1) * SH) / 2;
+        if (Math.abs(translateX.value) > maxX) {
+          translateX.value = withSpring(translateX.value > 0 ? maxX : -maxX);
+          savedTranslateX.value = translateX.value > 0 ? maxX : -maxX;
+        }
+        if (Math.abs(translateY.value) > maxY) {
+          translateY.value = withSpring(translateY.value > 0 ? maxY : -maxY);
+          savedTranslateY.value = translateY.value > 0 ? maxY : -maxY;
+        }
       }
     });
 
-  // Pan is only activated when zoomed in; otherwise the FlatList scrolls.
+  // Pan is only activated when zoomed in. Translation is clamped so the image
+  // never drifts off-screen — providing a proper constrained zoom experience.
   const panGesture = Gesture.Pan()
     .manualActivation(true)
     .onTouchesMove((_e, state) => {
@@ -253,8 +294,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       else state.fail();
     })
     .onUpdate((e) => {
-      translateX.value = savedTranslateX.value + e.translationX;
-      translateY.value = savedTranslateY.value + e.translationY;
+      const scale = imageScale.value;
+      // Maximum panning range grows with scale. At 1x there is no pan range.
+      const maxX = ((scale - 1) * SW) / 2;
+      const maxY = ((scale - 1) * SH) / 2;
+      const newX = savedTranslateX.value + e.translationX;
+      const newY = savedTranslateY.value + e.translationY;
+      translateX.value = Math.max(-maxX, Math.min(maxX, newX));
+      translateY.value = Math.max(-maxY, Math.min(maxY, newY));
     })
     .onEnd(() => {
       savedTranslateX.value = translateX.value;
@@ -264,7 +311,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .maxDuration(200)
-    .onEnd(() => {
+    .onEnd((e) => {
       if (imageScale.value > 1) {
         imageScale.value = withSpring(1);
         translateX.value = withSpring(0);
@@ -273,8 +320,19 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         savedTranslateX.value = 0;
         savedTranslateY.value = 0;
       } else {
-        imageScale.value = withSpring(2.5);
-        savedScale.value = 2.5;
+        // Zoom toward the tap point
+        const targetScale = 2.5;
+        imageScale.value = withSpring(targetScale);
+        savedScale.value = targetScale;
+        // Center on the tapped area, clamped to bounds
+        const maxX = ((targetScale - 1) * SW) / 2;
+        const maxY = ((targetScale - 1) * SH) / 2;
+        const tapX = Math.max(-maxX, Math.min(maxX, (SW / 2 - e.x) * (targetScale - 1)));
+        const tapY = Math.max(-maxY, Math.min(maxY, (SH / 2 - e.y) * (targetScale - 1)));
+        translateX.value = withSpring(tapX);
+        translateY.value = withSpring(tapY);
+        savedTranslateX.value = tapX;
+        savedTranslateY.value = tapY;
       }
     });
 
@@ -284,7 +342,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       runOnJS(onToggleControls)();
     });
 
-  // Simultaneous: pinch zoom + pan (when zoomed) + exclusive tap recognition
   const imageGesture = Gesture.Simultaneous(
     pinchGesture,
     panGesture,
@@ -316,7 +373,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               transition={0}
               priority="high"
               recyclingKey={item.id}
+              onLoadStart={() => setImageLoaded(false)}
+              onLoad={() => setImageLoaded(true)}
             />
+            {/* Branded skeleton shimmer while the full-res image decodes */}
+            {!imageLoaded && <ImageSkeleton />}
           </Reanimated.View>
         </GestureDetector>
       ) : (
@@ -324,21 +385,20 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
               {/*
-                VideoView is conditionally mounted: only when isNearActive.
-                This keeps at most 3 hardware decoder surfaces alive at any
-                time (prev, current, next), well below Android's 8-16 surface
+                VideoView is mounted ONLY for the active item. This keeps exactly
+                ONE hardware decoder surface alive at any time, well below Android's
                 limit. Exhausting the limit turns all subsequent videos black.
 
-                Thumbnail Overlay pattern:
-                  1. Not near active  → only static thumbnail shown, no decoder.
-                  2. Near active, not ready → VideoView mounts (black), thumbnail
-                     sits on top so the user never sees a flash of black.
-                  3. readyToPlay fires → thumbnail unmounts, decoded frame shows.
-              */}
+                Previously mounting for isNearActive (3 at once) was exhausting the
+                decoder pool on budget Android devices → audio-only black screens.
 
-              {/* VideoView: only mount when near this item */}
-              {isNearActive && (
+                The key prop `item.id` forces a fresh VideoView + surface binding
+                every time a different item becomes active, eliminating the race
+                between replaceAsync and surface attachment.
+              */}
+              {isActive && (
                 <VideoView
+                  key={item.id}
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
@@ -347,8 +407,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 />
               )}
 
-              {/* Thumbnail: always on top until the video's first frame is decoded */}
-              {(!isNearActive || !isVideoReady) && (
+              {/* Thumbnail: always visible until video's first frame is decoded */}
+              {(!isActive || !isVideoReady) && (
                 <Image
                   source={{ uri: initialSource }}
                   style={StyleSheet.absoluteFill}
@@ -359,12 +419,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 />
               )}
 
+              {/* Branded loading spinner during video decode */}
               {isNearActive && !isVideoReady && (
-                <ActivityIndicator
-                  color={COLORS.PRIMARY}
-                  size="large"
-                  style={styles.videoSpinner}
-                />
+                <View style={styles.videoSpinnerWrap}>
+                  <ActivityIndicator
+                    color={COLORS.PRIMARY}
+                    size="large"
+                  />
+                </View>
               )}
             </View>
           </View>
@@ -430,8 +492,7 @@ export default function ViewerScreen() {
   const prevIndex = useRef(initialIndex);
   const isScrollingRef = useRef(false);
   
-  // Update currentIndex and scroll to it when initialIndex changes (e.g. on first load)
-  // Prevent duplicate navigation
+  // Update currentIndex and scroll to it when initialIndex changes
   useEffect(() => {
     if (prevIdRef.current !== id) {
       prevIdRef.current = id;
@@ -450,8 +511,8 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
-  // Pre-load the next 2 items in the background so they are in cache before the user swipes.
-  // Staggered 200ms apart so two concurrent disk writes don't congest slow storage on budget phones.
+  // Pre-copy the next 2 items' URIs in the background so they are ready before swipe.
+  // Staggered 200ms apart to avoid concurrent disk I/O on budget phones.
   useEffect(() => {
     const next1 = items[currentIndex + 1];
     if (next1 && next1.uri.startsWith('content://')) {
@@ -466,7 +527,6 @@ export default function ViewerScreen() {
     return () => clearTimeout(timer);
   }, [currentIndex, items, prepareStatusForViewing]);
 
-  // Debounce ref: used to skip processing intermediate scroll positions during fast flicks.
   const scrollSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showControls, setShowControls] = useState(true);
@@ -477,13 +537,11 @@ export default function ViewerScreen() {
   const isSaved = isSavedView || (currentItem && isStatusSaved(currentItem.id));
 
 useEffect(() => {
-  // Show controls by default when switching items
   setShowControls(true);
   controlsOpacity.setValue(1);
 }, [currentIndex, currentItem]);
 
 function animateControls(show: boolean) {
-  // FIXED #5: Properly animate opacity when toggling controls
   Animated.timing(controlsOpacity, {
     toValue: show ? 1 : 0,
     duration: 300,
@@ -537,9 +595,8 @@ const toggleControls = useCallback(() => {
     const index = Math.round(offsetX / SW);
     if (index < 0 || index >= items.length) return;
 
-    // Debounce: if the user is flicking fast through multiple pages, skip intermediate
-    // positions and only process the final settled index. This prevents the disk I/O
-    // "clog" that causes black screens when swiping rapidly.
+    // Debounce: skip intermediate scroll positions during fast flicks.
+    // 80ms gives the scroll animation time to settle without feeling laggy.
     if (scrollSettleRef.current) clearTimeout(scrollSettleRef.current);
     scrollSettleRef.current = setTimeout(() => {
       setCurrentIndex(index);
@@ -551,7 +608,7 @@ const toggleControls = useCallback(() => {
         }
         prevIndex.current = index;
       }
-    }, 60);
+    }, 80);
   }, [items, onImageSwipe, controlsOpacity]);
 
   const onScrollBeginDrag = useCallback(() => {
@@ -702,11 +759,15 @@ const styles = StyleSheet.create({
     width: SW,
     height: SH,
   },
-  videoSpinner: {
+  videoSpinnerWrap: {
     position: 'absolute',
     alignSelf: 'center',
-    top: '50%',
-    marginTop: -18,
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   videoPlaceholder: {
     flex: 1,
@@ -869,4 +930,4 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.MD,
     fontFamily: 'Nunito_600SemiBold',
   },
-}); 
+});
