@@ -24,6 +24,7 @@ import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { GoogleSignInModal } from '@/components/GoogleSignInModal';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
+import { useStatusReminder } from '@/hooks/useStatusReminder';
 import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();
@@ -129,6 +130,7 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
 
 function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   useAppOpenAd();
+  useStatusReminder();
   const { showAd: showInterstitial } = useInterstitialAd();
   const [interstitialShown, setInterstitialShown] = useState(false);
   const { user, loading, signingIn } = useFirebaseAuth();

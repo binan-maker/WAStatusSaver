@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import COLORS from '@/constants/colors';
@@ -26,6 +25,22 @@ interface MediaCardProps {
 // Module-level cache persists across re-renders and list recycling.
 // Maps source URI → generated thumbnail file URI.
 const thumbnailCache = new Map<string, string>();
+// Track URIs that have already failed so we don't retry on every re-render.
+const thumbnailFailed = new Set<string>();
+
+async function generateThumbnail(uri: string): Promise<string | null> {
+  // Try progressively longer time offsets to handle short/slow-starting videos.
+  const offsets = [500, 1500, 4000];
+  for (const time of offsets) {
+    try {
+      const { uri: thumbUri } = await VideoThumbnails.getThumbnailAsync(uri, { time });
+      return thumbUri;
+    } catch {
+      // Try next offset
+    }
+  }
+  return null;
+}
 
 function MediaCardInner({
   item,
@@ -50,18 +65,19 @@ function MediaCardInner({
       setThumbnailUri(thumbnailCache.get(uri)!);
       return;
     }
+    // Skip URIs that previously failed to avoid hammering disk on every render.
+    if (thumbnailFailed.has(uri)) return;
 
     let cancelled = false;
-    VideoThumbnails.getThumbnailAsync(uri, { time: 100 })
-      .then(({ uri: thumbUri }) => {
-        if (!cancelled) {
-          thumbnailCache.set(uri, thumbUri);
-          setThumbnailUri(thumbUri);
-        }
-      })
-      .catch(() => {
-        // Generation failed — gradient placeholder stays; no crash
-      });
+    generateThumbnail(uri).then((thumbUri) => {
+      if (cancelled) return;
+      if (thumbUri) {
+        thumbnailCache.set(uri, thumbUri);
+        setThumbnailUri(thumbUri);
+      } else {
+        thumbnailFailed.add(uri);
+      }
+    });
 
     return () => { cancelled = true; };
   }, [uri, item.type]);
@@ -74,35 +90,23 @@ function MediaCardInner({
         style={styles.touchable}
       >
         {item.type === 'video' ? (
-          thumbnailUri ? (
-            /* Real thumbnail available — show it with a play-button overlay */
-            <View style={styles.image}>
-              <Image
-                source={{ uri: thumbnailUri }}
-                style={styles.image}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                recyclingKey={thumbnailUri}
-              />
-              <View style={styles.videoOverlay}>
-                <View style={styles.playButton}>
-                  <Ionicons name="play" size={16} color="#fff" />
-                </View>
+          /* Show thumbnail if available, otherwise fall back to the video URI
+             (expo-image / Glide on Android can extract a frame from file:// and
+             some content:// video URIs natively). Overlay darkens if no thumb yet. */
+          <View style={styles.image}>
+            <Image
+              source={{ uri: thumbnailUri ?? uri }}
+              style={styles.image}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={thumbnailUri ?? uri}
+            />
+            <View style={[styles.videoOverlay, !thumbnailUri && styles.videoOverlayDark]}>
+              <View style={styles.playButton}>
+                <Ionicons name="play" size={16} color="#fff" />
               </View>
             </View>
-          ) : (
-            /* Thumbnail still generating — show gradient with play icon */
-            <LinearGradient
-              colors={['#1a1a2e', '#0d0d1a']}
-              style={styles.image}
-            >
-              <View style={styles.videoPlayCenter}>
-                <View style={styles.playButton}>
-                  <Ionicons name="play" size={18} color="#fff" />
-                </View>
-              </View>
-            </LinearGradient>
-          )
+          </View>
         ) : (
           /* Image: expo-image reads content:// natively on Android */
           <Image
@@ -175,16 +179,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  videoPlayCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  videoOverlayDark: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
   playButton: {
     width: 36,

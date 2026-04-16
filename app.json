@@ -20,6 +20,7 @@
       "package": "com.binan.statussaver",
       "softwareKeyboardLayoutMode": "pan",
       "usesCleartextTraffic": true,
+      "enableProguardInReleaseBuilds": true,
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
@@ -29,7 +30,10 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO"
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -40,6 +44,14 @@
         "expo-router",
         {
           "origin": "https://replit.com/"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#00c48c",
+          "defaultChannel": "status-reminders"
         }
       ],
       [

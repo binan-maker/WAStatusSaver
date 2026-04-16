@@ -8,7 +8,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { Platform, Alert, Share } from 'react-native';
+import { Platform, Alert, Share, Linking } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
@@ -88,7 +88,42 @@ const STORAGE_KEYS = {
   SAVED_ITEMS: '@statusvault_saved',
   SAF_URI: '@statusvault_saf_uri',
   SAF_URIS: '@statusvault_saf_uris',
+  TOTAL_SAVES: '@statusvault_total_saves',
+  RATING_PROMPTED: '@statusvault_rating_prompted',
 };
+
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.binan.statussaver';
+const RATING_TRIGGER_COUNT = 10;
+
+async function maybeShowRatingPrompt() {
+  try {
+    const alreadyPrompted = await AsyncStorage.getItem(STORAGE_KEYS.RATING_PROMPTED);
+    if (alreadyPrompted) return;
+
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.TOTAL_SAVES);
+    const count = raw ? parseInt(raw, 10) : 0;
+    const newCount = count + 1;
+    await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_SAVES, String(newCount));
+
+    if (newCount === RATING_TRIGGER_COUNT) {
+      await AsyncStorage.setItem(STORAGE_KEYS.RATING_PROMPTED, 'true');
+      Alert.alert(
+        '⭐ Enjoying StatusVault?',
+        'You\'ve saved 10 statuses! A quick rating helps us grow and keeps the app free.',
+        [
+          {
+            text: 'Rate Now',
+            onPress: () => Linking.openURL(PLAY_STORE_URL).catch(() => {}),
+          },
+          { text: 'Maybe Later', style: 'cancel', onPress: async () => {
+            await AsyncStorage.removeItem(STORAGE_KEYS.RATING_PROMPTED);
+          }},
+          { text: 'Never', style: 'destructive' },
+        ],
+      );
+    }
+  } catch {}
+}
 
 const SAF_INITIAL_URIS: Record<StatusSource, string> = {
   whatsapp: 'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses',
@@ -521,6 +556,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       const updated = [newSaved, ...savedItems.filter(s => s.id !== item.id)];
       setSavedItems(updated);
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
+
+      maybeShowRatingPrompt();
 
       return true;
     } catch (e) {
