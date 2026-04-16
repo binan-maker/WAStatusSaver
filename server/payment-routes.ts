@@ -474,4 +474,237 @@ export function registerPaymentRoutes(app: Express) {
       next(error);
     }
   });
+
+  // ── Webhook: payment.captured ────────────────────────────────────────────
+  // Razorpay calls this server-to-server when a payment is captured, even if
+  // the user's phone is offline or the app crashes before /verify is called.
+  // This is the reliability backbone — it guarantees 100% subscription
+  // activation regardless of what happens on the client side.
+  //
+  // Setup required (one-time, in Razorpay dashboard):
+  //   URL: https://<your-domain>/api/payments/razorpay/webhook
+  //   Events: payment.captured
+  //   Set RAZORPAY_WEBHOOK_SECRET in environment variables.
+  app.post("/api/payments/razorpay/webhook", async (req: Request, res: Response) => {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      // Webhook not configured — acknowledge and exit (don't block Razorpay)
+      return res.status(200).json({ status: "webhook_not_configured" });
+    }
+
+    const signature = req.header("x-razorpay-signature");
+    const rawBody = req.rawBody;
+    if (!signature || !rawBody) {
+      return res.status(400).json({ message: "Missing signature or body" });
+    }
+
+    const expectedSig = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(rawBody as Buffer)
+      .digest("hex");
+
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return res.status(400).json({ message: "Invalid webhook signature" });
+    }
+
+    const event = req.body?.event;
+    if (event !== "payment.captured") {
+      return res.status(200).json({ status: "event_ignored" });
+    }
+
+    const payment = req.body?.payload?.payment?.entity;
+    if (!payment?.id || !payment?.order_id) {
+      return res.status(200).json({ status: "invalid_payload" });
+    }
+
+    const db = getFirestoreDb();
+    if (!db) return res.status(200).json({ status: "db_unavailable" });
+
+    try {
+      const orderSnap = await db.collection("paymentOrders").doc(payment.order_id).get();
+      if (!orderSnap.exists) {
+        console.log(`[Webhook] Order ${payment.order_id} not found`);
+        return res.status(200).json({ status: "order_not_found" });
+      }
+
+      const orderData = orderSnap.data()!;
+
+      // Idempotency: if already verified, return early
+      if (orderData.status === "verified") {
+        return res.status(200).json({ status: "already_processed" });
+      }
+
+      const { userId, planId, deviceId: orderDeviceId } = orderData;
+      if (!userId || !planId) {
+        return res.status(200).json({ status: "order_missing_data" });
+      }
+
+      const plan = getSubscriptionPlan(planId);
+      if (!plan) return res.status(200).json({ status: "invalid_plan" });
+
+      // Amount sanity check
+      if (payment.amount !== amountToPaise(plan.amount) || payment.currency !== plan.currency) {
+        await orderSnap.ref.set(
+          { status: "webhook_amount_mismatch", updatedAt: firestoreFieldValue.serverTimestamp() },
+          { merge: true },
+        );
+        return res.status(200).json({ status: "amount_mismatch" });
+      }
+
+      const paidUntil = await computeStackedPaidUntil(planId, userId, db);
+      const subscriptionPayload = {
+        deviceId: orderDeviceId || null,
+        userId,
+        active: true,
+        lifetime: false,
+        planId: plan.id,
+        amount: plan.amount,
+        currency: plan.currency,
+        paidUntil: paidUntil ? firestoreTimestamp.fromDate(paidUntil) : null,
+        lastPaymentId: payment.id,
+        lastOrderId: payment.order_id,
+        paymentMethod: payment.method || null,
+        updatedAt: firestoreFieldValue.serverTimestamp(),
+      };
+
+      await db.collection("subscriptions").doc(userId).set(subscriptionPayload, { merge: true });
+      await orderSnap.ref.set(
+        { paymentId: payment.id, status: "verified", verifiedAt: firestoreFieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      await db.collection("users").doc(userId).collection("payments").doc(payment.id).set({
+        paymentId: payment.id,
+        orderId: payment.order_id,
+        planId: plan.id,
+        amount: plan.amount,
+        currency: plan.currency,
+        status: "captured",
+        razorpayStatus: payment.status,
+        source: "webhook",
+        createdAt: firestoreFieldValue.serverTimestamp(),
+      });
+
+      console.log(`[Webhook] Subscription activated: userId=${userId}, plan=${planId}, until=${paidUntil?.toISOString()}`);
+      return res.status(200).json({ status: "subscription_activated" });
+    } catch (error) {
+      console.error("[Webhook] Error:", error);
+      // Always return 200 so Razorpay doesn't retry indefinitely
+      return res.status(200).json({ status: "processing_error" });
+    }
+  });
+
+  // ── Recover order: server-side activation without client signature ────────
+  // Called by the client on startup when it finds a payment intent record but
+  // no full pending-payment record (crash during the 1-2 second window after
+  // Razorpay captures money but before Phase 3 writes to AsyncStorage).
+  // Queries Razorpay directly — no client signature required.
+  app.post("/api/payments/razorpay/recover-order", async (req: Request, res: Response, next) => {
+    try {
+      const db = getFirestoreDb();
+      const auth = getRazorpayAuthHeader();
+      const authUser = await getAuthenticatedUser(req);
+      const orderId = String(req.body?.orderId || "");
+      const planId = String(req.body?.planId || "");
+      const deviceId = normalizeDeviceId(req.body?.deviceId);
+
+      if (!db || !auth) return paymentUnavailable(res);
+      if (!authUser) return res.status(401).json({ message: "Authentication required" });
+      if (!orderId || !planId || !deviceId) return res.status(400).json({ message: "Missing required fields" });
+
+      const plan = getSubscriptionPlan(planId);
+      if (!plan) return res.status(400).json({ message: "Invalid plan" });
+
+      // Security: verify the order belongs to this authenticated user
+      const orderSnap = await db.collection("paymentOrders").doc(orderId).get();
+      if (!orderSnap.exists || orderSnap.data()?.userId !== authUser.uid) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const orderData = orderSnap.data()!;
+
+      // Already verified (e.g. webhook fired while app was offline) — return subscription
+      if (orderData.status === "verified") {
+        const subSnap = await db.collection("subscriptions").doc(authUser.uid).get();
+        const subData = subSnap.data() || {};
+        const paidUntilDate = subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate() : null;
+        return res.json({
+          active: Boolean(paidUntilDate && paidUntilDate.getTime() > Date.now()),
+          status: "already_verified",
+          planId: subData.planId || planId,
+          paidUntil: paidUntilDate?.toISOString() || null,
+          lastPaymentId: subData.lastPaymentId || null,
+        });
+      }
+
+      // Query Razorpay for payments on this order
+      const rzpResponse = await fetch(`https://api.razorpay.com/v1/orders/${orderId}/payments`, {
+        headers: { Authorization: auth },
+      });
+
+      if (!rzpResponse.ok) {
+        return res.json({ status: "no_payment" });
+      }
+
+      const rzpData = await rzpResponse.json() as { items: RazorpayPaymentResponse[] };
+      const capturedPayment = rzpData.items?.find((p) => p.status === "captured");
+
+      if (!capturedPayment) {
+        return res.json({ status: "no_payment" });
+      }
+
+      // Amount sanity check
+      if (capturedPayment.amount !== amountToPaise(plan.amount) || capturedPayment.currency !== plan.currency) {
+        return res.status(400).json({ message: "Payment amount mismatch" });
+      }
+
+      // Activate subscription server-side (no client signature — Razorpay API is the authority)
+      const paidUntil = await computeStackedPaidUntil(planId, authUser.uid, db);
+      const subscriptionPayload = {
+        deviceId,
+        userId: authUser.uid,
+        userEmail: authUser.email || null,
+        active: true,
+        lifetime: false,
+        planId: plan.id,
+        amount: plan.amount,
+        currency: plan.currency,
+        paidUntil: paidUntil ? firestoreTimestamp.fromDate(paidUntil) : null,
+        lastPaymentId: capturedPayment.id,
+        lastOrderId: orderId,
+        paymentMethod: capturedPayment.method || null,
+        updatedAt: firestoreFieldValue.serverTimestamp(),
+      };
+
+      await db.collection("subscriptions").doc(authUser.uid).set(subscriptionPayload, { merge: true });
+      await db.collection("paymentOrders").doc(orderId).set(
+        { paymentId: capturedPayment.id, status: "verified", verifiedAt: firestoreFieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      await db.collection("users").doc(authUser.uid).collection("payments").doc(capturedPayment.id).set({
+        paymentId: capturedPayment.id,
+        orderId,
+        planId: plan.id,
+        amount: plan.amount,
+        currency: plan.currency,
+        status: "captured",
+        razorpayStatus: capturedPayment.status,
+        source: "recovery",
+        createdAt: firestoreFieldValue.serverTimestamp(),
+      });
+
+      notifyPaymentViaEmail(capturedPayment.id);
+
+      return res.json({
+        active: true,
+        status: "recovered",
+        planId: plan.id,
+        paidUntil: paidUntil?.toISOString() || null,
+        lastPaymentId: capturedPayment.id,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 }

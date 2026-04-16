@@ -8,6 +8,10 @@ import { useFirebaseAuth } from "@/contexts/AuthContext";
 
 const SUBSCRIPTION_CACHE_KEY = "@statusvault_subscription_status";
 const PENDING_PAYMENT_KEY = "@statusvault_pending_payment";
+// Saved BEFORE opening Razorpay checkout — covers the crash window between
+// "money taken" and "pending record written". On next startup we query the
+// server for the order's status and recover the subscription automatically.
+const PAYMENT_INTENT_KEY = "@statusvault_payment_intent";
 
 // Smart cache TTLs — skip the Firebase read entirely when the cache is fresh.
 // Pro users: 6 hours (subscription doesn't change spontaneously).
@@ -32,6 +36,13 @@ type PendingPayment = {
   razorpay_payment_id: string;
   razorpay_order_id: string;
   razorpay_signature: string;
+  savedAt: number;
+};
+
+type PaymentIntent = {
+  orderId: string;
+  planId: SubscriptionPlanId;
+  deviceId: string;
   savedAt: number;
 };
 
@@ -191,6 +202,71 @@ export function useSubscriptionStatus() {
     retryPending().catch(() => {});
   }, [deviceId, user, getIdToken, verifyPaymentDetails, safeSetStatus]);
 
+  // Intent recovery: if the app crashed in the 1-2 second window between
+  // Razorpay capturing the payment and Phase 3 writing the pending record,
+  // the server-side recover-order endpoint queries Razorpay directly and
+  // activates the subscription without needing a client signature.
+  useEffect(() => {
+    if (!deviceId || !user) return;
+
+    const recoverPaymentIntent = async () => {
+      const intentRaw = await AsyncStorage.getItem(PAYMENT_INTENT_KEY).catch(() => null);
+      if (!intentRaw) return;
+
+      // If a full pending record already exists, the normal retry handles it —
+      // just clear the intent so we don't run this path redundantly.
+      const pendingRaw = await AsyncStorage.getItem(PENDING_PAYMENT_KEY).catch(() => null);
+      if (pendingRaw) {
+        await AsyncStorage.removeItem(PAYMENT_INTENT_KEY).catch(() => {});
+        return;
+      }
+
+      let intent: PaymentIntent;
+      try {
+        intent = JSON.parse(intentRaw);
+      } catch {
+        await AsyncStorage.removeItem(PAYMENT_INTENT_KEY).catch(() => {});
+        return;
+      }
+
+      // Discard stale intents — Razorpay orders expire after 24 hours anyway.
+      if (Date.now() - intent.savedAt > 24 * 60 * 60 * 1000) {
+        await AsyncStorage.removeItem(PAYMENT_INTENT_KEY).catch(() => {});
+        return;
+      }
+
+      const freshToken = await getIdToken(true).catch(() => null);
+      if (!freshToken) return;
+
+      try {
+        const response = await apiRequest(
+          "POST",
+          "/api/payments/razorpay/recover-order",
+          { orderId: intent.orderId, planId: intent.planId, deviceId: intent.deviceId },
+          { Authorization: `Bearer ${freshToken}` },
+        );
+        const data = await response.json();
+
+        if (data.active) {
+          await AsyncStorage.removeItem(PAYMENT_INTENT_KEY).catch(() => {});
+          const withTimestamp = { ...data, cachedAt: Date.now() };
+          await AsyncStorage.setItem(SUBSCRIPTION_CACHE_KEY, JSON.stringify(withTimestamp)).catch(() => {});
+          safeSetStatus(withTimestamp);
+          Alert.alert(
+            "Pro Access Activated",
+            "Your payment has been verified and Pro is now active. Ads are removed!",
+          );
+        } else if (data.status === "no_payment") {
+          // User probably cancelled Razorpay without paying — clear the intent.
+          await AsyncStorage.removeItem(PAYMENT_INTENT_KEY).catch(() => {});
+        }
+        // Any other status: keep intent, try again on next startup.
+      } catch {}
+    };
+
+    recoverPaymentIntent().catch(() => {});
+  }, [deviceId, user, getIdToken, safeSetStatus]);
+
   // force=true bypasses the smart cache (used right after a payment or app foreground).
   const refresh = useCallback(async (force = false) => {
     if (!deviceId) return;
@@ -348,6 +424,19 @@ export function useSubscriptionStatus() {
         return false;
       }
 
+      // ── PHASE 1.5: Save payment intent BEFORE opening checkout ──────────────
+      // Race-condition shield: if the app crashes or loses power after Razorpay
+      // captures the payment but before Phase 3 writes the pending record, the
+      // intent lets us recover on the next startup by querying the server for
+      // the order's status and activating the subscription server-side.
+      const paymentIntent: PaymentIntent = {
+        orderId: order.orderId,
+        planId,
+        deviceId,
+        savedAt: Date.now(),
+      };
+      await AsyncStorage.setItem(PAYMENT_INTENT_KEY, JSON.stringify(paymentIntent)).catch(() => {});
+
       // ── PHASE 2: Open Razorpay checkout ─────────────────────────────────────
       let razorpayResult: RazorpaySuccess;
       try {
@@ -392,6 +481,8 @@ export function useSubscriptionStatus() {
         savedAt: Date.now(),
       };
       await AsyncStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pendingPayment)).catch(() => {});
+      // Intent fulfilled — full pending record is now safely on disk
+      await AsyncStorage.removeItem(PAYMENT_INTENT_KEY).catch(() => {});
 
       // ── PHASE 4: Force-refresh token before verification (Fix #4) ───────────
       // Razorpay checkout can take several minutes (UPI OTP, card entry, etc.).
