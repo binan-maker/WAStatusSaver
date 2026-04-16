@@ -153,7 +153,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [displayUri]);
 
   // ── Source loading ───────────────────────────────────────────────────────
-  // KEY FIX: 50ms delay before replaceAsync so the VideoView surface has time
+  // KEY FIX: 200ms delay before replaceAsync so the VideoView surface has time
   // to bind before we push data into the decoder. Without this, on Android the
   // SurfaceView is not yet attached, causing audio-only playback (black screen).
   useEffect(() => {
@@ -165,8 +165,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     const load = async () => {
       try {
-        // Give VideoView's native surface 50ms to fully bind before we decode.
-        await new Promise<void>(resolve => setTimeout(resolve, 50));
+        // Give VideoView's native surface 200ms to fully bind before we decode.
+        // 50ms was not enough on lower-end Android devices (race condition).
+        await new Promise<void>(resolve => setTimeout(resolve, 200));
         if (cancelled) return;
         await player.replaceAsync(displayUri);
         if (!cancelled) isLoadingSource.current = false;
@@ -271,16 +272,21 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         savedTranslateY.value = 0;
       } else {
         savedScale.value = imageScale.value;
-        // Clamp translation to bounds after scale settles
+        // Clamp translation to bounds after scale settles.
+        // Both axes use SW (the smaller dimension on portrait phones) so that
+        // landscape images — which are letterboxed with short content height —
+        // can never be panned fully off-screen.
         const maxX = ((imageScale.value - 1) * SW) / 2;
-        const maxY = ((imageScale.value - 1) * SH) / 2;
+        const maxY = ((imageScale.value - 1) * SW) / 2;
         if (Math.abs(translateX.value) > maxX) {
-          translateX.value = withSpring(translateX.value > 0 ? maxX : -maxX);
-          savedTranslateX.value = translateX.value > 0 ? maxX : -maxX;
+          const clampedX = translateX.value > 0 ? maxX : -maxX;
+          translateX.value = withSpring(clampedX);
+          savedTranslateX.value = clampedX;
         }
         if (Math.abs(translateY.value) > maxY) {
-          translateY.value = withSpring(translateY.value > 0 ? maxY : -maxY);
-          savedTranslateY.value = translateY.value > 0 ? maxY : -maxY;
+          const clampedY = translateY.value > 0 ? maxY : -maxY;
+          translateY.value = withSpring(clampedY);
+          savedTranslateY.value = clampedY;
         }
       }
     });
@@ -296,8 +302,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     .onUpdate((e) => {
       const scale = imageScale.value;
       // Maximum panning range grows with scale. At 1x there is no pan range.
+      // Both axes use SW so landscape images can never pan fully off-screen.
       const maxX = ((scale - 1) * SW) / 2;
-      const maxY = ((scale - 1) * SH) / 2;
+      const maxY = ((scale - 1) * SW) / 2;
       const newX = savedTranslateX.value + e.translationX;
       const newY = savedTranslateY.value + e.translationY;
       translateX.value = Math.max(-maxX, Math.min(maxX, newX));
@@ -324,9 +331,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         const targetScale = 2.5;
         imageScale.value = withSpring(targetScale);
         savedScale.value = targetScale;
-        // Center on the tapped area, clamped to bounds
+        // Center on the tapped area, clamped to bounds (SW for both axes)
         const maxX = ((targetScale - 1) * SW) / 2;
-        const maxY = ((targetScale - 1) * SH) / 2;
+        const maxY = ((targetScale - 1) * SW) / 2;
         const tapX = Math.max(-maxX, Math.min(maxX, (SW / 2 - e.x) * (targetScale - 1)));
         const tapY = Math.max(-maxY, Math.min(maxY, (SH / 2 - e.y) * (targetScale - 1)));
         translateX.value = withSpring(tapX);
@@ -385,21 +392,28 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
               {/*
-                VideoView is mounted ONLY when:
-                  1. This item is active (one decoder surface at a time), AND
-                  2. displayUri is already set (file:// URI is ready).
+                VideoView is mounted when isNearActive (prev/current/next),
+                NOT just when isActive. This is the critical fix for black screen:
 
-                Mounting VideoView BEFORE the URI is ready creates a native
-                SurfaceView without a bound source. When replaceAsync is later
-                called, some Android devices fail to reconnect the surface to
-                the new decoder → audio plays but video surface stays black.
+                When VideoView is mounted ONLY on the active item, the native
+                SurfaceView is created at the exact moment the user swipes — the
+                same moment replaceAsync is called. On many Android devices the
+                SurfaceView is not yet bound to the hardware decoder in time,
+                so audio plays but video stays black.
 
-                By waiting until displayUri is non-null and giving the VideoView
-                a key tied to that URI, we guarantee a fresh SurfaceView is
-                created and fully attached before replaceAsync pushes any data
-                into the hardware decoder, eliminating the black-screen race.
+                By mounting for isNearActive (up to 3 surfaces), the SurfaceView
+                for the next/previous video is already fully attached by the time
+                the user swipes to it. replaceAsync then finds a ready surface
+                and connects immediately — zero black-screen race.
+
+                The thumbnail overlay (below) ensures only the active+ready video
+                is actually visible; adjacent mounted-but-not-active VideoViews
+                are hidden under the thumbnail.
+
+                We also render only when displayUri is set so we never create a
+                surface without a source (which could still cause issues).
               */}
-              {isActive && !!displayUri && (
+              {isNearActive && !!displayUri && (
                 <VideoView
                   key={`${item.id}-${displayUri}`}
                   player={player}
