@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import COLORS from '@/constants/colors';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
@@ -22,6 +23,10 @@ interface MediaCardProps {
   onDelete?: () => void;
 }
 
+// Module-level cache persists across re-renders and list recycling.
+// Maps source URI → generated thumbnail file URI.
+const thumbnailCache = new Map<string, string>();
+
 function MediaCardInner({
   item,
   isSaved,
@@ -34,6 +39,33 @@ function MediaCardInner({
 }: MediaCardProps) {
   const uri = 'localUri' in item ? item.localUri : item.uri;
 
+  // Initialise from cache immediately so recycled cards show thumbnail at once
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(
+    item.type === 'video' ? (thumbnailCache.get(uri) ?? null) : null
+  );
+
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    if (thumbnailCache.has(uri)) {
+      setThumbnailUri(thumbnailCache.get(uri)!);
+      return;
+    }
+
+    let cancelled = false;
+    VideoThumbnails.getThumbnailAsync(uri, { time: 100 })
+      .then(({ uri: thumbUri }) => {
+        if (!cancelled) {
+          thumbnailCache.set(uri, thumbUri);
+          setThumbnailUri(thumbUri);
+        }
+      })
+      .catch(() => {
+        // Generation failed — gradient placeholder stays; no crash
+      });
+
+    return () => { cancelled = true; };
+  }, [uri, item.type]);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -42,21 +74,37 @@ function MediaCardInner({
         style={styles.touchable}
       >
         {item.type === 'video' ? (
-          /* Video: zero-cost gradient placeholder — never tries to decode a video
-             file as an image (which always fails and wastes I/O on the main thread).
-             The thumbnail will be visible once the user opens the viewer. */
-          <LinearGradient
-            colors={['#1a1a2e', '#0d0d1a']}
-            style={styles.image}
-          >
-            <View style={styles.videoPlayCenter}>
-              <View style={styles.playButton}>
-                <Ionicons name="play" size={18} color="#fff" />
+          thumbnailUri ? (
+            /* Real thumbnail available — show it with a play-button overlay */
+            <View style={styles.image}>
+              <Image
+                source={{ uri: thumbnailUri }}
+                style={styles.image}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={thumbnailUri}
+              />
+              <View style={styles.videoOverlay}>
+                <View style={styles.playButton}>
+                  <Ionicons name="play" size={16} color="#fff" />
+                </View>
               </View>
             </View>
-          </LinearGradient>
+          ) : (
+            /* Thumbnail still generating — show gradient with play icon */
+            <LinearGradient
+              colors={['#1a1a2e', '#0d0d1a']}
+              style={styles.image}
+            >
+              <View style={styles.videoPlayCenter}>
+                <View style={styles.playButton}>
+                  <Ionicons name="play" size={18} color="#fff" />
+                </View>
+              </View>
+            </LinearGradient>
+          )
         ) : (
-          /* Image: expo-image reads content:// natively on Android — no copy needed */
+          /* Image: expo-image reads content:// natively on Android */
           <Image
             source={{ uri }}
             style={styles.image}
@@ -134,7 +182,7 @@ const styles = StyleSheet.create({
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },

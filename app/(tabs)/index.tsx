@@ -441,7 +441,7 @@ export default function StatusesScreen() {
       >
         <View style={{ width: SW }}>
           {isLoading ? (
-            <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
+            <LoadingShimmer count={GRID_COLUMNS * 4} />
           ) : filteredImages.length === 0 ? (
             <EmptyState
               icon="images-outline"
@@ -487,7 +487,7 @@ export default function StatusesScreen() {
 
         <View style={{ width: SW }}>
           {isLoading ? (
-            <LoadingShimmer count={Math.floor((SW - 2) / (CARD_SIZE + 2)) * 4} />
+            <LoadingShimmer count={GRID_COLUMNS * 4} />
           ) : filteredVideos.length === 0 ? (
             <EmptyState
               icon="videocam-outline"

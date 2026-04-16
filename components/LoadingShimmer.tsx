@@ -37,7 +37,9 @@ interface LoadingShimmerProps {
   count?: number;
 }
 
-export function LoadingShimmer({ count = 9 }: LoadingShimmerProps) {
+// Default to exactly GRID_COLUMNS * 4 so we always fill 4 complete rows,
+// regardless of floating-point rounding from dimension arithmetic.
+export function LoadingShimmer({ count = GRID_COLUMNS * 4 }: LoadingShimmerProps) {
   useEffect(() => {
     startGlobalShimmer();
     return () => {
