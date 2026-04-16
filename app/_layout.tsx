@@ -44,7 +44,6 @@ async function applyImmersiveMode() {
     const sdkVersion = Platform.Version as number;
     if (sdkVersion < 30) {
       await NavigationBar.setVisibilityAsync('visible');
-      await NavigationBar.setBackgroundColorAsync(COLORS.BACKGROUND);
     }
     await NavigationBar.setButtonStyleAsync('light');
   } catch {}

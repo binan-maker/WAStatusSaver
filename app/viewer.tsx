@@ -420,7 +420,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
                   nativeControls={false}
-                  allowsFullscreen={false}
                 />
               )}
 

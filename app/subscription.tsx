@@ -18,38 +18,27 @@ import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { SubscriptionPlanId } from "@/shared/subscription-plans";
 import { PaymentSuccessModal } from "@/components/PaymentSuccessModal";
 
-const FEATURES = [
-  { icon: "block-helper", label: "Zero ads — completely removed" },
-  { icon: "lightning-bolt", label: "Faster app experience" },
-  { icon: "shield-check", label: "Payment verified server-side" },
-  { icon: "cellphone-check", label: "Works on all your Android devices" },
-  { icon: "refresh", label: "Subscription synced to your Google account" },
-];
-
-const WHY = [
-  {
-    icon: "emoticon-happy-outline",
-    title: "Enjoy without interruptions",
-    desc: "No banner, interstitial, or pop-up ads — ever.",
-  },
-  {
-    icon: "lock-check",
-    title: "Secure Razorpay checkout",
-    desc: "UPI, cards, net banking. Never stored on our servers.",
-  },
-  {
-    icon: "server-security",
-    title: "Server-verified payment",
-    desc: "Amount & signature verified on backend before activating.",
-  },
+const PERKS = [
+  { icon: "block-helper", label: "Zero ads" },
+  { icon: "lightning-bolt", label: "Faster experience" },
+  { icon: "cellphone-check", label: "All your devices" },
+  { icon: "shield-check", label: "Secure payment" },
 ];
 
 function formatRemaining(seconds: number) {
   const days = Math.floor(seconds / 86400);
-  if (days > 0) return `${days} days remaining`;
+  if (days > 0) return `${days}`;
   const hours = Math.floor(seconds / 3600);
-  if (hours > 0) return `${hours} hours remaining`;
+  if (hours > 0) return `${hours}h`;
   return "Active";
+}
+
+function formatRemainingUnit(seconds: number) {
+  const days = Math.floor(seconds / 86400);
+  if (days > 0) return days === 1 ? "day left" : "days left";
+  const hours = Math.floor(seconds / 3600);
+  if (hours > 0) return "hours left";
+  return "";
 }
 
 export default function SubscriptionScreen() {
@@ -100,212 +89,197 @@ export default function SubscriptionScreen() {
 
   return (
     <>
-    <PaymentSuccessModal
-      visible={paymentJustSucceeded}
-      planTitle={successPlan?.title ?? 'Pro'}
-      remainingDays={successRemainingDays}
-      onDismiss={dismissPaymentSuccess}
-    />
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: insets.bottom + SPACING.XXL },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <TouchableOpacity
-        style={[styles.backRow, { marginTop: insets.top + SPACING.SM }]}
-        onPress={() => router.back()}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      <PaymentSuccessModal
+        visible={paymentJustSucceeded}
+        planTitle={successPlan?.title ?? "Pro"}
+        remainingDays={successRemainingDays}
+        onDismiss={dismissPaymentSuccess}
+      />
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + SPACING.XXL },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <Ionicons name="arrow-back" size={20} color={COLORS.TEXT_SECONDARY} />
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.backRow, { marginTop: insets.top + SPACING.SM }]}
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="arrow-back" size={20} color={COLORS.TEXT_SECONDARY} />
+          <Text style={styles.backText}>Back</Text>
+        </TouchableOpacity>
 
-      <LinearGradient
-        colors={["#031F16", "#063B2B", "#05070A"]}
-        style={styles.hero}
-      >
-        <View style={styles.crownWrap}>
-          <MaterialCommunityIcons name="crown" size={36} color={COLORS.PRIMARY} />
+        {/* ── Hero ──────────────────────────────────────────────────── */}
+        <LinearGradient
+          colors={["#031F16", "#063B2B", "#05070A"]}
+          style={styles.hero}
+        >
+          <View style={styles.crownWrap}>
+            <MaterialCommunityIcons name="crown" size={40} color={COLORS.PRIMARY} />
+          </View>
+          <Text style={styles.heroTitle}>StatusVault Pro</Text>
+          <Text style={styles.heroSub}>
+            No ads. No interruptions.{"\n"}One payment, unlimited peace.
+          </Text>
+
+          {/* Perks pills */}
+          <View style={styles.perksRow}>
+            {PERKS.map(p => (
+              <View key={p.label} style={styles.perkPill}>
+                <MaterialCommunityIcons name={p.icon as any} size={12} color={COLORS.PRIMARY} />
+                <Text style={styles.perkText}>{p.label}</Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
+
+        {/* ── Active Pro card ───────────────────────────────────────── */}
+        {isSubscribed && (
+          <LinearGradient
+            colors={["#041E14", "#073D2C", "#041E14"]}
+            style={styles.activeCard}
+          >
+            <View style={styles.activeCardInner}>
+              <View style={styles.activeLeft}>
+                <View style={styles.activeCrownWrap}>
+                  <MaterialCommunityIcons name="crown" size={28} color={COLORS.PRIMARY} />
+                </View>
+                <View>
+                  <Text style={styles.activeLabel}>Pro Member</Text>
+                  <Text style={styles.activeName}>StatusVault Pro</Text>
+                </View>
+              </View>
+              <View style={styles.activeRight}>
+                <Text style={styles.activeBigNum}>{formatRemaining(remainingSeconds)}</Text>
+                <Text style={styles.activeDayUnit}>{formatRemainingUnit(remainingSeconds)}</Text>
+              </View>
+            </View>
+            <Text style={styles.activeNote}>Ads removed · Stacks when you extend</Text>
+          </LinearGradient>
+        )}
+
+        {/* ── Signed-in account ────────────────────────────────────── */}
+        {user && (
+          <View style={styles.accountRow}>
+            <MaterialCommunityIcons name="google" size={15} color={COLORS.PRIMARY} />
+            <Text style={styles.accountText} numberOfLines={1} ellipsizeMode="middle">
+              {user.email}
+            </Text>
+          </View>
+        )}
+
+        {/* ── Plans ────────────────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>Choose a plan</Text>
+        <View style={styles.plans}>
+          {plans.map((plan, index) => {
+            const isCurrentPlan = status.planId === plan.id && isSubscribed;
+            const paying = payingPlanId === plan.id;
+            const isValue = index === 1;
+            const periodLabel =
+              plan.id === "monthly" ? "/mo" : plan.id === "yearly" ? "/yr" : `/${plan.durationDays}d`;
+
+            return (
+              <View
+                key={plan.id}
+                style={[
+                  styles.planCard,
+                  isCurrentPlan && styles.planCardActive,
+                  isValue && styles.planCardHighlight,
+                ]}
+              >
+                {isValue && (
+                  <View style={styles.bestStrip}>
+                    <MaterialCommunityIcons name="star-four-points" size={10} color={COLORS.PRIMARY} />
+                    <Text style={styles.bestStripText}>Best Value</Text>
+                  </View>
+                )}
+
+                <View style={[styles.planBody, isValue && { marginTop: 34 }]}>
+                  {/* Left: title + price */}
+                  <View style={styles.planLeft}>
+                    <Text style={styles.planTitle} numberOfLines={1}>{plan.title}</Text>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.priceSymbol}>₹</Text>
+                      <Text style={styles.priceAmount}>{plan.amount}</Text>
+                      <Text style={styles.pricePeriod}>{periodLabel}</Text>
+                    </View>
+                  </View>
+
+                  {/* Right: badge or current indicator */}
+                  {isCurrentPlan ? (
+                    <View style={styles.activeBadge}>
+                      <MaterialCommunityIcons name="check-circle" size={11} color={COLORS.PRIMARY} />
+                      <Text style={styles.activeBadgeText}>Active</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.planBadge}>
+                      <Text style={styles.planBadgeText} numberOfLines={1}>{plan.badge}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => handlePay(plan.id)}
+                  disabled={isBusy}
+                  style={[
+                    styles.payBtn,
+                    isSubscribed && styles.payBtnExtend,
+                    isValue && !isSubscribed && styles.payBtnHighlight,
+                  ]}
+                  activeOpacity={0.82}
+                >
+                  {paying || (signingIn && pendingPlanRef.current === plan.id) ? (
+                    <ActivityIndicator
+                      color={isSubscribed ? COLORS.PRIMARY : "#06100C"}
+                      size="small"
+                    />
+                  ) : isSubscribed ? (
+                    <>
+                      <MaterialCommunityIcons name="plus-circle-outline" size={15} color={COLORS.PRIMARY} />
+                      <Text style={[styles.payBtnText, { color: COLORS.PRIMARY }]}>
+                        Extend · +{plan.durationDays} days
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="credit-card-outline" size={15} color="#06100C" />
+                      <Text style={styles.payBtnText}>Get Pro · ₹{plan.amount}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {!user && !isSubscribed && (
+                  <Text style={styles.hintText}>Sign in with Google, then pay instantly</Text>
+                )}
+              </View>
+            );
+          })}
         </View>
-        <Text style={styles.heroTitle}>Go Ad-Free</Text>
-        <Text style={styles.heroSub}>
-          Watch statuses without interruptions.{"\n"}One-time payment, no hidden charges.
-        </Text>
 
+        {/* ── Trust footer ─────────────────────────────────────────── */}
         <View style={styles.trustRow}>
           <View style={styles.trustBadge}>
-            <MaterialCommunityIcons name="shield-check" size={13} color={COLORS.PRIMARY} />
-            <Text style={styles.trustText}>Server Verified</Text>
-          </View>
-          <View style={styles.trustBadge}>
-            <MaterialCommunityIcons name="lock" size={13} color={COLORS.PRIMARY} />
+            <MaterialCommunityIcons name="lock" size={12} color={COLORS.TEXT_MUTED} />
             <Text style={styles.trustText}>Razorpay Secure</Text>
           </View>
           <View style={styles.trustBadge}>
-            <MaterialCommunityIcons name="google" size={13} color={COLORS.PRIMARY} />
-            <Text style={styles.trustText}>Google Account</Text>
+            <MaterialCommunityIcons name="shield-check" size={12} color={COLORS.TEXT_MUTED} />
+            <Text style={styles.trustText}>Server Verified</Text>
+          </View>
+          <View style={styles.trustBadge}>
+            <MaterialCommunityIcons name="refresh" size={12} color={COLORS.TEXT_MUTED} />
+            <Text style={styles.trustText}>No Auto-Renewal</Text>
           </View>
         </View>
-      </LinearGradient>
 
-      {isSubscribed && (
-        <LinearGradient
-          colors={["#031F16", "#063B2B", "#031F16"]}
-          style={styles.activeBox}
-        >
-          <View style={styles.activeBoxTop}>
-            <View style={styles.activeIconWrap}>
-              <MaterialCommunityIcons name="crown" size={24} color={COLORS.PRIMARY} />
-            </View>
-            <View style={styles.activeBoxBadge}>
-              <MaterialCommunityIcons name="check-circle" size={11} color={COLORS.PRIMARY} />
-              <Text style={styles.activeBoxBadgeText}>Pro Member</Text>
-            </View>
-          </View>
-          <Text style={styles.activeTitle}>StatusVault Pro</Text>
-          <Text style={styles.activeDays}>
-            {formatRemaining(remainingSeconds)}
-          </Text>
-          <Text style={styles.activeSub}>
-            All ads removed · Time stacks when you extend
-          </Text>
-        </LinearGradient>
-      )}
-
-      {user && (
-        <View style={styles.accountRow}>
-          <MaterialCommunityIcons name="google" size={16} color={COLORS.PRIMARY} />
-          <Text style={styles.accountText} numberOfLines={1}>
-            Signed in as {user.email}
-          </Text>
-        </View>
-      )}
-
-      <Text style={styles.sectionLabel}>What you get</Text>
-      <View style={styles.featuresCard}>
-        {FEATURES.map((f, i) => (
-          <View key={f.label} style={[styles.featureRow, i > 0 && styles.featureRowBorder]}>
-            <View style={styles.featureIcon}>
-              <MaterialCommunityIcons name={f.icon as any} size={17} color={COLORS.PRIMARY} />
-            </View>
-            <Text style={styles.featureLabel}>{f.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text style={styles.sectionLabel}>Choose your plan</Text>
-      <View style={styles.plans}>
-        {plans.map((plan, index) => {
-          const isCurrentPlan = status.planId === plan.id && isSubscribed;
-          const paying = payingPlanId === plan.id;
-          const isValue = index === 1;
-
-          return (
-            <View
-              key={plan.id}
-              style={[
-                styles.planCard,
-                isCurrentPlan && styles.planCardActive,
-                isValue && styles.planCardHighlight,
-              ]}
-            >
-              {isValue && (
-                <View style={styles.popularStrip}>
-                  <Text style={styles.popularStripText}>⭐ Best Value</Text>
-                </View>
-              )}
-
-              <View style={[styles.planTop, isValue && styles.planTopWithStrip]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.planTitle}>{plan.title}</Text>
-                  <Text style={styles.planDesc}>{plan.description}</Text>
-                </View>
-                {isCurrentPlan ? (
-                  <View style={styles.currentPlanBadge}>
-                    <MaterialCommunityIcons name="check-circle" size={12} color={COLORS.PRIMARY} />
-                    <Text style={styles.currentPlanBadgeText}>Current</Text>
-                  </View>
-                ) : (
-                  <View style={styles.planBadge}>
-                    <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.planPriceRow}>
-                <Text style={styles.priceSymbol}>₹</Text>
-                <Text style={styles.priceAmount}>{plan.amount}</Text>
-                <Text style={styles.pricePer}>
-                  {plan.id === "monthly" ? " / month" : plan.id === "yearly" ? " / year" : ` / ${plan.durationDays} days`}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => handlePay(plan.id)}
-                disabled={isBusy}
-                style={[
-                  styles.payButton,
-                  isSubscribed && styles.payButtonExtend,
-                  isValue && !isSubscribed && styles.payButtonHighlight,
-                ]}
-                activeOpacity={0.82}
-              >
-                {paying || (signingIn && pendingPlanRef.current === plan.id) ? (
-                  <ActivityIndicator color={isSubscribed ? COLORS.PRIMARY : "#06100C"} size="small" />
-                ) : isSubscribed ? (
-                  <>
-                    <MaterialCommunityIcons name="plus-circle-outline" size={16} color={COLORS.PRIMARY} />
-                    <Text style={[styles.payButtonText, styles.payButtonExtendText]}>Extend Pro Access</Text>
-                  </>
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="credit-card-outline" size={16} color="#06100C" />
-                    <Text style={styles.payButtonText}>Pay ₹{plan.amount}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              {!user && !isSubscribed && (
-                <Text style={styles.signInHint}>
-                  Tap to sign in with Google, then pay instantly
-                </Text>
-              )}
-              {isSubscribed && (
-                <Text style={styles.extendHint}>
-                  +{plan.durationDays} days will be added to your current Pro time
-                </Text>
-              )}
-            </View>
-          );
-        })}
-      </View>
-
-      <Text style={styles.sectionLabel}>Why subscribe?</Text>
-      <View style={styles.whyCard}>
-        {WHY.map((w, i) => (
-          <View key={w.title} style={[styles.whyRow, i > 0 && styles.whyRowBorder]}>
-            <View style={styles.whyIconWrap}>
-              <MaterialCommunityIcons name={w.icon as any} size={20} color={COLORS.PRIMARY} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.whyTitle}>{w.title}</Text>
-              <Text style={styles.whyDesc}>{w.desc}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.footer}>
-        <MaterialCommunityIcons name="lock-check" size={14} color={COLORS.TEXT_MUTED} />
-        <Text style={styles.footerText}>
-          Payments are handled securely by Razorpay. StatusVault does not store or process your financial data. Amount & signature verified on our server before activation. Subscription synced to your Google account across reinstalls.{"\n\n"}
-          Refund window: 48 hours for the yearly plan, only for verified app failures. Monthly plan: no refund. All plans have a fixed expiry date with no auto-renewal.
+        <Text style={styles.legalText}>
+          Payments handled by Razorpay. Fixed expiry, no auto-renewal.
+          48-hour refund window on yearly plan for verified app failures only.
         </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
     </>
   );
 }
@@ -330,119 +304,130 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.SM,
     fontFamily: "Nunito_600SemiBold",
   },
+
+  /* Hero */
   hero: {
     borderRadius: RADIUS.LG,
-    padding: SPACING.XL,
+    paddingVertical: SPACING.XL + 4,
+    paddingHorizontal: SPACING.XL,
     alignItems: "center",
-    gap: SPACING.MD,
+    gap: SPACING.SM,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY + "40",
+    borderColor: COLORS.PRIMARY + "35",
   },
   crownWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: COLORS.PRIMARY + "18",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: SPACING.XS,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "30",
   },
   heroTitle: {
     color: COLORS.TEXT,
     fontSize: FONT_SIZE.XXL,
-    fontWeight: "900",
     fontFamily: "Nunito_800ExtraBold",
     letterSpacing: -0.5,
   },
   heroSub: {
     color: COLORS.TEXT_SECONDARY,
     fontSize: FONT_SIZE.SM,
-    lineHeight: 21,
+    lineHeight: 20,
     textAlign: "center",
     fontFamily: "Nunito_400Regular",
   },
-  trustRow: {
+  perksRow: {
     flexDirection: "row",
-    gap: SPACING.SM,
     flexWrap: "wrap",
+    gap: SPACING.SM,
     justifyContent: "center",
     marginTop: SPACING.XS,
   },
-  trustBadge: {
+  perkPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: COLORS.PRIMARY + "14",
-    paddingHorizontal: SPACING.SM,
+    gap: 5,
+    backgroundColor: COLORS.PRIMARY + "12",
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: RADIUS.FULL,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY + "30",
+    borderColor: COLORS.PRIMARY + "28",
   },
-  trustText: {
+  perkText: {
     color: COLORS.PRIMARY,
     fontSize: 10,
     fontFamily: "Nunito_700Bold",
   },
-  activeBox: {
+
+  /* Active Pro card */
+  activeCard: {
     borderRadius: RADIUS.LG,
-    padding: SPACING.XL,
-    gap: SPACING.XS,
-    borderWidth: 1,
+    padding: SPACING.LG,
+    borderWidth: 1.5,
     borderColor: COLORS.PRIMARY + "55",
-    alignItems: "center",
+    gap: SPACING.SM,
   },
-  activeBoxTop: {
+  activeCardInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    width: "100%",
-    marginBottom: SPACING.SM,
   },
-  activeIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  activeLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.MD,
+    flex: 1,
+  },
+  activeCrownWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: COLORS.PRIMARY + "18",
     alignItems: "center",
     justifyContent: "center",
-  },
-  activeBoxBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: COLORS.PRIMARY + "18",
-    paddingHorizontal: SPACING.SM,
-    paddingVertical: 5,
-    borderRadius: RADIUS.FULL,
     borderWidth: 1,
     borderColor: COLORS.PRIMARY + "40",
   },
-  activeBoxBadgeText: {
+  activeLabel: {
     color: COLORS.PRIMARY,
-    fontSize: 11,
+    fontSize: FONT_SIZE.XS,
     fontFamily: "Nunito_700Bold",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
-  activeTitle: {
+  activeName: {
     color: COLORS.TEXT,
     fontSize: FONT_SIZE.LG,
-    fontWeight: "900",
     fontFamily: "Nunito_800ExtraBold",
   },
-  activeDays: {
+  activeRight: {
+    alignItems: "flex-end",
+  },
+  activeBigNum: {
     color: COLORS.PRIMARY,
-    fontSize: 32,
-    fontWeight: "900",
+    fontSize: 42,
     fontFamily: "Nunito_800ExtraBold",
-    letterSpacing: -0.5,
+    lineHeight: 46,
+    letterSpacing: -1,
   },
-  activeSub: {
-    color: COLORS.TEXT_SECONDARY,
+  activeDayUnit: {
+    color: COLORS.PRIMARY + "AA",
+    fontSize: FONT_SIZE.XS,
+    fontFamily: "Nunito_600SemiBold",
+    textAlign: "right",
+  },
+  activeNote: {
+    color: COLORS.TEXT_MUTED,
     fontSize: FONT_SIZE.XS,
     fontFamily: "Nunito_400Regular",
     textAlign: "center",
-    marginTop: SPACING.XS,
   },
+
+  /* Account */
   accountRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -460,52 +445,25 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZE.SM,
     fontFamily: "Nunito_400Regular",
   },
+
+  /* Section label */
   sectionLabel: {
     color: COLORS.TEXT,
     fontSize: FONT_SIZE.LG,
-    fontWeight: "900",
     fontFamily: "Nunito_800ExtraBold",
-    marginBottom: -SPACING.SM,
+    marginBottom: -SPACING.XS,
   },
-  featuresCard: {
-    backgroundColor: COLORS.SURFACE,
-    borderRadius: RADIUS.LG,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    overflow: "hidden",
-  },
-  featureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.MD,
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD + 2,
-  },
-  featureRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
-  },
-  featureIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.PRIMARY + "14",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  featureLabel: {
-    flex: 1,
-    color: COLORS.TEXT,
-    fontSize: FONT_SIZE.SM,
-    fontFamily: "Nunito_600SemiBold",
-  },
+
+  /* Plan cards */
   plans: {
     gap: SPACING.MD,
   },
   planCard: {
     backgroundColor: COLORS.SURFACE,
     borderRadius: RADIUS.LG,
-    padding: SPACING.LG,
+    paddingHorizontal: SPACING.LG,
+    paddingBottom: SPACING.LG,
+    paddingTop: SPACING.LG,
     gap: SPACING.MD,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
@@ -518,79 +476,103 @@ const styles = StyleSheet.create({
     borderColor: COLORS.PRIMARY + "55",
     backgroundColor: COLORS.SURFACE_2,
   },
-  popularStrip: {
+
+  /* Best value strip */
+  bestStrip: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.PRIMARY + "1A",
-    paddingVertical: 5,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    backgroundColor: COLORS.PRIMARY + "1C",
+    paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.PRIMARY + "30",
   },
-  popularStripText: {
+  bestStripText: {
     color: COLORS.PRIMARY,
     fontSize: 11,
     fontFamily: "Nunito_700Bold",
   },
-  planTop: {
+
+  /* Plan body */
+  planBody: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: SPACING.SM,
   },
-  planTopWithStrip: {
-    marginTop: 22,
+  planLeft: {
+    flex: 1,
+    gap: 2,
   },
   planTitle: {
     color: COLORS.TEXT,
     fontSize: FONT_SIZE.LG,
-    fontWeight: "900",
     fontFamily: "Nunito_800ExtraBold",
   },
-  planDesc: {
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 1,
+  },
+  priceSymbol: {
     color: COLORS.TEXT_SECONDARY,
-    fontSize: FONT_SIZE.XS,
+    fontSize: FONT_SIZE.MD,
+    fontFamily: "Nunito_600SemiBold",
+    paddingBottom: 4,
+  },
+  priceAmount: {
+    color: COLORS.TEXT,
+    fontSize: 38,
+    fontFamily: "Nunito_800ExtraBold",
+    lineHeight: 42,
+    letterSpacing: -1,
+  },
+  pricePeriod: {
+    color: COLORS.TEXT_SECONDARY,
+    fontSize: FONT_SIZE.SM,
     fontFamily: "Nunito_400Regular",
-    marginTop: 3,
+    paddingBottom: 5,
   },
   planBadge: {
     alignSelf: "flex-start",
-    backgroundColor: COLORS.PRIMARY + "18",
+    backgroundColor: COLORS.PRIMARY + "14",
     paddingHorizontal: SPACING.SM,
     paddingVertical: 4,
     borderRadius: RADIUS.FULL,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "30",
+    maxWidth: 90,
   },
   planBadgeText: {
     color: COLORS.PRIMARY,
     fontSize: 10,
     fontFamily: "Nunito_700Bold",
   },
-  planPriceRow: {
+  activeBadge: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 2,
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: COLORS.PRIMARY + "18",
+    paddingHorizontal: SPACING.SM,
+    paddingVertical: 4,
+    borderRadius: RADIUS.FULL,
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "50",
   },
-  priceSymbol: {
-    color: COLORS.TEXT_SECONDARY,
-    fontSize: FONT_SIZE.LG,
-    fontFamily: "Nunito_600SemiBold",
-    paddingBottom: 3,
+  activeBadgeText: {
+    color: COLORS.PRIMARY,
+    fontSize: 10,
+    fontFamily: "Nunito_700Bold",
   },
-  priceAmount: {
-    color: COLORS.TEXT,
-    fontSize: 40,
-    fontWeight: "900",
-    fontFamily: "Nunito_800ExtraBold",
-    lineHeight: 46,
-  },
-  pricePer: {
-    color: COLORS.TEXT_SECONDARY,
-    fontSize: FONT_SIZE.SM,
-    fontFamily: "Nunito_400Regular",
-    paddingBottom: 6,
-  },
-  payButton: {
+
+  /* Pay button */
+  payBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -599,117 +581,63 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.FULL,
     paddingVertical: SPACING.MD + 2,
   },
-  payButtonHighlight: {
+  payBtnHighlight: {
     shadowColor: COLORS.PRIMARY,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.4,
     shadowRadius: 12,
-    elevation: 8,
+    elevation: 10,
   },
-  payButtonActive: {
+  payBtnExtend: {
     backgroundColor: COLORS.SURFACE_3,
     borderWidth: 1,
     borderColor: COLORS.PRIMARY + "55",
   },
-  payButtonExtend: {
-    backgroundColor: COLORS.SURFACE_3,
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY + "55",
-  },
-  payButtonText: {
+  payBtnText: {
     color: "#06100C",
     fontSize: FONT_SIZE.MD,
-    fontWeight: "900",
     fontFamily: "Nunito_800ExtraBold",
   },
-  payButtonActiveText: {
-    color: COLORS.PRIMARY,
+  hintText: {
+    color: COLORS.TEXT_MUTED,
+    fontSize: FONT_SIZE.XS,
+    fontFamily: "Nunito_400Regular",
+    textAlign: "center",
+    marginTop: -SPACING.XS,
   },
-  payButtonExtendText: {
-    color: COLORS.PRIMARY,
+
+  /* Trust row */
+  trustRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: SPACING.SM,
+    flexWrap: "wrap",
   },
-  currentPlanBadge: {
+  trustBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    alignSelf: "flex-start",
-    backgroundColor: COLORS.PRIMARY + "22",
+    backgroundColor: COLORS.SURFACE,
     paddingHorizontal: SPACING.SM,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: RADIUS.FULL,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY + "55",
-  },
-  currentPlanBadgeText: {
-    color: COLORS.PRIMARY,
-    fontSize: 10,
-    fontFamily: "Nunito_700Bold",
-  },
-  signInHint: {
-    color: COLORS.TEXT_MUTED,
-    fontSize: FONT_SIZE.XS,
-    fontFamily: "Nunito_400Regular",
-    textAlign: "center",
-    marginTop: -SPACING.XS,
-  },
-  extendHint: {
-    color: COLORS.TEXT_MUTED,
-    fontSize: FONT_SIZE.XS,
-    fontFamily: "Nunito_400Regular",
-    textAlign: "center",
-    marginTop: -SPACING.XS,
-  },
-  whyCard: {
-    backgroundColor: COLORS.SURFACE,
-    borderRadius: RADIUS.LG,
-    borderWidth: 1,
     borderColor: COLORS.BORDER,
-    overflow: "hidden",
   },
-  whyRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: SPACING.MD,
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD + 2,
+  trustText: {
+    color: COLORS.TEXT_MUTED,
+    fontSize: 10,
+    fontFamily: "Nunito_600SemiBold",
   },
-  whyRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
-  },
-  whyIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: COLORS.PRIMARY + "14",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  whyTitle: {
-    color: COLORS.TEXT,
-    fontSize: FONT_SIZE.SM,
-    fontWeight: "900",
-    fontFamily: "Nunito_700Bold",
-    marginBottom: 3,
-  },
-  whyDesc: {
-    color: COLORS.TEXT_SECONDARY,
-    fontSize: FONT_SIZE.XS,
-    fontFamily: "Nunito_400Regular",
-    lineHeight: 17,
-  },
-  footer: {
-    flexDirection: "row",
-    gap: SPACING.SM,
-    alignItems: "flex-start",
-    paddingVertical: SPACING.SM,
-  },
-  footerText: {
-    flex: 1,
+
+  /* Legal */
+  legalText: {
     color: COLORS.TEXT_MUTED,
     fontSize: FONT_SIZE.XS,
     lineHeight: 17,
     fontFamily: "Nunito_400Regular",
+    textAlign: "center",
+    paddingHorizontal: SPACING.SM,
+    marginTop: -SPACING.SM,
   },
 });
