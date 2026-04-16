@@ -1,6 +1,10 @@
 ---
 name: recreate-screenshot
+<<<<<<< HEAD
 description: Recreate a UI from a screenshot or image with pixel-perfect accuracy.
+=======
+description: Recreate a UI from a screenshot or image reference with pixel-perfect accuracy. Covers layout, color extraction, typography matching, component fidelity, and validation.
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ---
 
 # Recreate Screenshot

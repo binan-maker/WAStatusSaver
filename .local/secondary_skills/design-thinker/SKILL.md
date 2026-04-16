@@ -1,6 +1,10 @@
 ---
 name: design-thinker
+<<<<<<< HEAD
 description: Apply design thinking to validate ideas, define audiences, and prioritize directions.
+=======
+description: Apply IDEO-style design thinking methodology to solve complex problems creatively, then present the analysis on canvas and/or as a web artifact.
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ---
 
 # Design Thinking
@@ -11,6 +15,7 @@ Apply human-centered problem solving. Three frameworks dominate industry practic
 
 - Ambiguous problem space, no obvious solution
 - "Why aren't users adopting X?" / "What should we build next?"
+<<<<<<< HEAD
 
 - Stuck and needs structured divergence
 - "Who is this for?" / "Who should we target?" — audience definition and user persona synthesis
@@ -48,12 +53,25 @@ Use when: the problem space is moderately open — "what should we build for mar
 Use when: high-stakes strategic decisions, entering new markets, or pivoting a product. Research is exhaustive — 5+ searches, reading full articles via webFetch, cross-referencing data. Full canvas board with forces diagrams for every concept, detailed assumption mapping, and confidence scoring. Consider launching parallel research subagents for different angles.
 
 Default to Standard Mode. Upgrade to Deep if the user's question involves a new market, significant investment, or a pivot. Downgrade to Quick if the question is binary or narrowly scoped.
+=======
+- Stuck and needs structured divergence
+
+## When NOT to Use
+
+- Known problem, known solution, just needs execution (skip straight to PRD)
+- Visual/UI implementation (use design skill)
+- Technical debugging
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 
 ## Three Frameworks — Choose Wisely
 
 ### 1. Double Diamond (UK Design Council, 2004) — for ambiguous problems
 
+<<<<<<< HEAD
 Two diamonds = two diverge-then-converge cycles. **Discover**(go wide on problem research) →**Define**(narrow to problem statement) →**Develop**(go wide on solutions) →**Deliver** (narrow to one, ship it).
+=======
+Two diamonds = two diverge-then-converge cycles. **Discover** (go wide on problem research) → **Define** (narrow to problem statement) → **Develop** (go wide on solutions) → **Deliver** (narrow to one, ship it).
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 
 Critical insight: most teams skip the first diamond and jump straight to solution brainstorming. The first diamond exists to prevent solving the wrong problem beautifully.
 
@@ -61,7 +79,11 @@ Critical insight: most teams skip the first diamond and jump straight to solutio
 
 ### 2. GV Design Sprint (Jake Knapp, Google Ventures, 2010) — for validation speed
 
+<<<<<<< HEAD
 5 days, 5 phases, hard time-box. Map (Mon) → Sketch (Tue) → Decide (Wed) → Prototype (Thu) → Test with 5 real users (Fri). Full method free at `gv.com/sprint`and`designsprintkit.withgoogle.com`.
+=======
+5 days, 5 phases, hard time-box. Map (Mon) → Sketch (Tue) → Decide (Wed) → Prototype (Thu) → Test with 5 real users (Fri). Full method free at `gv.com/sprint` and `designsprintkit.withgoogle.com`.
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 
 **Known weakness**: users appear on Day 5, not Day 1. The sprint relies on team intuition to frame the problem — you can spend 5 days sprinting toward the wrong target. Fix: run JTBD interviews *before* the sprint to pick the problem.
 
@@ -77,16 +99,22 @@ Not a workshop — a forensic interview technique. Interview people who *recentl
 
 1. **First thought** — when did it first occur to you this was a problem?
 2. **Passive looking** — noticing solutions but not acting
+<<<<<<< HEAD
 
 3. **Event one** — something happens that makes it urgent
 4. **Active looking** — comparing options, raised hand
 
+=======
+3. **Event one** — something happens that makes it urgent
+4. **Active looking** — comparing options, raised hand
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 5. **Deciding** — what tipped it?
 6. **Buying** — the actual moment
 
 **The Four Forces** (what made the switch happen):
 
 | Force | Direction | Probe |
+<<<<<<< HEAD
 
 |---|---|---|
 
@@ -96,6 +124,12 @@ Not a workshop — a forensic interview technique. Interview people who *recentl
 
 | Anxiety of the new | Against switch | "What worried you about switching?" |
 
+=======
+|---|---|---|
+| Push of the situation | Toward switch | "What was happening that made the old way stop working?" |
+| Pull of the new solution | Toward switch | "When you imagined having this, what got you excited?" |
+| Anxiety of the new | Against switch | "What worried you about switching?" |
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 | Habit of the present | Against switch | "What was good enough about what you had?" |
 
 Switch only happens when Push + Pull > Anxiety + Habit. If someone didn't buy, one of the blocking forces won.
@@ -104,6 +138,7 @@ Switch only happens when Push + Pull > Anxiety + Habit. If someone didn't buy, o
 
 **Use when**: you have customers but don't understand why they chose you, or you're losing deals and don't know why.
 
+<<<<<<< HEAD
 ## Research Synthesis
 
 Research is only useful if it feeds directly into the framework phases. Follow this process to avoid the common failure of doing research and then ignoring it during ideation.
@@ -137,6 +172,8 @@ Every solution concept must reference at least one insight from Step 2 and one d
 
 For the recommended concept, revisit the research to identify what could invalidate it. Look for counter-evidence, missing data, or assumptions the research didn't cover. These become the riskiest assumptions to test.
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ## Core Tools (Framework-Agnostic)
 
 **How Might We (HMW)** — reframe problem as opportunity. Scope test: too narrow bakes in the solution ("HMW add a share button"), too broad is unactionable ("HMW make users happy"). Right: "HMW help busy parents find 20-minute recipes without meal-planning guilt?"
@@ -149,6 +186,7 @@ For the recommended concept, revisit the research to identify what could invalid
 
 **5-Act Interview** (GV test-day script): Friendly welcome → context questions → intro the prototype → tasks (watch, don't help) → debrief. One person interviews, team watches on video in another room and takes notes.
 
+<<<<<<< HEAD
 **Adoption Forces (applied to every concept)** — The JTBD Four Forces framework is too useful to reserve only for JTBD analyses. For every solution concept in DEVELOP, map these four forces from the *target user's perspective*:
 
 | Force | Direction | Question to answer |
@@ -165,6 +203,8 @@ For the recommended concept, revisit the research to identify what could invalid
 
 Adoption happens when Push + Pull > Anxiety + Habit. If the forces don't balance toward adoption, the concept needs redesign — either amplify Push/Pull or reduce Anxiety/Habit. In Standard mode, do this for the top recommended concept. In Deep mode, do it for every concept.
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ## Output Format
 
 ```markdown
@@ -172,7 +212,10 @@ Adoption happens when Push + Pull > Anxiety + Habit. If the forces don't balance
 # [Challenge]
 
 ## Framework Used
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 [Double Diamond / GV Sprint / JTBD — and why this one]
 
 ## Problem Definition
@@ -182,6 +225,7 @@ Adoption happens when Push + Pull > Anxiety + Habit. If the forces don't balance
 ### Key Insights (with evidence — quote or observation, not assumption)
 
 ## [If JTBD] Forces Diagram
+<<<<<<< HEAD
 
 | Push | Pull | Anxiety | Habit |
 
@@ -220,11 +264,23 @@ Adoption happens when Push + Pull > Anxiety + Habit. If the forces don't balance
 
 - **Would decrease if**: [e.g., "merchants report they tried similar apps before and abandoned them"]
 
+=======
+| Push | Pull | Anxiety | Habit |
+|---|---|---|---|
+
+## Solution Concepts
+| Concept | Desirable? | Feasible? | Viable? | Riskiest assumption |
+|---|---|---|---|---|
+
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ## Prototype Plan
 
 - What to build (lowest fidelity that tests the assumption)
 - Who to test with (5 users, recruited how)
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - What "success" looks like
 
 ## Next Steps
@@ -238,6 +294,7 @@ When presenting design thinking analysis on the canvas, follow these rules for a
 ### Shape Types & When to Use Each
 
 | Shape | Use For | Why |
+<<<<<<< HEAD
 
 |---|---|---|
 
@@ -247,11 +304,18 @@ When presenting design thinking analysis on the canvas, follow these rules for a
 
 | `geo`(arrow-down / arrow-right) | Flow indicators between sections | Shows the progression through the framework. Use`fill: "solid"`. |
 
+=======
+|---|---|---|
+| `note` (sticky note) | Section headers, sidebar annotations, key stats | Fixed 200px width. Auto-sizes font based on text length — fewer words = bigger text. Perfect for bold single-word headers. |
+| `geo` (rectangle) | Content cards, full-width banners, problem statements | Respects `w` and `h` — use for wide content (500px+ cards, 1600px+ banners). Set `fill: "solid"` and pick a color. |
+| `geo` (arrow-down / arrow-right) | Flow indicators between sections | Shows the progression through the framework. Use `fill: "solid"`. |
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 | `text` | Small inline labels like "vs" between forces | Auto-sizes, minimal visual weight. |
 
 ### Layout Rules
 
 1. **Headers as sticky notes with minimal text** — Use 1-2 words max (e.g., "DISCOVER", "DEFINE", "FORCES"). The note shape auto-scales font size inversely to text length, so short text = large, skimmable headers.
+<<<<<<< HEAD
 2. **Content cards as geo rectangles** — 500px wide for 3-column layouts, 780px for 2-column layouts, 1600px+ for full-width banners. Always set `fill: "solid"` and a color.
 
 3. **Left-column header notes, right-side content** — Place header sticky notes at x=1400, content cards starting at x=1670 (leaving a 70px gap after the 200px-wide header note).
@@ -283,11 +347,42 @@ When presenting design thinking analysis on the canvas, follow these rules for a
 - **`color: "black"`on geo shapes with`fill: "solid"`causes errors** — use`grey` or a dark supported color instead.
 - **Always call `get_canvas_state` before placing shapes** — check for existing content and find empty space.
 
+=======
+
+2. **Content cards as geo rectangles** — 500px wide for 3-column layouts, 780px for 2-column layouts, 1600px+ for full-width banners. Always set `fill: "solid"` and a color.
+
+3. **Left-column header notes, right-side content** — Place header sticky notes at x=1400, content cards starting at x=1670 (leaving a 70px gap after the 200px-wide header note).
+
+4. **Vertical spacing** — 80-100px between rows within a section, 120-150px between sections. This keeps the board breathable and skimmable.
+
+5. **Arrow shapes between sections** — Place `geo` shapes with `arrow-down` geo centered horizontally between sections to show flow. Use the section's color.
+
+6. **Annotation stickies as sidebar** — Place `note` shapes at x=3350 (far right) aligned vertically with their related section. Use for market stats, key quotes, risk callouts — short punchy content that adds context without cluttering the main flow.
+
+7. **Color coding by section** — Be consistent:
+   - Violet: title, concepts
+   - Blue: discover
+   - Green: define
+   - Orange: develop / forces
+   - Red: deliver
+   - Yellow: key callouts (problem statement, switch rule, recommendation)
+   - Light-* variants for content cards within each section
+
+8. **JTBD Forces layout** — Use 2x2 grid: Push (top-left, light-red) vs Pull (top-right, light-green), Anxiety (bottom-left, orange) vs Habit (bottom-right, grey). Place arrow-right shapes and "vs" text labels between the pairs.
+
+### Canvas Gotchas
+
+- **Sticky notes (`note` type) are always 200px wide** — the `w` parameter is ignored. Plan layouts around this constraint.
+- **`labelColor: "white"` can cause rendering errors** — avoid it. Use lighter fill colors where default black text is readable.
+- **`color: "black"` on geo shapes with `fill: "solid"` causes errors** — use `grey` or a dark supported color instead.
+- **Always call `get_canvas_state` before placing shapes** — check for existing content and find empty space.
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - **Delete before recreate** — when updating shapes, delete first then create fresh. Updates to notes can behave unexpectedly.
 
 ### Example: Placing a Section
 
 ```text
+<<<<<<< HEAD
 
 1. Header note (big text):
 
@@ -309,13 +404,31 @@ When presenting design thinking analysis on the canvas, follow these rules for a
 
 { type: "note", x: 3350, y: Y, w: 200, h: 200, color: "yellow", text: "$45.5B\nmarket by 2028" }
 
+=======
+1. Header note (big text):
+   { type: "note", x: 1400, y: Y, w: 200, h: 200, color: "blue", text: "DISCOVER" }
+
+2. Content cards (3-column):
+   { type: "geo", geo: "rectangle", x: 1670, y: Y, w: 500, h: 260, color: "light-blue", fill: "solid", text: "..." }
+   { type: "geo", geo: "rectangle", x: 2220, y: Y, w: 500, h: 260, color: "light-violet", fill: "solid", text: "..." }
+   { type: "geo", geo: "rectangle", x: 2770, y: Y, w: 500, h: 260, color: "light-green", fill: "solid", text: "..." }
+
+3. Flow arrow to next section:
+   { type: "geo", geo: "arrow-down", x: 2300, y: Y+300, w: 80, h: 60, color: "blue", fill: "solid" }
+
+4. Sidebar annotation:
+   { type: "note", x: 3350, y: Y, w: 200, h: 200, color: "yellow", text: "$45.5B\nmarket by 2028" }
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ```
 
 ## Research
 
 - `webSearch("[user's problem domain] user research")` for prior art
 - `webFetch("https://www.gv.com/sprint/")` for full sprint method
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - `webSearch("[product category] reviews site:reddit.com")` — unfiltered user language for push/anxiety forces
 - IDEO Design Kit free methods: `designkit.org/methods`
 
@@ -323,5 +436,8 @@ When presenting design thinking analysis on the canvas, follow these rules for a
 
 - Agent cannot run real interviews — can write the discussion guide, analyze transcripts the user pastes in, and build the synthesis
 - Personas without research are fiction. Push user for real data (support tickets, reviews, churn interviews) before building empathy maps
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - Most "design thinking" fails because teams do ideation theater and skip the uncomfortable research. Bias toward the first diamond

@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 {"runId":"fqy843e3z_OrUtoYX2LuH","workflowName":"Project","mode":"parallel","startTime":1776264398383,"userId":"agent","endTime":1776271307730,"step":"FAILED"}
+=======
+{"runId":"fqy843e3z_OrUtoYX2LuH","workflowName":"Project","mode":"parallel","startTime":1776264398383,"userId":"agent"}
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7

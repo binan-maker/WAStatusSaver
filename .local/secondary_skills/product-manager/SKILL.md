@@ -1,6 +1,10 @@
 ---
 name: product-manager
+<<<<<<< HEAD
 description: Create PRDs, product briefs, user stories, and roadmaps with prioritization frameworks.
+=======
+description: Create PRDs, write user stories, prioritize features, and plan product roadmaps.
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ---
 
 # Product Manager
@@ -11,7 +15,10 @@ Write PRDs, user stories, and roadmaps. Prioritize features. Default to real tem
 
 - PRD, spec, or one-pager needed
 - Backlog prioritization
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - User stories + acceptance criteria
 - Roadmap planning
 
@@ -26,10 +33,15 @@ Before choosing a PRD format or writing anything, run a lightweight intake to un
 
 1. **Product stage**: New product/feature, iteration on existing, or pivot?
 2. **Team size and culture**: Startup (5 people, move fast) vs. enterprise (cross-functional, needs alignment)?
+<<<<<<< HEAD
 
 3. **Decision this document needs to enable**: Exec go/no-go? Eng scoping? Design kickoff?
 4. **Audience**: Who reads this and what do they need to say yes/no to?
 
+=======
+3. **Decision this document needs to enable**: Exec go/no-go? Eng scoping? Design kickoff?
+4. **Audience**: Who reads this and what do they need to say yes/no to?
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 5. **Competitive landscape**: Are there direct competitors or alternatives the user is aware of? Reference the `competitive-analysis` secondary skill if the user needs a deeper market scan before writing the PRD.
 
 Use the answers to select the right PRD format below. Do not default to the longest template — match format to context.
@@ -39,6 +51,7 @@ Use the answers to select the right PRD format below. Do not default to the long
 Before writing the PRD, clarify who is involved. Use a DACI matrix (Atlassian/Intuit standard):
 
 ```text
+<<<<<<< HEAD
 
 | Role | Who | Responsibility |
 
@@ -52,6 +65,14 @@ Before writing the PRD, clarify who is involved. Use a DACI matrix (Atlassian/In
 
 | Informed | [names/roles] | Kept in the loop, no active role |
 
+=======
+| Role       | Who              | Responsibility                              |
+|------------|------------------|---------------------------------------------|
+| Driver     | [name/role]      | Owns the document, drives decisions forward |
+| Approver   | [name/role]      | Final sign-off authority (one person only)   |
+| Contributor| [names/roles]    | Provides input, reviews, raises concerns     |
+| Informed   | [names/roles]    | Kept in the loop, no active role             |
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ```
 
 **Rules**: Exactly one Approver. Driver is usually the PM. If there are more than 3 Contributors, the scope is probably too broad — split the PRD.
@@ -71,7 +92,11 @@ Write the press release *before* building. Used for every Amazon product since 2
 
 Why it works: the press-release frame forces customer language and ruthlessly exposes when you can't articulate the benefit. If the PR is boring, the product probably is too.
 
+<<<<<<< HEAD
 Source templates: Colin Bryar (ex-Bezos chief of staff) at `coda.io/@colin-bryar/working-backwards`, Ian McAllister's LinkedIn template,`github.com/Green-Software-Foundation/pr-faqs` for a real org using PR/FAQ on GitHub.
+=======
+Source templates: Colin Bryar (ex-Bezos chief of staff) at `coda.io/@colin-bryar/working-backwards`, Ian McAllister's LinkedIn template, `github.com/Green-Software-Foundation/pr-faqs` for a real org using PR/FAQ on GitHub.
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 
 **Best for**: Big bets, new product lines, when you need exec alignment before committing eng resources.
 
@@ -81,7 +106,10 @@ Paul Adams (VP Product): "An Intermission must always fit on a printed A4 page. 
 
 - **Problem**: What's broken, why now, links to customer conversations
 - **Job Stories** (Intercom invented these — replaces user stories): `When [situation], I want to [motivation], so I can [expected outcome]`. Situation > persona. "When I'm on-call at 3am and an alert fires" beats "As a DevOps engineer."
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - **Success criteria**: Qualitative + quantitative
 - **NO solution section** — solutions go in Figma, not the PRD
 
@@ -100,6 +128,7 @@ Full template collection: `hustlebadger.com/what-do-product-teams-do/prd-templat
 Every PRD should include a lightweight competitive scan. Add this section after the problem statement in any format:
 
 ```text
+<<<<<<< HEAD
 
 ## Alternatives & Competitive Landscape
 
@@ -111,6 +140,14 @@ Every PRD should include a lightweight competitive scan. Add this section after 
 
 | [Status quo] | [what they do without us] | [cost, time, error rate] |
 
+=======
+## Alternatives & Competitive Landscape
+
+| Alternative         | How users solve this today | Key weakness we exploit        |
+|---------------------|---------------------------|-------------------------------|
+| [Competitor/workaround] | [description]         | [gap or pain point]           |
+| [Status quo]        | [what they do without us]  | [cost, time, error rate]      |
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ```
 
 If the user needs a deeper analysis, reference the `competitive-analysis` secondary skill.
@@ -119,7 +156,10 @@ If the user needs a deeper analysis, reference the `competitive-analysis` second
 
 1. Problem strictly before solution — every high-performing template enforces this
 2. Explicit "Non-goals" section — second most common element
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 3. Living docs — version + changelog, not write-once
 
 ## Scope Estimation
@@ -131,6 +171,7 @@ Effort estimates feed into RICE and roadmap sequencing. Use one of these approac
 When detailed estimates are unreliable, use relative sizing:
 
 ```text
+<<<<<<< HEAD
 
 | Size | Rough meaning | Example |
 
@@ -146,6 +187,15 @@ When detailed estimates are unreliable, use relative sizing:
 
 | XL | 1+ month, cross-functional | New product area, platform change|
 
+=======
+| Size | Rough meaning                        | Example                          |
+|------|--------------------------------------|----------------------------------|
+| XS   | < 1 day, one person                  | Copy change, config tweak        |
+| S    | 1-3 days, one person                 | New API endpoint, simple UI page |
+| M    | 1-2 weeks, 1-2 people                | Feature with frontend + backend  |
+| L    | 2-4 weeks, small team                | Multi-screen flow, new integration|
+| XL   | 1+ month, cross-functional           | New product area, platform change|
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ```
 
 ### Reference-class estimation (higher confidence)
@@ -156,7 +206,10 @@ Compare to similar past work. Ask the user: "What shipped feature is this most s
 
 - Always estimate in ranges, not points: "2-4 weeks" not "3 weeks"
 - Include all functions in the estimate (PM + design + eng + QA), not just eng
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - Explicitly flag unknowns that could blow up the estimate — these become "Open questions" in the PRD
 
 ## Prioritization
@@ -165,10 +218,15 @@ Compare to similar past work. Ask the user: "What shipped feature is this most s
 
 - **Reach**: Users affected per quarter. Use real numbers from analytics, not guesses.
 - **Impact**: 3 = massive, 2 = high, 1 = medium, 0.5 = low, 0.25 = minimal
+<<<<<<< HEAD
 
 - **Confidence**: 100% = data-backed, 80% = strong intuition, 50% = guessing. This multiplier is what makes RICE better than ICE — it punishes wishful thinking.
 - **Effort**: Person-months, all functions (PM + design + eng + QA)
 
+=======
+- **Confidence**: 100% = data-backed, 80% = strong intuition, 50% = guessing. This multiplier is what makes RICE better than ICE — it punishes wishful thinking.
+- **Effort**: Person-months, all functions (PM + design + eng + QA)
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - Score = (R × I × C) / E. Build as a spreadsheet — agent can generate CSV.
 
 **When NOT to use RICE**: When effort estimates are garbage (early-stage), when one item is existential (just do it), when the list is >30 items (you have a strategy problem, not a prioritization problem).
@@ -184,6 +242,7 @@ Now / Next / Later (GOV.UK popularized this — intentionally vague on dates to 
 ```text
 
 ## Theme: [one strategic bet this quarter]
+<<<<<<< HEAD
 
 ## Goal/OKR link: [which company or team OKR does this theme serve?]
 
@@ -193,6 +252,14 @@ Now / Next / Later (GOV.UK popularized this — intentionally vague on dates to 
 
 ### Next (committed, not started)
 
+=======
+## Goal/OKR link: [which company or team OKR does this theme serve?]
+
+### Now (committed, in flight)
+| Initiative | Owner | Goal/OKR link | Success metric | Status |
+
+### Next (committed, not started)
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 | Initiative | Why now | Goal/OKR link | Dependency |
 
 ### Later (directional, not committed)
@@ -210,6 +277,7 @@ Public roadmap examples to reference: `github.com/github/roadmap` (GitHub's own)
 Gherkin syntax (Given/When/Then) — directly executable as test cases:
 
 ```text
+<<<<<<< HEAD
 
 Given [precondition]
 
@@ -217,6 +285,11 @@ When [action]
 
 Then [observable result]
 
+=======
+Given [precondition]
+When [action]
+Then [observable result]
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 And [additional result]
 
 ```
@@ -228,6 +301,7 @@ One scenario per acceptance criterion. If you can't write it as Given/When/Then,
 PRDs are not write-once artifacts. Include this header in every PRD:
 
 ```text
+<<<<<<< HEAD
 
 ---
 
@@ -251,6 +325,20 @@ Owner: [Driver from DACI]
 
 | 1.1 | YYYY-MM-DD | [name] | Added success metrics from review |
 
+=======
+---
+Version: [1.0]
+Last updated: [date]
+Status: [Draft | In Review | Approved | Superseded]
+Owner: [Driver from DACI]
+---
+
+### Changelog
+| Version | Date       | Author | Change summary                    |
+|---------|------------|--------|-----------------------------------|
+| 1.0     | YYYY-MM-DD | [name] | Initial draft                     |
+| 1.1     | YYYY-MM-DD | [name] | Added success metrics from review |
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 ```
 
 **Review cadence**: Recommend the user revisit the PRD at each major milestone — after design review, after eng scoping, and after launch. Update status and log changes.
@@ -261,12 +349,18 @@ Default output is markdown. Adapt format when it serves the user better:
 
 - **RICE scoring table**: Generate as CSV when the user wants to import into a spreadsheet or share with stakeholders
 - **Roadmap**: Markdown table for docs, CSV for spreadsheet import
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - **Connected tools**: Check if the workspace has project management integrations (Linear, Jira, etc.) via the `integrations` skill. If connected, format output to match the tool's conventions (e.g., Linear project spec format for Linear users) and mention that items can be copied into their tool
 
 ## Limitations
 
 - Cannot integrate with Jira/Linear/Asana — deliver as markdown for copy-paste
 - Cannot access user analytics — ask user for reach/retention numbers before RICE scoring
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1cc1c60ac5fd6dadd6cab8c4f32ad75d2e54a9a7
 - Templates are starting points; teams should adapt
