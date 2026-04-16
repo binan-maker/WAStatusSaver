@@ -385,20 +385,23 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
               {/*
-                VideoView is mounted ONLY for the active item. This keeps exactly
-                ONE hardware decoder surface alive at any time, well below Android's
-                limit. Exhausting the limit turns all subsequent videos black.
+                VideoView is mounted ONLY when:
+                  1. This item is active (one decoder surface at a time), AND
+                  2. displayUri is already set (file:// URI is ready).
 
-                Previously mounting for isNearActive (3 at once) was exhausting the
-                decoder pool on budget Android devices → audio-only black screens.
+                Mounting VideoView BEFORE the URI is ready creates a native
+                SurfaceView without a bound source. When replaceAsync is later
+                called, some Android devices fail to reconnect the surface to
+                the new decoder → audio plays but video surface stays black.
 
-                The key prop `item.id` forces a fresh VideoView + surface binding
-                every time a different item becomes active, eliminating the race
-                between replaceAsync and surface attachment.
+                By waiting until displayUri is non-null and giving the VideoView
+                a key tied to that URI, we guarantee a fresh SurfaceView is
+                created and fully attached before replaceAsync pushes any data
+                into the hardware decoder, eliminating the black-screen race.
               */}
-              {isActive && (
+              {isActive && !!displayUri && (
                 <VideoView
-                  key={item.id}
+                  key={`${item.id}-${displayUri}`}
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
