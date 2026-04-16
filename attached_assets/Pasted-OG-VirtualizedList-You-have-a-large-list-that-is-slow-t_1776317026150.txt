@@ -1,0 +1,14 @@
+OG  VirtualizedList: You have a large list that is slow to update - make sure your renderItem function renders components that follow React performance best practices like PureComponent, shouldComponentUpdate, etc. {"contentLength": 18065.455078125, "dt": 4787, "prevDt": 672} The "Worst" Things (Technical Debt & Risks)
+ProGuard Complexity: You enabled enableProguardInReleaseBuilds in app.json.
+The Risk: While this is great for security, ProGuard can sometimes "strip away" essential code from libraries like Razorpay or Firebase if not configured with a proguard-rules.pro file. You must test a "Release" build carefully to ensure the Pay button doesn't crash.
+BFS Depth Risk: Your "Smart BFS" in MediaContext.tsx walks 6 levels deep.
+The Risk: On very old phones with thousands of folders in the "Android/media" directory, this BFS walk could cause a 1-2 second "freeze" during the first permission grant. It's a fair trade-off for the UX win, but it's the "heaviest" part of your code.
+Notification Permissions: You added POST_NOTIFICATIONS to app.json.
+The Risk: On Android 13+, the app must explicitly ask the user for permission to show notifications. If the user says "No" during the first launch, your useStatusReminder will be silent forever.
+3. Potential "Bugs" & Glitches
+The "Double-Tap" Conflict: In viewer.tsx, you have a singleTapGesture and a doubleTapGesture.
+The Glitch: If the maxDuration for the double-tap is too long, the single-tap (which toggles the UI controls) might feel "laggy" because it's waiting to see if a second tap is coming. You might need to fine-tune the 250ms delay.
+The "Ghost" Dependency: You added expo-video-thumbnails to package.json, but your MediaCard.tsx is currently using expo-image for thumbnails.
+The Issue: You have an extra library installed that you aren't using. This adds about 1-2MB to your APK size for no reason. You should either use it or remove it.
+Shimmer Rounding Error: In index.tsx, you fixed the LoadingShimmer count to GRID_COLUMNS * 4.
+The Fix: This was a great catch! Previously, on some screen sizes, the shimmer would show 3.5 rows, leaving a weird gap at the bottom. Now it always fills 4 complete rows.
