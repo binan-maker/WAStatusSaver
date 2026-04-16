@@ -98,12 +98,20 @@ export function useSubscriptionStatus() {
   }, []);
 
   // On mount: restore last-known subscription so Pro users see no ad flash.
+  // Ghost Pro fix: also verify paidUntil hasn't already passed before restoring.
   useEffect(() => {
     AsyncStorage.getItem(SUBSCRIPTION_CACHE_KEY)
       .then((cached) => {
         if (cached) {
           const parsed: SubscriptionStatus = JSON.parse(cached);
-          if (parsed.active) safeSetStatus(parsed);
+          if (parsed.active) {
+            if (!parsed.lifetime && parsed.paidUntil) {
+              const expiresAt = new Date(parsed.paidUntil).getTime();
+              if (expiresAt > Date.now()) safeSetStatus(parsed);
+            } else {
+              safeSetStatus(parsed);
+            }
+          }
         }
       })
       .catch(() => {});
@@ -198,12 +206,29 @@ export function useSubscriptionStatus() {
       if (raw) {
         try {
           const cached: SubscriptionStatus = JSON.parse(raw);
-          const ttl = cached.active ? CACHE_TTL_PRO_MS : CACHE_TTL_FREE_MS;
-          const age = Date.now() - (cached.cachedAt ?? 0);
-          if (age < ttl) {
-            safeSetStatus(cached);
-            safeSetLoading(false);
-            return; // Cache is fresh — no network call needed
+          // Ghost Pro fix: even when cache is fresh, a timed subscription must be
+          // checked against the current time. If paidUntil has passed, bypass
+          // the cache and hit the server to get the real (expired) status.
+          if (cached.active && !cached.lifetime && cached.paidUntil) {
+            const expiresAt = new Date(cached.paidUntil).getTime();
+            if (expiresAt <= Date.now()) {
+              // Subscription expired — fall through to server call
+            } else {
+              const age = Date.now() - (cached.cachedAt ?? 0);
+              if (age < CACHE_TTL_PRO_MS) {
+                safeSetStatus(cached);
+                safeSetLoading(false);
+                return;
+              }
+            }
+          } else {
+            const ttl = cached.active ? CACHE_TTL_PRO_MS : CACHE_TTL_FREE_MS;
+            const age = Date.now() - (cached.cachedAt ?? 0);
+            if (age < ttl) {
+              safeSetStatus(cached);
+              safeSetLoading(false);
+              return;
+            }
           }
         } catch {}
       }

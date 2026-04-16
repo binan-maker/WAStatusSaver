@@ -97,28 +97,33 @@ const RATING_TRIGGER_COUNT = 10;
 
 async function maybeShowRatingPrompt() {
   try {
-    const alreadyPrompted = await AsyncStorage.getItem(STORAGE_KEYS.RATING_PROMPTED);
-    if (alreadyPrompted) return;
+    // "Never" is the only permanent dismissal — stored as 'never'.
+    const dismissed = await AsyncStorage.getItem(STORAGE_KEYS.RATING_PROMPTED);
+    if (dismissed === 'never') return;
 
     const raw = await AsyncStorage.getItem(STORAGE_KEYS.TOTAL_SAVES);
     const count = raw ? parseInt(raw, 10) : 0;
     const newCount = count + 1;
     await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_SAVES, String(newCount));
 
-    if (newCount === RATING_TRIGGER_COUNT) {
-      await AsyncStorage.setItem(STORAGE_KEYS.RATING_PROMPTED, 'true');
+    // Modulo check: prompt every 10 saves so "Maybe Later" users get reminded again.
+    if (newCount % RATING_TRIGGER_COUNT === 0) {
       Alert.alert(
         '⭐ Enjoying StatusVault?',
-        'You\'ve saved 10 statuses! A quick rating helps us grow and keeps the app free.',
+        `You've saved ${newCount} statuses! A quick rating helps us grow and keeps the app free.`,
         [
           {
             text: 'Rate Now',
             onPress: () => Linking.openURL(PLAY_STORE_URL).catch(() => {}),
           },
-          { text: 'Maybe Later', style: 'cancel', onPress: async () => {
-            await AsyncStorage.removeItem(STORAGE_KEYS.RATING_PROMPTED);
-          }},
-          { text: 'Never', style: 'destructive' },
+          { text: 'Maybe Later', style: 'cancel' },
+          {
+            text: 'Never',
+            style: 'destructive',
+            onPress: async () => {
+              await AsyncStorage.setItem(STORAGE_KEYS.RATING_PROMPTED, 'never');
+            },
+          },
         ],
       );
     }

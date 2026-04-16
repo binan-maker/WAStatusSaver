@@ -10,8 +10,8 @@ import {
   Alert,
   Modal,
   Image,
-  Clipboard,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -177,9 +177,9 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleCopyPaymentId = () => {
+  const handleCopyPaymentId = async () => {
     if (!status.lastPaymentId) return;
-    Clipboard.setString(status.lastPaymentId);
+    await Clipboard.setStringAsync(status.lastPaymentId);
     setCopiedId(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTimeout(() => setCopiedId(false), 2000);

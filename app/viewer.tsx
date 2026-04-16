@@ -263,7 +263,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
-    .maxDuration(250)
+    .maxDuration(200)
     .onEnd(() => {
       if (imageScale.value > 1) {
         imageScale.value = withSpring(1);
@@ -593,7 +593,7 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        removeClippedSubviews={false}
+        removeClippedSubviews={true}
         updateCellsBatchingPeriod={50}
       />
 
