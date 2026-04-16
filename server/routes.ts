@@ -4,6 +4,10 @@ import { registerPaymentRoutes } from "./payment-routes";
 import { registerUserRoutes } from "./user-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
   registerPaymentRoutes(app);
   registerUserRoutes(app);
 
