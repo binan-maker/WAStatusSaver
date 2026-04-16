@@ -324,22 +324,30 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
               {/*
-                VideoView is ALWAYS rendered (never conditionally mounted).
-                On Android the SurfaceView must stay attached to the player
-                for the entire lifecycle — unmounting it while the decoder is
-                active detaches the output surface, so audio plays but the
-                screen is black. replaceAsync(null) pauses the player without
-                ever tearing down the surface.
-              */}
-              <VideoView
-                player={player}
-                style={StyleSheet.absoluteFill}
-                contentFit="contain"
-                nativeControls={false}
-                allowsFullscreen={false}
-              />
+                VideoView is conditionally mounted: only when isNearActive.
+                This keeps at most 3 hardware decoder surfaces alive at any
+                time (prev, current, next), well below Android's 8-16 surface
+                limit. Exhausting the limit turns all subsequent videos black.
 
-              {/* Thumbnail covers the VideoView until the first frame is ready */}
+                Thumbnail Overlay pattern:
+                  1. Not near active  → only static thumbnail shown, no decoder.
+                  2. Near active, not ready → VideoView mounts (black), thumbnail
+                     sits on top so the user never sees a flash of black.
+                  3. readyToPlay fires → thumbnail unmounts, decoded frame shows.
+              */}
+
+              {/* VideoView: only mount when near this item */}
+              {isNearActive && (
+                <VideoView
+                  player={player}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  nativeControls={false}
+                  allowsFullscreen={false}
+                />
+              )}
+
+              {/* Thumbnail: always on top until the video's first frame is decoded */}
               {(!isNearActive || !isVideoReady) && (
                 <Image
                   source={{ uri: initialSource }}

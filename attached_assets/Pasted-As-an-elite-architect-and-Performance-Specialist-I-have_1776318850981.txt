@@ -1,0 +1,37 @@
+As an elite architect and "Performance Specialist," I have performed a Full-System Forensic Audit of your latest code. You have fixed many "Logic" bugs, but you have accidentally created a "Hardware Resource Trap" that is causing the Black Screen and the Stucky Swiping.
+Here is the "Champion's Analysis" of your source code:
+1. The "Best" Things (Master-Level Refinements)
+The "Ghost Pro" Shield: Your update to useSubscriptionStatus.ts is perfect. By checking the paidUntil date even when the cache is "fresh," you have protected your revenue. Users can no longer "trick" the app by turning off their internet to keep Pro access.
+The "Never" Dismissal: Your modulo-based rating prompt (newCount % 10) is the professional way to grow. It respects the user's "Maybe Later" but ensures you don't lose the chance to get a rating eventually.
+Modern Clipboard: Switching to expo-clipboard ensures your app is future-proof for Android 14 and 15.
+BFS Cache: The resolvedUriCache in your folder discovery is a major performance win. It makes the app feel "Instant" after the first permission grant.
+2. The "Worst" Things (The Performance Killers)
+The "Always Rendered" VideoView (CRITICAL BUG):
+The Issue: In your latest edit to viewer.tsx, you added a comment saying VideoView must be "ALWAYS rendered" and removed the {isNearActive && ...} check.
+The Result: This is the exact cause of your Black Screen. Android has a hardware limit (usually 8 to 16) on how many "Video Surfaces" can exist at once. By mounting a VideoView for every item in your list, you are exhausting the phone's hardware decoders.
+The Symptom: The first 8 videos work, then every video after that is black (audio only) because the phone has no more "Video Windows" to give the app.
+The "Stucky" Swipe (Memory Pressure):
+The Issue: Even with removeClippedSubviews={true}, you are initializing a useVideoPlayer for every single item in the list.
+The Result: Each VideoPlayer object consumes RAM and CPU cycles. When you have 50 videos, you have 50 players fighting for resources. This creates "Main Thread Jitter," which makes the swipe feel "Stucky" or laggy.
+3. The "Black Screen" & "Stucky" Swipe: Deep Dive
+Why "Always Rendered" is a Mistake:
+You mentioned in your code comments that unmounting the VideoView causes a black screen. This is only true if you don't have a Thumbnail Overlay.
+The Elite Way: You must unmount the VideoView when an item is not isNearActive.
+The Flow:
+User swipes to a video.
+isNearActive becomes true -> VideoView mounts (starts black).
+Static Thumbnail (which is already loaded) covers the black VideoView.
+Video finishes "warming up" -> isVideoReady becomes true -> Thumbnail disappears.
+Result: Smooth transition, and you only ever have 3 VideoViews mounted at a time (Current, Previous, Next). This stays well below the hardware limit.
+Why the Swipe is Stuttering:
+The FlatList Burden: Every time you swipe, the FlatList has to calculate the layout for the next item. If that next item is a heavy "Video Container" with an active player and a mounted VideoView, the "Frame Rate" drops.
+The Fix: By using conditional rendering, the "Next" and "Previous" items are just simple Image components (Thumbnails) until they are actually needed. Images are 100x lighter than Video Players.
+4. Remaining Bugs & Risks
+The "Gesture Lag": Even though you reduced the maxDuration to 200ms, the Exclusive gesture group still adds a delay to your single-tap. Users will feel a slight "pause" between tapping and the UI controls appearing.
+The "Double-Tap" Reset: Your double-tap gesture resets the scale to 1, but it doesn't always reset the translateX/Y perfectly if the user is mid-pan. This can cause the image to "jump" slightly when zooming out.
+The "Empty" .Statuses Risk: Your BFS discovery is great, but if a user has Zero statuses currently (e.g., they just cleared their WhatsApp), the BFS might fail to find the folder because it's looking for a folder that contains files. We should ensure it finds the folder even if it's empty.
+5. Final "Elite" Recommendation
+To fix the Black Screen and the Stucky Swipe at once, you must go back to Conditional Rendering:
+Only mount the VideoView if isNearActive is true.
+Only initialize the VideoPlayer source if isNearActive is true.
+Keep the static Thumbnail visible until the video's statusChange is readyToPlay.
