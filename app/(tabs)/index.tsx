@@ -21,6 +21,8 @@ import { FlashList } from '@shopify/flash-list';
 import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
 import { useAppNotice } from '@/hooks/useAppNotice';
 import { AppNoticeCard } from '@/components/AppNotice';
+import { useMilestoneRating } from '@/hooks/useMilestoneRating';
+import { MilestoneRatingCard } from '@/components/MilestoneRatingCard';
 import { MediaCard } from '@/components/MediaCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
 import { AdInterstitial } from '@/components/AdInterstitial';
@@ -224,6 +226,8 @@ export default function StatusesScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('images');
   const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
   const { notice, visible: noticeVisible, dismiss: dismissNotice } = useAppNotice();
+  const saveRating = useMilestoneRating('save');
+  const shareRating = useMilestoneRating('share');
   const {
     statuses,
     onImageSwipe,
@@ -314,11 +318,13 @@ export default function StatusesScreen() {
 
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);
-  }, [saveStatus]);
+    saveRating.increment();
+  }, [saveStatus, saveRating.increment]);
 
   const handleShare = useCallback((item: StatusItem) => {
     shareStatus(item);
-  }, [shareStatus]);
+    shareRating.increment();
+  }, [shareStatus, shareRating.increment]);
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
@@ -531,6 +537,23 @@ export default function StatusesScreen() {
           )}
         </View>
       </ScrollView>
+
+      <MilestoneRatingCard
+        visible={saveRating.showCard}
+        type="save"
+        count={saveRating.count}
+        onRate={saveRating.onRate}
+        onLater={saveRating.onDismiss}
+        onNever={saveRating.onDismiss}
+      />
+      <MilestoneRatingCard
+        visible={!saveRating.showCard && shareRating.showCard}
+        type="share"
+        count={shareRating.count}
+        onRate={shareRating.onRate}
+        onLater={shareRating.onDismiss}
+        onNever={shareRating.onDismiss}
+      />
     </View>
   );
 }

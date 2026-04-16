@@ -18,6 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/MediaCard';
+import { useMilestoneRating } from '@/hooks/useMilestoneRating';
+import { MilestoneRatingCard } from '@/components/MilestoneRatingCard';
 import { AdBanner, GridAd } from '@/components/AdBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { RewardAdButton } from '@/components/RewardAdButton';
@@ -43,6 +45,7 @@ export default function SavedScreen() {
     shareStatus,
     onVideoOpen,
   } = useMedia();
+  const shareRating = useMilestoneRating('share');
   const insets = useSafeAreaInsets();
 
   const filtered = savedItems.filter(item => {
@@ -79,7 +82,8 @@ export default function SavedScreen() {
 
   const handleShare = useCallback((item: SavedItem) => {
     shareStatus(item);
-  }, [shareStatus]);
+    shareRating.increment();
+  }, [shareStatus, shareRating.increment]);
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
@@ -194,6 +198,14 @@ export default function SavedScreen() {
         </>
       )}
       <AdBanner />
+      <MilestoneRatingCard
+        visible={shareRating.showCard}
+        type="share"
+        count={shareRating.count}
+        onRate={shareRating.onRate}
+        onLater={shareRating.onDismiss}
+        onNever={shareRating.onDismiss}
+      />
     </View>
   );
 }
