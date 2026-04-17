@@ -100,52 +100,57 @@ export default function PrivacyScreen() {
         />
 
         <PolicySection
-          title="9. Data Retention & Deletion"
+          title="9. Account Management & Ad State Behaviour"
+          content="StatusVault maintains strict separation of ad-free status, subscription benefits, and reward periods between user accounts. The following rules apply:\n\nSIGN-IN:\n• No advertisement is displayed immediately when you sign in with Google. Any interstitial ad that may appear is deliberately suppressed during the sign-in transition to avoid interrupting your experience.\n• Once you are signed in and using the app, advertisements will follow the standard rules: hidden for Pro subscribers and hidden during an active reward period.\n\nSIGN-OUT:\n• Signing out fully resets the app's ad and subscription state on your device. The cached subscription status is immediately cleared so that no Pro-only ad-free state carries over to another account or anonymous session.\n• Any ad-free benefit from your subscription ends on the device the moment you sign out. If you sign back in with the same Pro account, your subscription status is re-verified from the server and your benefits are restored.\n\nREWARD AD TIMING (Ad-Free Reward Period):\n• When a free-tier user earns an ad-free period by watching a rewarded advertisement, that timer is saved and linked to their specific account on the device.\n• If the user signs out and signs back in to the same account, the remaining reward time is preserved and continues counting down.\n• If a different account signs in, only that account's own reward timer applies — reward time is never shared between accounts.\n• Pro subscribers are always ad-free regardless of any reward timer. The reward timer is ignored when a Pro subscription is active.\n\nACCOUNT SWITCHING:\n• When switching between accounts (signing out of one account and into another), the app fully resets its local ad and subscription state before the new account's session begins. This prevents any benefit from a previous session leaking into the new one.\n• Each account's reward ad timer and subscription status are tracked independently. You cannot use one account's Pro subscription or reward time while logged into a different account.\n\nFAST ACCOUNT SWITCHING:\n• All state resets described above are applied atomically before the sign-out is finalised, ensuring that even rapid sign-out / sign-in sequences cannot result in a stale or incorrect ad-free state."
+        />
+
+        <PolicySection
+          title="10. Data Retention & Deletion"
           content="• Account data (email, display name, push tokens, subscription records) is retained for as long as your account remains active.\n\n• If you sign out and wish your data deleted, contact us via the Play Store developer page. Firebase Authentication entries are removed promptly; Firestore subscription records are retained for 90 days for audit and legal compliance before permanent deletion.\n\n• Device identifiers and push notification tokens are automatically purged after 180 days of inactivity.\n\n• Local app data (preferences, saved status list, SAF permission URIs) is permanently and automatically deleted when you uninstall the app.\n\n• We do not retain any payment card details. All payment data is held exclusively by Razorpay under their data retention policies."
         />
 
         <PolicySection
-          title="10. Permissions Explained"
+          title="11. Permissions Explained"
           content="READ_EXTERNAL_STORAGE / READ_MEDIA_IMAGES / READ_MEDIA_VIDEO:\nRequired to detect and display WhatsApp statuses from the .Statuses folder.\n\nWRITE_EXTERNAL_STORAGE (Android < 10):\nRequired to save statuses to the gallery on older Android versions.\n\nSTORAGE ACCESS FRAMEWORK (Android 11+):\nRequired for users to manually grant folder-level access to the WhatsApp Media directory.\n\nINTERNET:\nRequired for Google Sign-In, Firebase (Auth, Firestore, FCM), Google AdMob, and Razorpay payment processing.\n\nPOST_NOTIFICATIONS (Android 13+):\nOptional. Required only if you choose to enable status-detection push notifications.\n\nNo permissions are requested or used beyond their explicitly stated purpose."
         />
 
         <PolicySection
-          title="11. Children's Privacy"
+          title="12. Children's Privacy"
           content="StatusVault is not directed to children under the age of 13. We do not knowingly collect personal information from children. Google Sign-In requires a valid Google Account, which mandates a minimum age of 13 (or the applicable minimum in your jurisdiction). If you believe a child under the minimum age is using this app, please contact us immediately and we will take steps to remove their data."
         />
 
         <PolicySection
-          title="12. Account Security"
+          title="13. Account Security"
           content="• Sign-in is optional. Core features (viewing, saving, sharing statuses) remain available without an account.\n\n• Google Sign-In is handled entirely by Google's OAuth 2.0 infrastructure. We never store, see, or have access to your Google password.\n\n• Your Firebase UID serves as the primary key for all account-linked data. It is never shared externally.\n\n• All data in transit between the app and our servers or third-party services is encrypted with HTTPS/TLS.\n\n• In the event of a data breach materially affecting your personal data, we will notify affected users within 72 hours of becoming aware of the breach, as required by applicable law."
         />
 
         <PolicySection
-          title="13. Disclaimer of Warranties & Individual Developer Liability"
+          title="14. Disclaimer of Warranties & Individual Developer Liability"
           content="StatusVault is provided 'as is' and 'as available' without any warranty, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement. As a beta application, the service may experience interruptions, bugs, crashes, or data inconsistencies at any time.\n\nThis application is a personal project of an individual developer. It is not a corporate product. By using this app, you expressly acknowledge this and waive any right to hold the developer personally liable for any damages, losses, or claims arising from your use of the app.\n\nWe do not warrant that:\n• The app will operate without error or interruption.\n• Statuses will always be accessible (access depends on WhatsApp's folder structure and Android OS policies which are beyond our control).\n• All subscription or ad-free features will be available 100% of the time.\n\nUse of StatusVault is entirely at your own risk. Since all media processing happens locally on your device and no user files are ever transmitted to our servers, the developer cannot be held liable for any media-related data loss."
         />
 
         <PolicySection
-          title="14. Limitation of Liability"
+          title="15. Limitation of Liability"
           content="To the maximum extent permitted by applicable law, StatusVault, its developers, and its affiliates shall not be liable for:\n\n• Any indirect, incidental, special, consequential, or punitive damages.\n• Loss of data, revenue, or profits.\n• Any harm to your device or data resulting from use of the app.\n• Any failure or downtime of third-party services (Google Firebase, Razorpay, Google AdMob).\n• Any WhatsApp policy changes that restrict or remove access to the .Statuses folder.\n\nOur total aggregate liability to you for any claim arising from use of the Service shall not exceed the total subscription fees paid by you in the 30 days immediately preceding the claim giving rise to such liability."
         />
 
         <PolicySection
-          title="15. WhatsApp & Meta Disclaimer"
+          title="16. WhatsApp & Meta Disclaimer"
           content="StatusVault is an independent, third-party application. It is NOT affiliated with, endorsed by, sponsored by, authorized by, or in any way connected to WhatsApp LLC, Meta Platforms Inc., or any of their subsidiaries or affiliates. 'WhatsApp' and 'WhatsApp Business' are registered trademarks of WhatsApp LLC. This app merely reads files that WhatsApp makes available in the device's storage as part of normal Android operating system behaviour. Use of this app is governed solely by this Privacy Policy."
         />
 
         <PolicySection
-          title="16. Governing Law & Disputes"
+          title="17. Governing Law & Disputes"
           content="This Privacy Policy, along with any disputes, claims, or proceedings arising from your use of StatusVault, shall be exclusively governed by and construed in accordance with the laws of India, without regard to conflict-of-law principles.\n\nBy using the app, you irrevocably consent to the exclusive jurisdiction of the competent courts located in India for the resolution of any disputes.\n\nWe strongly encourage users to contact us directly to resolve any disputes informally before pursuing formal legal action."
         />
 
         <PolicySection
-          title="17. Changes to This Policy"
+          title="18. Changes to This Policy"
           content="We may update this Privacy Policy from time to time to reflect changes in the app's features, applicable legal requirements, or our data practices. We will notify you of material changes by updating the 'Last updated' date at the top of this page. Where required by law or where changes are significant, we may provide additional notice such as a push notification or an in-app alert. Your continued use of the app after the effective date of any revision constitutes your acceptance of the updated Privacy Policy."
         />
 
         <PolicySection
-          title="18. Contact Us"
+          title="19. Contact Us"
           content="For questions, concerns, data deletion requests, or refund requests related to this Privacy Policy, please contact us through the Google Play Store developer page or the in-app support page. We aim to respond to all legitimate inquiries within 5 business days."
         />
 

@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Alert, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 import { GoogleAuthProvider, User, onAuthStateChanged, signInWithCredential, signOut as firebaseSignOut } from "firebase/auth";
 import { appConfig, isFirebaseClientConfigured, isGoogleAuthConfigured } from "@/lib/app-config";
 import { getFirebaseClientAuth } from "@/lib/firebase-client";
+
+export const SUBSCRIPTION_CACHE_KEY = "@statusvault_subscription_status";
+export const REWARD_ADS_KEY_PREFIX = "free_ads_until_timestamp";
 
 type AuthContextValue = {
   user: User | null;
@@ -104,6 +108,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     signOut: async () => {
       if (auth) {
+        const keysToRemove: string[] = [
+          SUBSCRIPTION_CACHE_KEY,
+          REWARD_ADS_KEY_PREFIX,
+        ];
+        try {
+          await AsyncStorage.multiRemove(keysToRemove);
+        } catch {}
         await firebaseSignOut(auth);
         try {
           await GoogleSignin.signOut();

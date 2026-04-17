@@ -136,10 +136,40 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   const { user, loading, signingIn } = useFirebaseAuth();
   const { isFreeAds, loading: adsLoading } = useFreeAdsState();
 
+  const prevSigningInRef = useRef(false);
+  const justSignedInRef = useRef(false);
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
-    // Wait until both auth AND subscription status are confirmed before showing
-    // the sign-in interstitial. Pro users must never see this ad.
+    if (prevSigningInRef.current && !signingIn && user) {
+      justSignedInRef.current = true;
+    }
+    prevSigningInRef.current = signingIn;
+  }, [signingIn, user]);
+
+  useEffect(() => {
+    const prevId = prevUserIdRef.current;
+    const currId = user?.uid ?? null;
+
+    if (prevId !== undefined && prevId !== null && currId !== null && prevId !== currId) {
+      justSignedInRef.current = true;
+    }
+
+    prevUserIdRef.current = currId;
+
+    if (!user) {
+      setInterstitialShown(false);
+      justSignedInRef.current = false;
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (!loading && !adsLoading && user && !interstitialShown && !isFreeAds) {
+      if (justSignedInRef.current) {
+        justSignedInRef.current = false;
+        setInterstitialShown(true);
+        return;
+      }
       setTimeout(() => {
         showInterstitial();
       }, 500);

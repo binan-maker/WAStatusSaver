@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-
-const FREE_ADS_UNTIL_KEY = 'free_ads_until_timestamp';
+import { useFirebaseAuth } from '@/contexts/AuthContext';
+import { REWARD_ADS_KEY_PREFIX } from '@/contexts/AuthContext';
 
 export function useFreeAdsState() {
   const {
@@ -11,18 +11,33 @@ export function useFreeAdsState() {
     status,
     loading: subscriptionLoading,
   } = useSubscriptionStatus();
+
+  const { user } = useFirebaseAuth();
+  const uid = user?.uid ?? null;
+
   const [isRewardFreeAds, setIsRewardFreeAds] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
 
+  const getStorageKey = (currentUid: string | null) =>
+    currentUid ? `${REWARD_ADS_KEY_PREFIX}_${currentUid}` : REWARD_ADS_KEY_PREFIX;
+
+  const uidRef = useRef(uid);
+
   useEffect(() => {
-    checkFreeAdsStatus();
-    const interval = setInterval(checkFreeAdsStatus, 1000);
+    uidRef.current = uid;
+    checkFreeAdsStatus(uid);
+  }, [uid]);
+
+  useEffect(() => {
+    checkFreeAdsStatus(uidRef.current);
+    const interval = setInterval(() => checkFreeAdsStatus(uidRef.current), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const checkFreeAdsStatus = async () => {
+  const checkFreeAdsStatus = async (currentUid: string | null) => {
     try {
-      const stored = await AsyncStorage.getItem(FREE_ADS_UNTIL_KEY);
+      const key = getStorageKey(currentUid);
+      const stored = await AsyncStorage.getItem(key);
       if (stored) {
         const freeUntil = parseInt(stored, 10);
         const now = Date.now();
@@ -32,7 +47,7 @@ export function useFreeAdsState() {
         } else {
           setIsRewardFreeAds(false);
           setTimeRemaining(0);
-          await AsyncStorage.removeItem(FREE_ADS_UNTIL_KEY);
+          await AsyncStorage.removeItem(key);
         }
       } else {
         setIsRewardFreeAds(false);
@@ -45,8 +60,9 @@ export function useFreeAdsState() {
 
   const setFreeAdsFor30Days = async () => {
     try {
+      const key = getStorageKey(uidRef.current);
       const freeUntil = Date.now() + 30 * 24 * 60 * 60 * 1000;
-      await AsyncStorage.setItem(FREE_ADS_UNTIL_KEY, freeUntil.toString());
+      await AsyncStorage.setItem(key, freeUntil.toString());
       setIsRewardFreeAds(true);
       setTimeRemaining(30 * 24 * 60 * 60);
     } catch (error) {
@@ -56,8 +72,9 @@ export function useFreeAdsState() {
 
   const setFreeAdsFor5Hours = async () => {
     try {
+      const key = getStorageKey(uidRef.current);
       const freeUntil = Date.now() + 2 * 60 * 60 * 1000;
-      await AsyncStorage.setItem(FREE_ADS_UNTIL_KEY, freeUntil.toString());
+      await AsyncStorage.setItem(key, freeUntil.toString());
       setIsRewardFreeAds(true);
       setTimeRemaining(2 * 60 * 60);
     } catch (error) {
@@ -82,8 +99,6 @@ export function useFreeAdsState() {
   const isFreeAds = isSubscribed || isRewardFreeAds;
 
   return {
-    // True while subscription status is being fetched — treat as "do not show ads yet".
-    // This closes the race-condition window where ads fire before Pro status is confirmed.
     loading: subscriptionLoading,
     isFreeAds,
     isSubscribed,
