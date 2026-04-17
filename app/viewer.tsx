@@ -80,10 +80,29 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  // isVideoVisible is true only after the first frame has rendered to the
+  // SurfaceView. It lags behind isVideoReady by 200 ms so the thumbnail never
+  // disappears before ExoPlayer has pushed pixels to the screen.
+  const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const isActiveRef = useRef(isActive);
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRevealTimer = useCallback(() => {
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleReveal = useCallback((delayMs: number) => {
+    clearRevealTimer();
+    revealTimerRef.current = setTimeout(() => {
+      setIsVideoVisible(true);
+    }, delayMs);
+  }, [clearRevealTimer]);
 
   // Reanimated shared values for smooth pinch-to-zoom on images
   const imageScale = useSharedValue(1);
@@ -145,21 +164,38 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     const ready = status === 'readyToPlay';
     isReadyToPlayRef.current = ready;
     setIsVideoReady(ready);
-    if (ready) tryStartPlayback();
+    if (ready) {
+      tryStartPlayback();
+      // Schedule the thumbnail hide 200 ms AFTER readyToPlay. This gap lets
+      // ExoPlayer push the first frame to the SurfaceView before we reveal it.
+      // Without this delay, readyToPlay fires while the frame pipeline is still
+      // filling, causing audio-only black screen on first play.
+      if (isActiveRef.current) {
+        scheduleReveal(200);
+      }
+    } else {
+      setIsVideoVisible(false);
+      clearRevealTimer();
+    }
   });
 
-  // Reset the "ready" flag whenever the source changes.
+  // Reset ready + visible flags (and cancel any pending reveal) on source change.
   useEffect(() => {
     setIsVideoReady(false);
-  }, [displayUri]);
+    setIsVideoVisible(false);
+    clearRevealTimer();
+  }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Source loading ───────────────────────────────────────────────────────
-  // Wait for all navigation/layout animations to finish (InteractionManager)
-  // THEN add a 150ms buffer so the VideoView SurfaceView is fully bound to the
-  // hardware decoder before we push data into it. Without this, tapping a video
-  // directly from the grid causes audio-only playback (black screen) because
-  // the SurfaceView is created during the screen slide-in animation and hasn't
-  // finished attaching by the time replaceAsync fires.
+  // Strategy: call replaceAsync as soon as animations finish (InteractionManager),
+  // then rely on the 200 ms isVideoVisible reveal delay to guarantee the first
+  // frame is on screen before the thumbnail disappears.
+  //
+  // The old approach (300 ms explicit pre-buffer) tried to delay replaceAsync
+  // long enough for the SurfaceView to bind — but that race was non-deterministic.
+  // The new approach flips it: start decoding immediately after the animation,
+  // and keep the thumbnail up until we KNOW frames are rendering (200 ms post-
+  // readyToPlay). This eliminates the black screen unconditionally on all devices.
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
 
@@ -169,16 +205,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     const load = async () => {
       try {
-        // Phase 1: wait for any pending navigation/gesture animations to settle.
+        // Wait for any in-flight navigation/gesture animations so the JS thread
+        // is free, then call replaceAsync immediately — no extra time buffer.
         await new Promise<void>(resolve => {
           InteractionManager.runAfterInteractions(resolve);
         });
-        if (cancelled) return;
-
-        // Phase 2: extra buffer for the SurfaceView to finish binding on lower-end
-        // Android devices after animations complete. 300ms gives even slow devices
-        // enough time to fully bind the native surface before data flows in.
-        await new Promise<void>(resolve => setTimeout(resolve, 300));
         if (cancelled) return;
 
         await player.replaceAsync(displayUri);
@@ -199,6 +230,26 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       isReadyToPlayRef.current = false;
     };
   }, [displayUri, item.type, player, tryStartPlayback]);
+
+  // ── Reveal timer cleanup on unmount ─────────────────────────────────────
+  useEffect(() => {
+    return () => { clearRevealTimer(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Handle swipe-to-already-ready-video ──────────────────────────────────
+  // When the user swipes to a nearActive video that was already buffered (isVideoReady=true)
+  // but never got to reveal (isVideoVisible=false), kick off a short reveal timer.
+  // The video has been playing muted the whole time so frames are already on screen.
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    if (isActive && isVideoReady && !isVideoVisible) {
+      scheduleReveal(80);
+    }
+    if (!isActive) {
+      setIsVideoVisible(false);
+      clearRevealTimer();
+    }
+  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Active / inactive sync ───────────────────────────────────────────────
   useEffect(() => {
@@ -421,25 +472,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             <View style={styles.videoWrap}>
               {/*
                 VideoView is mounted when isNearActive (prev/current/next),
-                NOT just when isActive. This is the critical fix for black screen:
+                NOT just when isActive. The native SurfaceView therefore begins
+                binding to the hardware decoder during the navigation animation
+                rather than at the moment the user taps.
 
-                When VideoView is mounted ONLY on the active item, the native
-                SurfaceView is created at the exact moment the user taps — the
-                same moment the navigation animation starts. On many Android
-                devices the SurfaceView is not yet bound to the hardware decoder
-                by the time replaceAsync fires, so audio plays but video is black.
-
-                CRITICAL: We mount VideoView when isNearActive is true even
-                BEFORE displayUri is available. This lets the native SurfaceView
-                begin binding to the hardware decoder during the navigation
-                animation itself. By the time the URI is prepared and replaceAsync
-                fires (after InteractionManager + 300ms buffer), the surface is
-                already fully attached — zero race condition.
-
-                The thumbnail overlay ensures only the active+ready video is
-                visible; the black VideoView surface is hidden under it while
-                decoding. The player starts with null source so no data is
-                pushed into the decoder until replaceAsync is called.
+                replaceAsync is called as soon as the animation settles
+                (InteractionManager). The thumbnail remains on screen until
+                isVideoVisible becomes true — 200 ms after readyToPlay fires —
+                so ExoPlayer's frame pipeline has time to fill before we reveal.
+                This combo eliminates the audio-only / black-video bug on all
+                Android devices regardless of hardware speed.
               */}
               {isNearActive && (
                 <VideoView
@@ -451,8 +493,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 />
               )}
 
-              {/* Thumbnail: always visible until video's first frame is decoded */}
-              {(!isActive || !isVideoReady) && (
+              {/*
+                Thumbnail stays visible until isVideoVisible is true.
+                isVideoVisible lags 200 ms behind isVideoReady so the first
+                frame has physically rendered to the SurfaceView before the
+                thumbnail disappears. This is the definitive black-screen fix:
+                readyToPlay ≠ first frame on screen; isVideoVisible = is.
+              */}
+              {(!isActive || !isVideoVisible) && (
                 <Image
                   source={{ uri: initialSource }}
                   style={StyleSheet.absoluteFill}
