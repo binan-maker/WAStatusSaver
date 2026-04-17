@@ -6,31 +6,49 @@ import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 
 const adUnitId = AD_UNIT_IDS.APP_OPEN;
 
-// Use global singleton to persist across hook mounts
 let globalAppOpenAd: AppOpenAd | null = null;
 let isShowingAd = false;
 let isLoaded = false;
 let loadRetries = 0;
 const MAX_RETRIES = 3;
 
+function destroyGlobalAd() {
+  globalAppOpenAd = null;
+  isLoaded = false;
+  isShowingAd = false;
+  loadRetries = 0;
+}
+
 export function useAppOpenAd() {
   const appState = useRef(AppState.currentState);
   const [loaded, setLoaded] = useState(isLoaded);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
-  const { isFreeAds } = useFreeAdsState();
+  const { isFreeAds, loading: adsLoading } = useFreeAdsState();
 
   useEffect(() => {
-    if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return;
+    // Do NOT load or show ads while subscription status is still being fetched.
+    // This is the primary fix for the race condition where AppOpen ads fire
+    // before the server confirms Pro status, making Pro users see ads.
+    if (!ADS_ENABLED || Platform.OS === 'web' || adsLoading) return;
+
+    // Pro user confirmed — destroy any already-loaded ad so it can't show.
+    if (isFreeAds) {
+      if (globalAppOpenAd) {
+        destroyGlobalAd();
+        setLoaded(false);
+      }
+      return;
+    }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
-        if (isLoaded && !isShowingAd) {
+        if (isLoaded && !isShowingAd && !isFreeAds && !adsLoading) {
           showAppOpenAd();
         }
       }
       appState.current = nextState;
     });
-    
+
     if (!globalAppOpenAd) {
       loadAppOpenAd();
     }
@@ -41,7 +59,7 @@ export function useAppOpenAd() {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, [isFreeAds]);
+  }, [isFreeAds, adsLoading]);
 
   const loadAppOpenAd = () => {
     if (globalAppOpenAd || isShowingAd) return;
@@ -52,6 +70,12 @@ export function useAppOpenAd() {
       });
 
       globalAppOpenAd.addAdEventListener(AdEventType.LOADED, () => {
+        // Final guard: if Pro was confirmed while the ad was loading, discard it.
+        if (isFreeAds) {
+          destroyGlobalAd();
+          setLoaded(false);
+          return;
+        }
         isLoaded = true;
         loadRetries = 0;
         setLoaded(true);
@@ -63,7 +87,7 @@ export function useAppOpenAd() {
         setLoaded(false);
         globalAppOpenAd = null;
         loadRetries = 0;
-        loadAppOpenAd();
+        if (!isFreeAds) loadAppOpenAd();
       });
 
       globalAppOpenAd.addAdEventListener(AdEventType.ERROR, (error) => {
@@ -71,9 +95,9 @@ export function useAppOpenAd() {
         isLoaded = false;
         setLoaded(false);
         globalAppOpenAd = null;
-        
+
         loadRetries++;
-        if (loadRetries < MAX_RETRIES) {
+        if (loadRetries < MAX_RETRIES && !isFreeAds) {
           const retryDelay = Math.min(5000 * Math.pow(2, loadRetries), 30000);
           loadTimeoutRef.current = setTimeout(loadAppOpenAd, retryDelay);
         }
@@ -87,8 +111,8 @@ export function useAppOpenAd() {
   };
 
   const showAppOpenAd = async () => {
-    if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return;
-    
+    if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds || adsLoading) return;
+
     if (!globalAppOpenAd || !isLoaded || isShowingAd) {
       return;
     }

@@ -2,26 +2,31 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { RewardedAd, RewardedAdEventType, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
+import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 
 const adUnitId = AD_UNIT_IDS.REWARDED;
 
-// Persistent singleton state
 let globalRewardedAd: RewardedAd | null = null;
 let isLoaded = false;
 let isShowing = false;
 let loadRetries = 0;
 const MAX_RETRIES = 3;
 
-export function useRewardedAd() {
+export function useRewardedAd(customAdUnitId?: string) {
   const [loaded, setLoaded] = useState(isLoaded);
-  const listenersRef = useRef<(() => void)[]>([]);
   const loadTimeoutRef = useRef<NodeJS.Timeout>();
+  const { isFreeAds, loading: adsLoading, isSubscribed } = useFreeAdsState();
+
+  const unitId = customAdUnitId || adUnitId;
 
   const loadAd = useCallback(() => {
+    // Subscribed Pro users do not need reward ads for ad-free access.
+    // Custom unit IDs (e.g., SupportDeveloperAd) are allowed for voluntary support.
     if (globalRewardedAd || isShowing) return;
+    if (!customAdUnitId && isSubscribed) return;
 
     try {
-      globalRewardedAd = RewardedAd.createForAdRequest(adUnitId, {
+      globalRewardedAd = RewardedAd.createForAdRequest(unitId, {
         requestNonPersonalizedAdsOnly: true,
       });
 
@@ -36,7 +41,7 @@ export function useRewardedAd() {
         globalRewardedAd = null;
         isLoaded = false;
         setLoaded(false);
-        
+
         loadRetries++;
         if (loadRetries < MAX_RETRIES) {
           const retryDelay = Math.min(5000 * Math.pow(2, loadRetries), 30000);
@@ -49,20 +54,25 @@ export function useRewardedAd() {
       console.error('Error creating rewarded ad:', e);
       globalRewardedAd = null;
     }
-  }, []);
+  }, [unitId, customAdUnitId, isSubscribed]);
 
   useEffect(() => {
-    if (!ADS_ENABLED || Platform.OS === 'web') return;
+    if (!ADS_ENABLED || Platform.OS === 'web' || adsLoading) return;
+    // Standard reward ad: don't load for subscribed Pro users.
+    // Custom unit (support ad): always allow — it is a voluntary action.
+    if (!customAdUnitId && isSubscribed) return;
     if (!globalRewardedAd) loadAd();
-    
+
     return () => {
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, [loadAd]);
+  }, [loadAd, adsLoading, isSubscribed, customAdUnitId]);
 
   const showAd = async (): Promise<boolean> => {
+    // Standard reward ad: hard block for Pro users.
+    if (!customAdUnitId && isSubscribed) return false;
     if (!globalRewardedAd || !isLoaded || isShowing) {
       if (!globalRewardedAd) loadAd();
       return false;
@@ -89,7 +99,7 @@ export function useRewardedAd() {
           setLoaded(false);
           globalRewardedAd = null;
           loadRetries = 0;
-          loadAd(); // Preload next
+          loadAd();
           resolve(earnedReward);
         }
       );

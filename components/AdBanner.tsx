@@ -22,9 +22,10 @@ export function AdBanner({ style, size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER }
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
-  const { isFreeAds } = useFreeAdsState();
+  const { isFreeAds, loading: adsLoading } = useFreeAdsState();
 
-  if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return null;
+  // Do not render at all until subscription status is confirmed, and never for Pro users.
+  if (!ADS_ENABLED || Platform.OS === 'web' || adsLoading || isFreeAds) return null;
 
   const handleAdFailedToLoad = (err: any) => {
     console.error('Banner ad failed to load: ', err);
@@ -58,10 +59,10 @@ export function AdBanner({ style, size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER }
 }
 
 export function GridAd() {
-  const { isFreeAds } = useFreeAdsState();
-  
-  if (!ADS_ENABLED || Platform.OS === 'web' || isFreeAds) return null;
-  
+  const { isFreeAds, loading: adsLoading } = useFreeAdsState();
+
+  if (!ADS_ENABLED || Platform.OS === 'web' || adsLoading || isFreeAds) return null;
+
   return (
     <View style={styles.fullRowAdContainer}>
       <BannerAd
@@ -91,25 +92,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gridContainer: {
-    width: '100%',
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
   fullRowAdContainer: {
     width: '100%',
     marginVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    // Ensure it spans full width by taking up the space of all columns
     paddingHorizontal: 0,
   },
-  gridAd: {
-    width: '100%',
-    backgroundColor: COLORS.SURFACE_2,
-    overflow: 'hidden',
-  }
 });

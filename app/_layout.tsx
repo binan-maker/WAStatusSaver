@@ -24,6 +24,7 @@ import { AppLoadingScreen } from '@/components/AppLoadingScreen';
 import { GoogleSignInModal } from '@/components/GoogleSignInModal';
 import { useAppOpenAd } from '@/hooks/useAppOpenAd';
 import { useInterstitialAd } from '@/components/AdInterstitial';
+import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 import { useStatusReminder } from '@/hooks/useStatusReminder';
 import COLORS from '@/constants/colors';
 
@@ -133,15 +134,18 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   const { showAd: showInterstitial } = useInterstitialAd();
   const [interstitialShown, setInterstitialShown] = useState(false);
   const { user, loading, signingIn } = useFirebaseAuth();
+  const { isFreeAds, loading: adsLoading } = useFreeAdsState();
 
   useEffect(() => {
-    if (!loading && user && !interstitialShown) {
+    // Wait until both auth AND subscription status are confirmed before showing
+    // the sign-in interstitial. Pro users must never see this ad.
+    if (!loading && !adsLoading && user && !interstitialShown && !isFreeAds) {
       setTimeout(() => {
         showInterstitial();
       }, 500);
       setInterstitialShown(true);
     }
-  }, [loading, user, interstitialShown]);
+  }, [loading, adsLoading, user, interstitialShown, isFreeAds]);
 
   return (
     <MediaProvider>
