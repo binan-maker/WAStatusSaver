@@ -350,6 +350,24 @@ export default function StatusesScreen() {
     router.push('/permissions');
   }, [androidVersion, requestSAF, selectedSource]);
 
+  const handleTabChange = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        x: tab === 'images' ? 0 : SW,
+        animated: true,
+      });
+    }
+  }, []);
+
+  const onScroll = useCallback((event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+    }
+  }, [activeTab]);
+
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
   // While MediaContext is still loading from AsyncStorage / checking permissions,
@@ -397,26 +415,6 @@ export default function StatusesScreen() {
       </View>
     );
   }
-
-
-
-  const handleTabChange = useCallback((tab: TabType) => {
-    setActiveTab(tab);
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        x: tab === 'images' ? 0 : SW,
-        animated: true,
-      });
-    }
-  }, []);
-
-  const onScroll = useCallback((event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
-    if (newTab !== activeTab) {
-      setActiveTab(newTab);
-    }
-  }, [activeTab]);
 
   return (
     <View style={styles.root}>
