@@ -98,7 +98,7 @@ export default function TermsScreen() {
 
         <Section
           title="4. Refund & Cancellation Policy"
-          content={"All sales are final as digital goods cannot be returned. We will issue a refund if:\n\n• You were charged but Pro was not activated (contact us within 7 days with your payment ID)\n• You were charged twice for the same period\n• The app is non-functional on your device and we cannot resolve it within 14 days\n\nRefund requests: Email support@statusvault.app with your order ID, payment ID, and reason. Approved refunds are processed within 7–10 business days."}
+          content={"All sales are final as digital goods cannot be returned. We will issue a refund if:\n\n• You were charged but Pro was not activated (contact us within 7 days with your payment ID)\n• You were charged twice for the same period\n• The app is non-functional on your device and we cannot resolve it within 14 days\n\nRefund requests: Email ahmedsameerbinan2@gmail.com with your order ID, payment ID, and reason. Approved refunds are processed within 7–10 business days."}
         />
 
         <Section
@@ -128,7 +128,7 @@ export default function TermsScreen() {
 
         <Section
           title="10. Contact Us"
-          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: support@statusvault.app\nResponse time: Within 72 hours on business days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021."}
+          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021."}
         />
 
         <View style={styles.footer}>

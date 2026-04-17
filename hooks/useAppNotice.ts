@@ -9,9 +9,6 @@ export interface AppNotice {
   message: string;
 }
 
-// Key format: @notice_dismissed_{noticeId}
-// Value: "1" means the user tapped X and dismissed this specific notice.
-// Changing the `id` field in Firestore resets the counter and shows the notice again.
 function dismissedKey(noticeId: string) {
   return `@notice_dismissed_${noticeId}`;
 }
@@ -32,12 +29,10 @@ export function useAppNotice() {
         if (!snap.exists()) return;
 
         const data = snap.data();
-        // Skip if notice is inactive or has no message
         if (!data.active || !data.message?.trim()) return;
 
         const noticeId: string = (data.id || 'default').trim();
 
-        // If the user already dismissed this exact notice id — don't show it again
         const dismissed = await AsyncStorage.getItem(dismissedKey(noticeId));
         if (dismissed === '1') return;
 
@@ -66,4 +61,45 @@ export function useAppNotice() {
   };
 
   return { notice, visible, dismiss };
+}
+
+export function useAppNoticeDirect() {
+  const [notice, setNotice] = useState<AppNotice | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const app = getFirebaseClientApp();
+        if (!app) { setLoading(false); return; }
+
+        const db = getFirestore(app);
+        const snap = await getDoc(doc(db, 'appConfig', 'notice'));
+
+        if (!snap.exists() || !mounted) { setLoading(false); return; }
+
+        const data = snap.data();
+        if (!data.active || !data.message?.trim()) {
+          setLoading(false);
+          return;
+        }
+
+        setNotice({
+          id: (data.id || 'default').trim(),
+          title: (data.title || 'Notice').trim(),
+          message: data.message.trim(),
+        });
+      } catch {
+        // Non-critical
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  return { notice, loading };
 }
