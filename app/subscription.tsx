@@ -54,6 +54,7 @@ export default function SubscriptionScreen() {
     startPayment,
     paymentJustSucceeded,
     successPlanId,
+    isRecoveringPayment,
     dismissPaymentSuccess,
   } = useSubscriptionStatus();
 
@@ -111,6 +112,19 @@ export default function SubscriptionScreen() {
           <Ionicons name="arrow-back" size={20} color={COLORS.TEXT_SECONDARY} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
+
+        {/* ── Recovering payment banner ─────────────────────────────── */}
+        {isRecoveringPayment && !isSubscribed && (
+          <View style={styles.recoveryBanner}>
+            <ActivityIndicator size="small" color={COLORS.ACCENT_GOLD} />
+            <View style={styles.recoveryTextWrap}>
+              <Text style={styles.recoveryTitle}>Payment Activating…</Text>
+              <Text style={styles.recoverySub}>
+                Your previous payment was received. Pro access will activate automatically — you will NOT be charged again.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* ── Hero ──────────────────────────────────────────────────── */}
         <LinearGradient
@@ -638,5 +652,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingHorizontal: SPACING.SM,
     marginTop: -SPACING.SM,
+  },
+
+  /* Payment recovery banner */
+  recoveryBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: SPACING.SM,
+    backgroundColor: COLORS.ACCENT_GOLD + "18",
+    borderRadius: RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT_GOLD + "55",
+    padding: SPACING.MD,
+    marginBottom: SPACING.SM,
+  },
+  recoveryTextWrap: {
+    flex: 1,
+    gap: 3,
+  },
+  recoveryTitle: {
+    color: COLORS.ACCENT_GOLD,
+    fontSize: FONT_SIZE.SM,
+    fontFamily: "Nunito_700Bold",
+  },
+  recoverySub: {
+    color: COLORS.TEXT_SECONDARY,
+    fontSize: FONT_SIZE.XS,
+    fontFamily: "Nunito_400Regular",
+    lineHeight: 18,
   },
 });

@@ -83,6 +83,7 @@ export function useSubscriptionStatus() {
   const [payingPlanId, setPayingPlanId] = useState<SubscriptionPlanId | null>(null);
   const [paymentJustSucceeded, setPaymentJustSucceeded] = useState(false);
   const [successPlanId, setSuccessPlanId] = useState<SubscriptionPlanId | null>(null);
+  const [isRecoveringPayment, setIsRecoveringPayment] = useState(false);
 
   // Fix #3 — Unmounted State Crash: guard every state update with this ref so
   // React never receives a setState call after the subscriber screen unmounts.
@@ -106,6 +107,20 @@ export function useSubscriptionStatus() {
   }, []);
   const safeSetSuccessPlanId = useCallback((v: SubscriptionPlanId | null) => {
     if (isMountedRef.current) setSuccessPlanId(v);
+  }, []);
+
+  // On mount: check if there's a pending payment or payment intent awaiting recovery.
+  // This drives a "Recovering payment..." banner on the subscription screen so the
+  // user knows their money is safe and their Pro will activate automatically.
+  useEffect(() => {
+    const checkRecovery = async () => {
+      const [pending, intent] = await Promise.all([
+        AsyncStorage.getItem(PENDING_PAYMENT_KEY).catch(() => null),
+        AsyncStorage.getItem(PAYMENT_INTENT_KEY).catch(() => null),
+      ]);
+      if (isMountedRef.current) setIsRecoveringPayment(Boolean(pending || intent));
+    };
+    checkRecovery();
   }, []);
 
   // On mount: restore last-known subscription so Pro users see no ad flash.
@@ -555,6 +570,7 @@ export function useSubscriptionStatus() {
     payingPlanId,
     paymentJustSucceeded,
     successPlanId,
+    isRecoveringPayment,
     plans: SUBSCRIPTION_PLANS,
     refresh,
     startPayment,

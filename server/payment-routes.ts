@@ -28,6 +28,12 @@ type AuthenticatedUser = {
   name?: string;
 };
 
+// Developer test accounts — always return lifetime Pro status.
+// These accounts bypass Razorpay entirely and are only for internal testing.
+const TEST_ACCOUNT_EMAILS = new Set([
+  "ahmedsameerbinan1@gmail.com",
+]);
+
 function paymentUnavailable(res: Response) {
   return res.status(503).json({
     message: "Payments are not configured yet",
@@ -236,6 +242,17 @@ export function registerPaymentRoutes(app: Express) {
           configured: true,
           signInRequired: true,
           planId: null,
+          paidUntil: null,
+        });
+      }
+
+      // Developer / test accounts always get lifetime Pro — no Firestore read needed.
+      if (authUser.email && TEST_ACCOUNT_EMAILS.has(authUser.email.toLowerCase())) {
+        return res.json({
+          active: true,
+          configured: true,
+          lifetime: true,
+          planId: "lifetime",
           paidUntil: null,
         });
       }

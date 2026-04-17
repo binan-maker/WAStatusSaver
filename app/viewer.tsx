@@ -14,7 +14,7 @@ import {
   InteractionManager,
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
+import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withDecay, runOnJS } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -176,8 +176,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         if (cancelled) return;
 
         // Phase 2: extra buffer for the SurfaceView to finish binding on lower-end
-        // Android devices after animations complete (50ms proved insufficient).
-        await new Promise<void>(resolve => setTimeout(resolve, 150));
+        // Android devices after animations complete. 300ms gives even slow devices
+        // enough time to fully bind the native surface before data flows in.
+        await new Promise<void>(resolve => setTimeout(resolve, 300));
         if (cancelled) return;
 
         await player.replaceAsync(displayUri);
@@ -304,6 +305,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   // Pan is only activated when zoomed in. Translation is clamped so the image
   // never drifts off-screen — providing a proper constrained zoom experience.
+  // A resistance factor of 0.72 is applied during the drag to prevent the
+  // "watery" / uncontrolled feel. withDecay on release gives a smooth
+  // deceleration that respects the clamp bounds.
   const panGesture = Gesture.Pan()
     .manualActivation(true)
     .onTouchesMove((_e, state) => {
@@ -312,18 +316,31 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     })
     .onUpdate((e) => {
       const scale = imageScale.value;
-      // Maximum panning range grows with scale. At 1x there is no pan range.
-      // Both axes use SW so landscape images can never pan fully off-screen.
       const maxX = ((scale - 1) * SW) / 2;
       const maxY = ((scale - 1) * SW) / 2;
-      const newX = savedTranslateX.value + e.translationX;
-      const newY = savedTranslateY.value + e.translationY;
+      // Resistance factor — dampens direct finger tracking so fast swipes
+      // feel controlled rather than sliding out of hand.
+      const resistance = 0.72;
+      const newX = savedTranslateX.value + e.translationX * resistance;
+      const newY = savedTranslateY.value + e.translationY * resistance;
       translateX.value = Math.max(-maxX, Math.min(maxX, newX));
       translateY.value = Math.max(-maxY, Math.min(maxY, newY));
     })
-    .onEnd(() => {
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
+    .onEnd((e) => {
+      const scale = imageScale.value;
+      const maxX = ((scale - 1) * SW) / 2;
+      const maxY = ((scale - 1) * SW) / 2;
+      // withDecay gives a natural coast-to-stop after the finger lifts.
+      // Velocity is halved so it doesn't shoot across the image.
+      // clamp keeps the image within valid bounds at all times.
+      translateX.value = withDecay(
+        { velocity: e.velocityX * 0.5, deceleration: 0.92, clamp: [-maxX, maxX] },
+        () => { savedTranslateX.value = translateX.value; },
+      );
+      translateY.value = withDecay(
+        { velocity: e.velocityY * 0.5, deceleration: 0.92, clamp: [-maxY, maxY] },
+        () => { savedTranslateY.value = translateY.value; },
+      );
     });
 
   const doubleTapGesture = Gesture.Tap()
@@ -407,26 +424,26 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 NOT just when isActive. This is the critical fix for black screen:
 
                 When VideoView is mounted ONLY on the active item, the native
-                SurfaceView is created at the exact moment the user swipes — the
-                same moment replaceAsync is called. On many Android devices the
-                SurfaceView is not yet bound to the hardware decoder in time,
-                so audio plays but video stays black.
+                SurfaceView is created at the exact moment the user taps — the
+                same moment the navigation animation starts. On many Android
+                devices the SurfaceView is not yet bound to the hardware decoder
+                by the time replaceAsync fires, so audio plays but video is black.
 
-                By mounting for isNearActive (up to 3 surfaces), the SurfaceView
-                for the next/previous video is already fully attached by the time
-                the user swipes to it. replaceAsync then finds a ready surface
-                and connects immediately — zero black-screen race.
+                CRITICAL: We mount VideoView when isNearActive is true even
+                BEFORE displayUri is available. This lets the native SurfaceView
+                begin binding to the hardware decoder during the navigation
+                animation itself. By the time the URI is prepared and replaceAsync
+                fires (after InteractionManager + 300ms buffer), the surface is
+                already fully attached — zero race condition.
 
-                The thumbnail overlay (below) ensures only the active+ready video
-                is actually visible; adjacent mounted-but-not-active VideoViews
-                are hidden under the thumbnail.
-
-                We also render only when displayUri is set so we never create a
-                surface without a source (which could still cause issues).
+                The thumbnail overlay ensures only the active+ready video is
+                visible; the black VideoView surface is hidden under it while
+                decoding. The player starts with null source so no data is
+                pushed into the decoder until replaceAsync is called.
               */}
-              {isNearActive && !!displayUri && (
+              {isNearActive && (
                 <VideoView
-                  key={`${item.id}-${displayUri}`}
+                  key={item.id}
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
