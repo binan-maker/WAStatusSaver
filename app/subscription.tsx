@@ -216,7 +216,7 @@ export default function SubscriptionScreen() {
                     </View>
                   ) : (
                     <View style={styles.planBadge}>
-                      <Text style={styles.planBadgeText} numberOfLines={1}>{plan.badge}</Text>
+                      <Text style={styles.planBadgeText}>{plan.badge}</Text>
                     </View>
                   )}
                 </View>
@@ -546,7 +546,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.FULL,
     borderWidth: 1,
     borderColor: COLORS.PRIMARY + "30",
-    maxWidth: 90,
   },
   planBadgeText: {
     color: COLORS.PRIMARY,

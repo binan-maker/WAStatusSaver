@@ -357,6 +357,19 @@ export function useSubscriptionStatus() {
     return () => clearInterval(interval);
   }, [refresh]);
 
+  // Cross-device Pro restore: when the user signs in (or switches accounts),
+  // immediately force-refresh subscription from the server using their Firebase
+  // UID. Without this, a user who reinstalls and signs back in would see no Pro
+  // status until the next 30-minute polling cycle.
+  const prevUidRef = useRef<string | null>(null);
+  useEffect(() => {
+    const uid = user?.uid ?? null;
+    if (uid && uid !== prevUidRef.current) {
+      refresh(true);
+    }
+    prevUidRef.current = uid;
+  }, [user?.uid, refresh]);
+
   // Foreground refresh: whenever the app comes back from background, re-sync
   // subscription so ads disappear immediately for Pro users without a restart.
   useEffect(() => {

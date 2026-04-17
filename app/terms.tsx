@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -135,6 +136,15 @@ export default function TermsScreen() {
           <Text style={styles.footerText}>
             © 2026 StatusVault · Not affiliated with WhatsApp LLC or Meta Platforms Inc.
           </Text>
+          <View style={styles.footerLinks}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/StatusVault/terms/')} activeOpacity={0.7}>
+              <Text style={styles.footerLink}>Read full Terms online</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerLinkSep}>·</Text>
+            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/StatusVault/privacy-policy/')} activeOpacity={0.7}>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -281,11 +291,29 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.BORDER,
     alignItems: 'center',
+    gap: SPACING.MD,
   },
   footerText: {
     fontSize: FONT_SIZE.XS,
     color: COLORS.TEXT_MUTED,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  footerLink: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.PRIMARY,
+    fontFamily: 'Nunito_600SemiBold',
+    textDecorationLine: 'underline',
+  },
+  footerLinkSep: {
+    fontSize: FONT_SIZE.XS,
+    color: COLORS.TEXT_MUTED,
   },
 });
