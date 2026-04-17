@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   FlatList,
+  InteractionManager,
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
@@ -153,9 +154,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [displayUri]);
 
   // ── Source loading ───────────────────────────────────────────────────────
-  // KEY FIX: 200ms delay before replaceAsync so the VideoView surface has time
-  // to bind before we push data into the decoder. Without this, on Android the
-  // SurfaceView is not yet attached, causing audio-only playback (black screen).
+  // Wait for all navigation/layout animations to finish (InteractionManager)
+  // THEN add a 150ms buffer so the VideoView SurfaceView is fully bound to the
+  // hardware decoder before we push data into it. Without this, tapping a video
+  // directly from the grid causes audio-only playback (black screen) because
+  // the SurfaceView is created during the screen slide-in animation and hasn't
+  // finished attaching by the time replaceAsync fires.
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
 
@@ -165,10 +169,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     const load = async () => {
       try {
-        // Give VideoView's native surface 200ms to fully bind before we decode.
-        // 50ms was not enough on lower-end Android devices (race condition).
-        await new Promise<void>(resolve => setTimeout(resolve, 200));
+        // Phase 1: wait for any pending navigation/gesture animations to settle.
+        await new Promise<void>(resolve => {
+          InteractionManager.runAfterInteractions(resolve);
+        });
         if (cancelled) return;
+
+        // Phase 2: extra buffer for the SurfaceView to finish binding on lower-end
+        // Android devices after animations complete (50ms proved insufficient).
+        await new Promise<void>(resolve => setTimeout(resolve, 150));
+        if (cancelled) return;
+
         await player.replaceAsync(displayUri);
         if (!cancelled) isLoadingSource.current = false;
         tryStartPlayback();

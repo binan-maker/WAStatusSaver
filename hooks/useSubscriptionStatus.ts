@@ -430,9 +430,10 @@ export function useSubscriptionStatus() {
         order = (await orderResponse.json()) as CreateOrderResponse;
       } catch (orderError) {
         safeSetPayingPlanId(null);
+        const reason = orderError instanceof Error ? orderError.message : String(orderError);
         Alert.alert(
-          "Server Busy",
-          "Could not start payment. No money has been charged. Please try again in a moment.",
+          "Could Not Start Payment",
+          `No money has been charged. Please try again.\n\n${reason}`,
         );
         return false;
       }

@@ -336,8 +336,12 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        <SectionHeader title="Get Free Ads Access" />
-        <RewardAdButton variant="row" />
+        {!isSubscribed && (
+          <>
+            <SectionHeader title="Get Free Ads Access" />
+            <RewardAdButton variant="row" />
+          </>
+        )}
 
         <SectionHeader title="Subscription" />
         <SubscriptionPlansCard />
