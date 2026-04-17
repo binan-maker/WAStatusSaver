@@ -510,9 +510,16 @@ export default function SettingsScreen() {
             onPress={() => router.push('/privacy')}
           />
           <SettingRow
+            icon="document-text-outline"
+            iconBg={COLORS.ACCENT_GOLD + '22'}
+            label="Terms & Conditions"
+            sublabel="Pricing, refund policy & legal terms"
+            onPress={() => router.push('/terms')}
+          />
+          <SettingRow
             icon="information-circle-outline"
             label="App Version"
-            value="1.0.0"
+            value="1.3.3"
             showArrow={false}
             onPress={handleVersionPress}
           />

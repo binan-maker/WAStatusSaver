@@ -102,7 +102,7 @@ async function computeStackedPaidUntil(
 
 function buildReceiptNumber(planId: string): string {
   const suffix = Date.now().toString(36).toUpperCase().slice(-6);
-  const prefix = planId === "yearly" ? "SV-YR" : "SV-MO";
+  const prefix = planId === "yearly" ? "SV-YR" : planId === "quarterly" ? "SV-3M" : "SV-MO";
   return `${prefix}-${suffix}`;
 }
 

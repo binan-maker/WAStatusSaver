@@ -1,4 +1,4 @@
-export type SubscriptionPlanId = "monthly" | "yearly";
+export type SubscriptionPlanId = "monthly" | "quarterly" | "yearly";
 
 export type SubscriptionPlan = {
   id: SubscriptionPlanId;
@@ -21,6 +21,16 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     durationDays: 30,
     badge: "Most Popular",
     description: "Remove all ads for 30 days",
+  },
+  {
+    id: "quarterly",
+    title: "3 Months Pro",
+    shortTitle: "3 Months",
+    amount: 79,
+    currency: "INR",
+    durationDays: 90,
+    badge: "Great Deal",
+    description: "Ad-free for 3 full months",
   },
   {
     id: "yearly",
