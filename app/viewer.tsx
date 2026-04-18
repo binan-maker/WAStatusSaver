@@ -114,14 +114,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
-  // Release the hardware decoder on unmount so the decoder pool isn't exhausted.
+  // Fully release the hardware decoder on unmount.
+  // Using player.release() (not just replaceAsync(null)) is critical:
+  // replaceAsync(null) clears the source but may leave the native ExoPlayer
+  // instance holding its hardware codec slot. With windowSize={3}, the FlatList
+  // only keeps 3 items mounted, so each unmount MUST free the decoder slot.
+  // Without release(), after 3-5 videos the hardware codec pool (typically 3-4
+  // slots on Android) is exhausted → new videos decode in black.
   useEffect(() => {
     return () => {
-      if (item.type === 'video' && player) {
-        try {
-          (player as any).replaceAsync?.(null).catch?.(() => {});
-        } catch {}
-      }
+      try { player.release(); } catch {}
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -467,21 +469,19 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           </Reanimated.View>
         </GestureDetector>
       ) : (
-        <GestureDetector gesture={videoTapGesture}>
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
               {/*
-                VideoView is mounted when isNearActive (prev/current/next),
-                NOT just when isActive. The native SurfaceView therefore begins
-                binding to the hardware decoder during the navigation animation
-                rather than at the moment the user taps.
+                VideoView is mounted when isNearActive (prev/current/next).
+                nativeControls={true} → ExoPlayer's built-in seek bar, play/pause,
+                duration are shown automatically. The thumbnail overlay above it
+                has pointerEvents="none" so all touches fall through to the native
+                controls even while the thumbnail is still covering the surface.
 
-                replaceAsync is called as soon as the animation settles
-                (InteractionManager). The thumbnail remains on screen until
-                isVideoVisible becomes true — 200 ms after readyToPlay fires —
-                so ExoPlayer's frame pipeline has time to fill before we reveal.
-                This combo eliminates the audio-only / black-video bug on all
-                Android devices regardless of hardware speed.
+                replaceAsync fires after InteractionManager (animation done).
+                The thumbnail stays up 200 ms past readyToPlay (isVideoVisible)
+                so ExoPlayer has filled its frame pipeline before we reveal.
+                player.release() on unmount frees the hardware codec slot.
               */}
               {isNearActive && (
                 <VideoView
@@ -489,31 +489,31 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
-                  nativeControls={false}
+                  nativeControls={true}
                 />
               )}
 
               {/*
-                Thumbnail stays visible until isVideoVisible is true.
-                isVideoVisible lags 200 ms behind isVideoReady so the first
-                frame has physically rendered to the SurfaceView before the
-                thumbnail disappears. This is the definitive black-screen fix:
-                readyToPlay ≠ first frame on screen; isVideoVisible = is.
+                pointerEvents="none" on the wrapper: thumbnail never blocks touches.
+                Native ExoPlayer controls receive all taps even while loading.
+                Stays visible until isVideoVisible (200 ms post-readyToPlay).
               */}
               {(!isActive || !isVideoVisible) && (
-                <Image
-                  source={{ uri: initialSource }}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                  transition={0}
-                  recyclingKey={item.id}
-                />
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                  <Image
+                    source={{ uri: initialSource }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="contain"
+                    cachePolicy="memory-disk"
+                    transition={0}
+                    recyclingKey={item.id}
+                  />
+                </View>
               )}
 
-              {/* Branded loading spinner during video decode */}
+              {/* Spinner during buffering — sits above thumbnail, below native controls */}
               {isNearActive && !isVideoReady && (
-                <View style={styles.videoSpinnerWrap}>
+                <View style={styles.videoSpinnerWrap} pointerEvents="none">
                   <ActivityIndicator
                     color={COLORS.PRIMARY}
                     size="large"
@@ -522,7 +522,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               )}
             </View>
           </View>
-        </GestureDetector>
       )}
     </View>
   );
@@ -714,6 +713,8 @@ const toggleControls = useCallback(() => {
 
   if (!currentItem) return null;
 
+  const isVideoItem = currentItem.type === 'video';
+
   return (
     <View style={styles.root}>
       <StatusBar hidden />
@@ -754,8 +755,17 @@ const toggleControls = useCallback(() => {
         updateCellsBatchingPeriod={50}
       />
 
+      {/* ── Top bar: back + counter. Always visible for video; toggleable for images ── */}
       <Animated.View
-        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, pointerEvents: (showControls || (currentItem && currentItem.type === 'image')) ? 'auto' : 'none', zIndex: 150 }]}
+        style={[
+          styles.topBar,
+          {
+            paddingTop: insets.top + 8,
+            opacity: isVideoItem ? 1 : controlsOpacity,
+            pointerEvents: (isVideoItem || showControls) ? 'auto' : 'none',
+            zIndex: 150,
+          },
+        ]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
@@ -766,52 +776,95 @@ const toggleControls = useCallback(() => {
         <View style={{ width: 40 }} />
       </Animated.View>
 
-      <Animated.View
-        style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 150 }]}
-      >
-        <View style={styles.viewerAdContainer}>
-           <AdBanner size={BannerAdSize.BANNER} style={{ height: 50 }} />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
-          onPress={handleSave}
-          disabled={isSaved || isSaving || isSavedView}
-        >
-          {isSaving ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons
-              name={isSaved ? 'checkmark-circle' : 'download'}
-              size={20}
-              color={isSaved ? COLORS.PRIMARY : '#fff'}
-            />
+      {/* ── VIDEO: Instagram Reels-style right-side action buttons. Always visible. ── */}
+      {isVideoItem && (
+        <View style={[styles.reelsSidebar, { bottom: insets.bottom + 100 }]} pointerEvents="box-none">
+          {/* Save */}
+          {!isSavedView && (
+            <TouchableOpacity style={styles.reelsBtn} onPress={handleSave} disabled={isSaved || isSaving}>
+              <View style={[styles.reelsCircle, isSaved && { backgroundColor: COLORS.PRIMARY + 'CC' }]}>
+                {isSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name={isSaved ? 'checkmark-circle' : 'download-outline'} size={26} color="#fff" />}
+              </View>
+              <Text style={styles.reelsLabel}>{isSaved ? 'Saved' : 'Save'}</Text>
+            </TouchableOpacity>
           )}
-          <Text style={[styles.actionText, isSaved && { color: COLORS.PRIMARY }]}>
-            {isSaved ? 'Saved' : 'Save'}
-          </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-          <Ionicons name="share-social" size={20} color="#fff" />
-          <Text style={styles.actionText}>Share</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleShare()}
-        >
-          <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
-          <Text style={styles.actionText}>WhatsApp</Text>
-        </TouchableOpacity>
-
-        {isSavedView && (
-          <TouchableOpacity style={[styles.actionButton, { backgroundColor: COLORS.ACCENT_RED + '22' }]} onPress={handleDelete}>
-            <Ionicons name="trash-outline" size={20} color={COLORS.ACCENT_RED} />
-            <Text style={[styles.actionText, { color: COLORS.ACCENT_RED }]}>Delete</Text>
+          {/* Share */}
+          <TouchableOpacity style={styles.reelsBtn} onPress={handleShare}>
+            <View style={styles.reelsCircle}>
+              <Ionicons name="share-social-outline" size={26} color="#fff" />
+            </View>
+            <Text style={styles.reelsLabel}>Share</Text>
           </TouchableOpacity>
-        )}
-      </Animated.View>
+
+          {/* WhatsApp */}
+          <TouchableOpacity style={styles.reelsBtn} onPress={handleShare}>
+            <View style={styles.reelsCircle}>
+              <Ionicons name="logo-whatsapp" size={26} color="#25D366" />
+            </View>
+            <Text style={styles.reelsLabel}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          {/* Delete (saved view only) */}
+          {isSavedView && (
+            <TouchableOpacity style={styles.reelsBtn} onPress={handleDelete}>
+              <View style={[styles.reelsCircle, { backgroundColor: COLORS.ERROR + 'CC' }]}>
+                <Ionicons name="trash-outline" size={26} color="#fff" />
+              </View>
+              <Text style={styles.reelsLabel}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* ── IMAGE: horizontal bottom bar with buttons + banner ad. Toggleable. ── */}
+      {!isVideoItem && (
+        <Animated.View
+          style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 150 }]}
+        >
+          <View style={styles.viewerAdContainer}>
+            <AdBanner size={BannerAdSize.BANNER} style={{ height: 50 }} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
+            onPress={handleSave}
+            disabled={isSaved || isSaving || isSavedView}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons
+                name={isSaved ? 'checkmark-circle' : 'download'}
+                size={20}
+                color={isSaved ? COLORS.PRIMARY : '#fff'}
+              />
+            )}
+            <Text style={[styles.actionText, isSaved && { color: COLORS.PRIMARY }]}>
+              {isSaved ? 'Saved' : 'Save'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+            <Ionicons name="share-social" size={20} color="#fff" />
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+            <Text style={styles.actionText}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          {isSavedView && (
+            <TouchableOpacity style={[styles.actionButton, { backgroundColor: COLORS.ERROR + '22' }]} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={20} color={COLORS.ERROR} />
+              <Text style={[styles.actionText, { color: COLORS.ERROR }]}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </Animated.View>
+      )}
 
       <AdInterstitial
         visible={showInterstitial}
@@ -1011,6 +1064,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     fontFamily: 'Nunito_700Bold',
+  },
+  /* ── Instagram Reels-style right-side vertical action buttons (video only) ── */
+  reelsSidebar: {
+    position: 'absolute',
+    right: 14,
+    alignItems: 'center',
+    gap: 22,
+    zIndex: 200,
+  },
+  reelsBtn: {
+    alignItems: 'center',
+    gap: 5,
+  },
+  reelsCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  reelsLabel: {
+    color: '#fff',
+    fontSize: 11,
+    fontFamily: 'Nunito_600SemiBold',
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   errorContainer: {
     alignItems: 'center',
