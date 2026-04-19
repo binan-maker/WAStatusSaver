@@ -454,8 +454,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // No .Statuses found — fall back to the granted URI as-is
-    cache.set(grantedUri, grantedUri);
+    // No .Statuses found — fall back to the granted URI as-is.
+    // IMPORTANT: do NOT cache this failure. The next loadStatuses/refresh call
+    // must re-run BFS so it picks up the folder once Android's indexer exposes it.
     return grantedUri;
   }
 
@@ -522,6 +523,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         if (safEntries.length > 0) {
           const results = await Promise.all(safEntries.map(([source, uri]) => readFromSAF(uri, source)));
           items = results.flat();
+
+          // Auto-retry: if we have granted URIs but got 0 items, Android's indexer
+          // may not have finished exposing the hidden .Statuses folder yet.
+          // Clear the BFS cache and try once more after a 1 second pause.
+          if (items.length === 0) {
+            await new Promise(res => setTimeout(res, 1000));
+            resolvedUriCache.current.clear();
+            const retryResults = await Promise.all(safEntries.map(([source, uri]) => readFromSAF(uri, source)));
+            items = retryResults.flat();
+          }
         } else if (safUri) {
           items = await readFromSAF(safUri);
         }
@@ -543,6 +554,11 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
+    // Clear the BFS path cache so every manual refresh re-walks the folder tree.
+    // This is what makes the refresh button actually pick up new statuses —
+    // without this, a stale cached path (from a previous failed BFS) is reused
+    // and the folder appears empty forever until the app restarts.
+    resolvedUriCache.current.clear();
     await loadStatuses();
     await loadSavedItems();
     setIsRefreshing(false);
