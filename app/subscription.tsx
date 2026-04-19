@@ -56,7 +56,10 @@ export default function SubscriptionScreen() {
     successPlanId,
     isRecoveringPayment,
     dismissPaymentSuccess,
+    providerName,
   } = useSubscriptionStatus();
+
+  const isGooglePlay = providerName === "google-play";
 
   const pendingPlanRef = useRef<SubscriptionPlanId | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -277,7 +280,7 @@ export default function SubscriptionScreen() {
         <View style={styles.trustRow}>
           <View style={styles.trustBadge}>
             <MaterialCommunityIcons name="lock" size={12} color={COLORS.TEXT_MUTED} />
-            <Text style={styles.trustText}>Razorpay Secure</Text>
+            <Text style={styles.trustText}>{isGooglePlay ? "Google Play Secure" : "Razorpay Secure"}</Text>
           </View>
           <View style={styles.trustBadge}>
             <MaterialCommunityIcons name="shield-check" size={12} color={COLORS.TEXT_MUTED} />
@@ -290,8 +293,9 @@ export default function SubscriptionScreen() {
         </View>
 
         <Text style={styles.legalText}>
-          Payments handled by Razorpay. Fixed expiry, no auto-renewal.
-          48-hour refund window on yearly plan for verified app failures only.
+          {isGooglePlay
+            ? "Payments handled by Google Play. Fixed expiry, no auto-renewal. Refunds subject to Google Play refund policy."
+            : "Payments handled by Razorpay. Fixed expiry, no auto-renewal. 48-hour refund window on yearly plan for verified app failures only."}
         </Text>
       </ScrollView>
     </>

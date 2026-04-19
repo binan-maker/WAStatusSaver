@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import * as fs from "fs";
 import * as path from "path";
-import { registerPaymentRoutes } from "./payment-routes";
+import { registerAllPaymentRoutes } from "./payment-routes";
 import { registerUserRoutes } from "./user-routes";
 
 function readTemplate(name: string): string {
@@ -14,7 +14,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: "ok" });
   });
 
-  registerPaymentRoutes(app);
+  registerAllPaymentRoutes(app);
   registerUserRoutes(app);
 
   app.get("/privacy-policy", (_req: Request, res: Response) => {
