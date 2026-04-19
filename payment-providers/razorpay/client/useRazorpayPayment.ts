@@ -3,7 +3,7 @@ import { Alert, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
 import type { SubscriptionPlanId } from "@/shared/subscription-plans";
-import type { PaymentProviderHookOptions, PaymentProviderHookResult, SubscriptionStatus } from "../../_shared/types";
+import type { PaymentProviderHookOptions, PaymentProviderHookResult, SubscriptionStatus } from "../../shared/types";
 import { RAZORPAY_PLANS } from "./plans";
 
 const PENDING_PAYMENT_KEY = "@statusvault_pending_payment";

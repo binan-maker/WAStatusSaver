@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/query-client";
 import { getPaymentDeviceId } from "@/lib/device-identity";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 import { usePaymentProvider } from "@/payment-providers";
-import type { SubscriptionStatus } from "@/payment-providers/_shared/types";
+import type { SubscriptionStatus } from "@/payment-providers/shared/types";
 import type { SubscriptionPlanId } from "@/shared/subscription-plans";
 
 export type { SubscriptionStatus };

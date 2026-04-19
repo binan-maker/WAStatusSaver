@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia } from '@/contexts/MediaContext';
-import { SAFGuideOverlay } from '@/components/SAFGuideOverlay';
+import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 import { useLanguage } from '@/contexts/LanguageContext';

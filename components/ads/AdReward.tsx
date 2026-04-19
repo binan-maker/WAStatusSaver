@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform } from 'react-native';
 import { RewardedAd, RewardedAdEventType, AdEventType } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
-import { useFreeAdsState } from '@/hooks/useFreeAdsState';
+import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 
 const adUnitId = AD_UNIT_IDS.REWARDED;
 

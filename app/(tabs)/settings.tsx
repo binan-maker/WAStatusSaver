@@ -21,16 +21,16 @@ import * as Haptics from 'expo-haptics';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
-import { AdBanner } from '@/components/AdBanner';
-import { RewardAdButton } from '@/components/RewardAdButton';
-import { SubscriptionPlansCard } from '@/components/SubscriptionPlansCard';
-import { NoticeBoardCard } from '@/components/NoticeBoardCard';
+import { useSubscriptionStatus } from '@/hooks/subscription/useSubscriptionStatus';
+import { AdBanner } from '@/components/ads/AdBanner';
+import { RewardAdButton } from '@/components/ads/RewardAdButton';
+import { SubscriptionPlansCard } from '@/components/subscription/SubscriptionPlansCard';
+import { NoticeBoardCard } from '@/components/feedback/NoticeBoardCard';
 import { Share } from 'react-native';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
-import { useAppNoticeDirect } from '@/hooks/useAppNotice';
+import { useAppNoticeDirect } from '@/hooks/feedback/useAppNotice';
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;

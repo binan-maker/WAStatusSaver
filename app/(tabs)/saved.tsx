@@ -17,12 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
-import { MediaCard } from '@/components/MediaCard';
-import { useMilestoneRating } from '@/hooks/useMilestoneRating';
-import { MilestoneRatingCard } from '@/components/MilestoneRatingCard';
-import { AdBanner, GridAd } from '@/components/AdBanner';
-import { EmptyState } from '@/components/EmptyState';
-import { RewardAdButton } from '@/components/RewardAdButton';
+import { MediaCard } from '@/components/media/MediaCard';
+import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
+import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
+import { AdBanner, GridAd } from '@/components/ads/AdBanner';
+import { EmptyState } from '@/components/media/EmptyState';
+import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
 

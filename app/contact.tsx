@@ -20,7 +20,7 @@ import * as Device from 'expo-device';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebaseClientApp } from '@/lib/firebase-client';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { useSubscriptionStatus } from '@/hooks/subscription/useSubscriptionStatus';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 

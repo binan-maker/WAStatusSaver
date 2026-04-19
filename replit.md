@@ -66,37 +66,68 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
 
 ## Project Structure
 ```
-app/
-  _layout.tsx          # Root layout with fonts, providers
-  (tabs)/
-    _layout.tsx        # Tab bar (3 tabs)
-    index.tsx          # Statuses home
-    saved.tsx          # Saved gallery
-    settings.tsx       # Settings
-  viewer.tsx           # Fullscreen viewer
-  permissions.tsx      # Permission setup
-  guide.tsx            # User guide
-  privacy.tsx          # Privacy policy
+app/                        # Expo Router screens
+  (tabs)/                   # Tab bar screens (index, saved, settings)
+  _layout.tsx               # Root layout (fonts, providers)
+  subscription.tsx          # Subscription / upgrade screen
+  viewer.tsx                # Full-screen media viewer
+  permissions.tsx           # Storage permission setup
+  guide.tsx / privacy.tsx / terms.tsx / contact.tsx ...
 
-components/
-  AdBanner.tsx         # Banner ad placeholder
-  AdInterstitial.tsx   # Interstitial ad modal
-  EmptyState.tsx       # Empty state UI
-  LoadingShimmer.tsx   # Skeleton loading
-  MediaCard.tsx        # Image/video grid card
+components/                 # Domain-grouped React Native components
+  ads/                      # AdBanner, AdInterstitial, AdReward, AdAppOpen, RewardAdButton, SupportDeveloperAd
+  media/                    # MediaCard, EmptyState, LoadingShimmer, SAFGuideOverlay
+  subscription/             # SubscriptionPlansCard, PaymentSuccessModal
+  auth/                     # GoogleSignInModal
+  feedback/                 # AppNotice, MilestoneRatingCard, NoticeBoardCard
+  common/                   # AppLoadingScreen, ErrorBoundary, ErrorFallback, KeyboardAwareScrollViewCompat
 
-contexts/
-  MediaContext.tsx     # Core media state management
+hooks/                      # Domain-grouped custom hooks
+  ads/                      # useAppOpenAd, useFreeAdsState
+  subscription/             # useSubscriptionStatus
+  feedback/                 # useAppNotice, useMilestoneRating
+  media/                    # useStatusReminder
 
-constants/
-  colors.ts            # Theme colors
-  theme.ts             # Spacing, typography, layout
-  admob.ts             # AdMob unit IDs (replace before publish)
-server/
-  payment-routes.ts    # Razorpay + Firestore payment endpoints
-  firebase-admin.ts    # Firebase Admin initialization
-shared/
-  subscription-plans.ts # Shared subscription plan definitions
+contexts/                   # React Context providers
+  AuthContext.tsx            # Firebase auth + user state
+  LanguageContext.tsx        # i18n language selection
+  MediaContext.tsx           # WhatsApp status media state
+
+constants/                  # Static config
+  colors.ts / theme.ts / admob.ts
+
+lib/                        # Client-side utilities
+  firebase-client.ts / device-identity.ts / i18n.ts / query-client.ts / ...
+  locales/                  # Translation strings (en, hi, ar, de, es, fr, ja, ml, pt, ru)
+
+server/                     # Express backend
+  index.ts                  # App setup + server listen
+  routes.ts                 # Route registrar (health, templates)
+  payment-routes.ts         # Thin wrapper → payment-providers/server.ts
+  user-routes.ts            # Account deletion / cancel-deletion
+  config/
+    firebase-admin.ts       # Firebase Admin SDK initialization
+  storage.ts                # File storage helpers
+  templates/                # HTML templates (landing page, privacy, terms, pricing)
+
+payment-providers/          # Store-specific payment logic (delete unused before build)
+  razorpay/                 # Indus App Store / Razorpay
+    client/                 # React Native hooks + plan config
+    server/                 # Express routes (orders, verify, status)
+    index.ts                # Razorpay client-side provider export
+  google-play/              # Google Play Billing / react-native-iap
+    client/                 # React Native hooks + plan config
+    server/                 # Express routes (verify, status)
+    index.ts                # Google Play client-side provider export
+  shared/                   # Shared types, server-utils (getAuthenticatedUser, normalizeDeviceId)
+  index.ts                  # Active client-side provider switch
+  server.ts                 # Active server-side provider switch
+
+shared/                     # isomorphic (client + server) code
+  subscription-plans.ts     # Canonical plan definitions (id, label, amount, duration)
+  schema.ts                 # Drizzle/DB schema
+
+scripts/                    # Utility scripts
 ```
 
 ## Payment Configuration

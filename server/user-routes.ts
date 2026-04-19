@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { getFirebaseAuth, getFirestoreDb, firestoreFieldValue } from "./firebase-admin";
+import { getFirebaseAuth, getFirestoreDb, firestoreFieldValue } from "./config/firebase-admin";
 
 export function registerUserRoutes(app: Express) {
   app.post("/api/users/delete-account", async (req: Request, res: Response) => {

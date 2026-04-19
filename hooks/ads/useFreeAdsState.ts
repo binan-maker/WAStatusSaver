@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { useSubscriptionStatus } from '@/hooks/subscription/useSubscriptionStatus';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
 import { REWARD_ADS_KEY_PREFIX } from '@/contexts/AuthContext';
 

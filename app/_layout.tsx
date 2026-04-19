@@ -15,17 +15,17 @@ import {
 import * as NavigationBar from 'expo-navigation-bar';
 import  mobileAds  from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider, useFirebaseAuth } from '@/contexts/AuthContext';
-import { AppLoadingScreen } from '@/components/AppLoadingScreen';
-import { GoogleSignInModal } from '@/components/GoogleSignInModal';
-import { useAppOpenAd } from '@/hooks/useAppOpenAd';
-import { useInterstitialAd } from '@/components/AdInterstitial';
-import { useFreeAdsState } from '@/hooks/useFreeAdsState';
-import { useStatusReminder } from '@/hooks/useStatusReminder';
+import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
+import { GoogleSignInModal } from '@/components/auth/GoogleSignInModal';
+import { useAppOpenAd } from '@/hooks/ads/useAppOpenAd';
+import { useInterstitialAd } from '@/components/ads/AdInterstitial';
+import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
+import { useStatusReminder } from '@/hooks/media/useStatusReminder';
 import COLORS from '@/constants/colors';
 
 SplashScreen.preventAutoHideAsync();

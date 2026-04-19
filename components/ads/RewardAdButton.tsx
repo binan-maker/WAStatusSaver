@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRewardedAd } from '@/components/AdReward';
-import { useFreeAdsState } from '@/hooks/useFreeAdsState';
+import { useRewardedAd } from '@/components/ads/AdReward';
+import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 

@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { SUBSCRIPTION_PLANS } from "../shared/subscription-plans";
-import { getFirebaseAuth, getFirebaseStatus, getFirestoreDb } from "./firebase-admin";
+import { getFirebaseAuth, getFirebaseStatus, getFirestoreDb } from "./config/firebase-admin";
 import { registerPaymentRoutes, PROVIDER_NAME } from "../payment-providers/server";
 
 type AuthenticatedUser = {

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRewardedAd } from '@/components/AdReward';
+import { useRewardedAd } from '@/components/ads/AdReward';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 

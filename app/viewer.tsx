@@ -25,8 +25,8 @@ import COLORS from '@/constants/colors';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 import { useEventListener } from 'expo';
 
-import { AdInterstitial } from '@/components/AdInterstitial';
-import { AdBanner } from '@/components/AdBanner';
+import { AdInterstitial } from '@/components/ads/AdInterstitial';
+import { AdBanner } from '@/components/ads/AdBanner';
 import { BannerAdSize } from 'react-native-google-mobile-ads';
 
 const { width: SW, height: SH } = Dimensions.get('window');

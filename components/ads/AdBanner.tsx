@@ -6,7 +6,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
-import { useFreeAdsState } from '@/hooks/useFreeAdsState';
+import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 import COLORS from '@/constants/colors';
 import { ADMOB, RADIUS } from '@/constants/theme';
 import { ADS_ENABLED, AD_UNIT_IDS } from '@/constants/admob';

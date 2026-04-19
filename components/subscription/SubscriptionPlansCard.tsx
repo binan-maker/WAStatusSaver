@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import COLORS from "@/constants/colors";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
-import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
+import { useSubscriptionStatus } from "@/hooks/subscription/useSubscriptionStatus";
 
 function formatRemaining(seconds: number) {
   const days = Math.floor(seconds / 86400);

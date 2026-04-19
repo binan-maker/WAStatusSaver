@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
 import { apiRequest } from "@/lib/query-client";
 import type { SubscriptionPlanId } from "@/shared/subscription-plans";
-import type { PaymentProviderHookOptions, PaymentProviderHookResult } from "../../_shared/types";
+import type { PaymentProviderHookOptions, PaymentProviderHookResult } from "../../shared/types";
 import { GOOGLE_PLAY_PLANS, getPlanByProductId } from "./plans";
 
 function getIAP() {

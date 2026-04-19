@@ -4,9 +4,13 @@ import { amountToPaise, getSubscriptionPlan } from "../../../shared/subscription
 import {
   firestoreFieldValue,
   firestoreTimestamp,
-  getFirebaseAuth,
   getFirestoreDb,
-} from "../../../server/firebase-admin";
+} from "../../../server/config/firebase-admin";
+import {
+  type AuthenticatedUser,
+  getAuthenticatedUser,
+  normalizeDeviceId,
+} from "../../shared/server-utils";
 
 type RazorpayOrderResponse = {
   id: string;
@@ -27,12 +31,6 @@ type RazorpayPaymentResponse = {
   contact?: string;
 };
 
-type AuthenticatedUser = {
-  uid: string;
-  email?: string;
-  name?: string;
-};
-
 function paymentUnavailable(res: Response) {
   return res.status(503).json({
     message: "Payments are not configured yet",
@@ -49,28 +47,6 @@ function getRazorpayAuthHeader() {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
   if (!keyId || !keySecret) return null;
   return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
-}
-
-function normalizeDeviceId(deviceId: unknown) {
-  if (typeof deviceId !== "string") return "";
-  return deviceId.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
-}
-
-async function getAuthenticatedUser(req: Request): Promise<AuthenticatedUser | null> {
-  const auth = getFirebaseAuth();
-  const header = req.header("authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (!auth || !token) return null;
-  try {
-    const decoded = await auth.verifyIdToken(token);
-    return {
-      uid: decoded.uid,
-      email: typeof decoded.email === "string" ? decoded.email : undefined,
-      name: typeof decoded.name === "string" ? decoded.name : undefined,
-    };
-  } catch {
-    return null;
-  }
 }
 
 async function computeStackedPaidUntil(

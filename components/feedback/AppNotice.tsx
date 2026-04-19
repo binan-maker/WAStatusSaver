@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
-import type { AppNotice } from '@/hooks/useAppNotice';
+import type { AppNotice } from '@/hooks/feedback/useAppNotice';
 
 interface Props {
   notice: AppNotice;
