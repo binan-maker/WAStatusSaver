@@ -1,0 +1,18 @@
+
+> expo-app@1.0.0 expo:dev
+> EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN:5000 expo start --localhost
+
+[1G[0K[90mStarting project at /home/runner/workspace[39m
+[31mPluginError: Failed to resolve plugin for module "expo-build-properties" relative to "/home/runner/workspace". Do you have node modules installed?[39m
+[90mPluginError: Failed to resolve plugin for module "expo-build-properties" relative to "/home/runner/workspace". Do you have node modules installed?[39m
+[90m    at resolvePluginForModule (/home/runner/workspace/node_modules/expo/node_modules/@expo/config-plugins/build/utils/plugin-resolver.js:96:9)[39m
+[90m    at resolveConfigPluginFunctionWithInfo (/home/runner/workspace/node_modules/expo/node_modules/@expo/config-plugins/build/utils/plugin-resolver.js:145:7)[39m
+[90m    at resolveConfigPluginFunction (/home/runner/workspace/node_modules/expo/node_modules/@expo/config-plugins/build/utils/plugin-resolver.js:136:7)[39m
+[90m    at withStaticPlugin (/home/runner/workspace/node_modules/expo/node_modules/@expo/config-plugins/build/plugins/withStaticPlugin.js:85:70)[39m
+[90m    at /home/runner/workspace/node_modules/expo/node_modules/@expo/config-plugins/build/plugins/withPlugins.js:30:84[39m
+[90m    at Array.reduce (<anonymous>)[39m
+[90m    at withPlugins (/home/runner/workspace/node_modules/expo/node_modules/@expo/config-plugins/build/plugins/withPlugins.js:30:18)[39m
+[90m    at withConfigPlugins (/home/runner/workspace/node_modules/expo/node_modules/@expo/config/build/plugins/withConfigPlugins.js:35:47)[39m
+[90m    at fillAndReturnConfig (/home/runner/workspace/node_modules/expo/node_modules/@expo/config/build/Config.js:236:78)[39m
+[90m    at getConfig (/home/runner/workspace/node_modules/expo/node_modules/@expo/config/build/Config.js:293:10)[39m
+[1G[0K⠙[1G[0K
