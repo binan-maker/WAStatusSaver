@@ -304,6 +304,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
             const nextSafUris = { ...safUris, [source]: result.directoryUri };
             await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
             await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
+            
             setSafUris(nextSafUris);
             setSafUri(result.directoryUri);
             setSafGranted(true);
@@ -312,6 +313,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
             // while we wait for Android to fully mount the SAF folder.
             setIsGrantingAccess(true);
             setIsLoading(true);
+            resolvedUriCache.current.delete(result.directoryUri);
 
             // Clear the BFS cache for this URI so the fresh grant always triggers
             // a clean walk — never reuses a stale "empty" result from before.
@@ -343,7 +345,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
                 items = await readSAFEntries(nextSafUris);
               }
 
-              setStatuses(items);
+             setStatuses(items);
+
+if (items.length === 0) {
+  Alert.alert(
+    "No Status Found",
+    "Open WhatsApp, view at least one status, then come back and tap refresh."
+  );
+}
             } finally {
               setIsLoading(false);
               setIsGrantingAccess(false);
@@ -397,36 +406,34 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // Known folder names that lie on the path from any SAF root to .Statuses.
   // The BFS only descends into these folders, so we never waste time on
   // Downloads, DCIM, or any other unrelated directory.
-  const SAF_INTERESTING_NAMES = new Set([
-    '.statuses',          // target — found it
-    'media',              // both "WhatsApp/Media" and "Android/media"
-    'android',            // Internal Storage/Android
-    'com.whatsapp',       // Android/media/com.whatsapp
-    'com.whatsapp.w4b',   // Android/media/com.whatsapp.w4b
-    'whatsapp',           // com.whatsapp/WhatsApp
-    'whatsapp business',  // com.whatsapp.w4b/WhatsApp Business
-  ]);
 
-  function isStatusesUri(uri: string): boolean {
-    return decodeURIComponent(uri).toLowerCase().includes('/.statuses');
-  }
+
+  
 
   // Builds a tree+document URI for a child path within a granted SAF tree.
   // This is the Android-native way to access a known child (e.g. /.Statuses)
   // even when readDirectoryAsync doesn't list it (hidden folder problem).
   // Format: content://authority/tree/TREE_DOC_ID/document/CHILD_DOC_ID
-  function buildChildDocUri(treeUri: string, childRelPath: string): string | null {
-    try {
-      const match = treeUri.match(/^(content:\/\/[^\/]+\/tree\/)(.+)$/);
-      if (!match) return null;
-      const prefix = match[1];          // "content://authority/tree/"
-      const treeDocId = match[2];       // already percent-encoded tree doc ID
-      const childDocId = treeDocId + encodeURIComponent(childRelPath);
-      return `${prefix}${treeDocId}/document/${childDocId}`;
-    } catch {
-      return null;
-    }
+  function buildChildDocUri(treeUri: string, childRelativePath: string): string | null {
+  try {
+    // Extract authority and tree document ID properly
+    const match = treeUri.match(/^(content:\/\/[^\/]+\/tree\/)(.+)$/);
+    if (!match) return null;
+    
+    const prefix = match[1]; // "content://com.android.externalstorage.documents/tree/"
+    let treeDocId = match[2]; // Already encoded, e.g. "primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia"
+    
+    // Decode once to work with plain path, then re-encode ONLY the child segment
+    const decodedTree = decodeURIComponent(treeDocId);
+    const childDocId = decodedTree + childRelativePath; // e.g. ".../Media/.Statuses"
+    
+    // Re-encode the FULL path for the document URI
+    return `${prefix}${encodeURIComponent(treeDocId)}/document/${encodeURIComponent(childDocId)}`;
+  } catch (e) {
+    console.warn('[SAF] buildChildDocUri failed:', e);
+    return null;
   }
+}
 
   // Smart BFS: follows only known folder names toward .Statuses up to 6 levels
   // deep. Works regardless of which level the user granted:
@@ -434,123 +441,110 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // If BFS can't find .Statuses (hidden folder not listed on some devices), falls
   // back to direct child URI construction using the Android tree+document format.
   // Results are cached only on success so failed resolutions are always retried.
-  async function resolveStatusesUri(grantedUri: string): Promise<string | null> {
-    const cache = resolvedUriCache.current;
-
-    if (cache.has(grantedUri)) return cache.get(grantedUri)!;
-
-    // Fast path: the user granted exactly the .Statuses folder.
-    // Try reading it immediately; if it works, use it.
-    if (isStatusesUri(grantedUri)) {
-      try {
-        await FileSystem.StorageAccessFramework.readDirectoryAsync(grantedUri);
-        cache.set(grantedUri, grantedUri);
-        return grantedUri;
-      } catch {
-        // Tree URI for .Statuses is unreadable on this device — fall through
-        // to try direct child construction from its parent (if possible).
-      }
-    }
-
-    // BFS queue: [uri, depth]
-    const queue: Array<[string, number]> = [[grantedUri, 0]];
-    const visited = new Set<string>();
-
-    while (queue.length > 0) {
-      const [current, depth] = queue.shift()!;
-      if (depth > 6 || visited.has(current)) continue;
-      visited.add(current);
-
-      let children: string[] = [];
-      try {
-        children = await FileSystem.StorageAccessFramework.readDirectoryAsync(current);
-      } catch {
-        continue; // not a readable directory — skip
-      }
-
-      // Immediately check all children for the .Statuses folder
-      const target = children.find(c => isStatusesUri(c));
-      if (target) {
-        cache.set(grantedUri, target);
-        return target;
-      }
-
-      // Enqueue children whose names are on the known path to .Statuses
-      for (const child of children) {
-        const decoded = decodeURIComponent(child).toLowerCase();
-        const name = decoded.split('/').pop() || decoded.split('%2f').pop() || '';
-        if (SAF_INTERESTING_NAMES.has(name)) {
-          queue.push([child, depth + 1]);
-        }
-      }
-    }
-
-    // BFS couldn't find .Statuses — possibly because some Android versions
-    // don't list hidden folders (starting with '.') in readDirectoryAsync.
-    // Try direct child URI construction: this uses the Android tree+document
-    // URI format which bypasses the directory listing and accesses the child
-    // path directly within the granted tree.
-    const directCandidates = [
-      '/.Statuses',
-      '/Media/.Statuses',
-      '/WhatsApp/Media/.Statuses',
-      '/WhatsApp Business/Media/.Statuses',
-    ];
-    for (const relPath of directCandidates) {
-      const candidateUri = buildChildDocUri(grantedUri, relPath);
-      if (!candidateUri) continue;
-      try {
-        // If readDirectoryAsync doesn't throw, the URI is accessible.
-        // An empty result is OK — statuses may just be empty right now.
-        await FileSystem.StorageAccessFramework.readDirectoryAsync(candidateUri);
-        cache.set(grantedUri, candidateUri);
-        return candidateUri;
-      } catch {
-        // This path not accessible — try next candidate
-      }
-    }
-
-    // Nothing found — return null so the caller knows resolution failed.
-    // Do NOT cache this failure; next call must retry (indexer may expose
-    // the folder later).
-    return null;
-  }
+  
 
   async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
-    const items: StatusItem[] = [];
-    try {
-      // Resolve the .Statuses folder regardless of which level the user granted.
-      // Returns null if no accessible .Statuses path can be found — in that case
-      // we return [] and let the caller retry later (never clear stored permissions).
-      const targetUri = await resolveStatusesUri(safDirUri);
-      if (!targetUri) return items;
+  const items: StatusItem[] = [];
+  
+  try {
+    // Strategy 1: Try direct .Statuses access via known relative paths
+    const candidatePaths = [
+      '/.Statuses', // Most common: granted at Media level
+      '/WhatsApp/Media/.Statuses', // Granted at root
+      '/Media/.Statuses', // Some OEMs
+      '/Android/media/com.whatsapp/WhatsApp/Media/.Statuses', // Full path grant
+      '/WhatsApp Business/Media/.Statuses',
+      '/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses',
+    ];
 
-      // Read the resolved .Statuses folder
-      const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
-      const isBusiness = decodeURIComponent(targetUri).toLowerCase().includes('w4b') ||
-                        decodeURIComponent(targetUri).toLowerCase().includes('business');
-      const source = forcedSource || (isBusiness ? 'whatsapp_business' : 'whatsapp');
-
-      for (const fileUri of files) {
-        const name = decodeURIComponent(fileUri.split('%2F').pop() || fileUri.split('/').pop() || '');
-        if (!isValidStatusFile(name)) continue;
-        items.push({
-          id: getFileId(fileUri) + '_' + source,
-          uri: fileUri,
-          type: getMediaType(name),
-          name,
-          source,
-        });
+    let targetUri: string | null = null;
+    
+    for (const relPath of candidatePaths) {
+      const candidateUri = buildChildDocUri(safDirUri, relPath);
+      if (!candidateUri) continue;
+      
+      try {
+        // Test if this URI is accessible and has files
+        const testFiles = await FileSystem.StorageAccessFramework.readDirectoryAsync(candidateUri);
+        if (testFiles && testFiles.length > 0) {
+          targetUri = candidateUri;
+          console.log(`[SAF] Found .Statuses at: ${relPath}`);
+          break;
+        }
+      } catch (e) {
+        // Try next path
+        continue;
       }
-    } catch (e) {
-      // Do NOT clear stored permissions on any error. A transient failure
-      // (timing, Android mount lag, first open after reboot) used to permanently
-      // delete the SAF URI, forcing the user to re-grant every time something
-      // went wrong. Now we just return [] and let the retry logic handle it.
-      console.warn('[SAF] readFromSAF error (permissions kept):', e);
     }
+
+    // Strategy 2: If direct access fails, try reading the granted root and filtering
+    if (!targetUri) {
+      console.log('[SAF] Direct .Statuses access failed, trying root scan...');
+      const rootFiles = await FileSystem.StorageAccessFramework.readDirectoryAsync(safDirUri);
+      
+      // Look for WhatsApp/WhatsApp Business folders recursively (max depth 3)
+      const findStatuses = async (uri: string, depth: number): Promise<string | null> => {
+        if (depth > 3) return null;
+        try {
+          const entries = await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
+          for (const entry of entries) {
+            const name = decodeURIComponent(entry.split('/').pop() || '');
+            if (name === '.Statuses') return entry;
+            if (['WhatsApp', 'WhatsApp Business', 'Media', 'Android'].includes(name)) {
+              const found = await findStatuses(entry, depth + 1);
+              if (found) return found;
+            }
+          }
+        } catch {}
+        return null;
+      };
+      
+      const foundUri = await findStatuses(safDirUri, 0);
+      if (foundUri) targetUri = foundUri;
+    }
+
+    if (!targetUri) {
+      // ✅ CRITICAL: Give user actionable feedback instead of silent failure
+      Alert.alert(
+        '⚠️ Status Folder Not Found',
+        'Please grant access to the folder containing ".Statuses" (usually WhatsApp/Media). Try again and select the "Media" folder, not individual files.',
+        [{ text: 'Retry', onPress: () => requestSAF(forcedSource, true) }]
+      );
+      return [];
+    }
+
+    // ✅ Read files from resolved .Statuses URI
+    const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
+    const decodedUri = decodeURIComponent(targetUri).toLowerCase();
+    const source = forcedSource || 
+                   (decodedUri.includes('w4b') || decodedUri.includes('business') ? 'whatsapp_business' : 'whatsapp');
+
+    for (const fileUri of files) {
+      const fileName = decodeURIComponent(fileUri.split('/').pop() || '');
+      if (!isValidStatusFile(fileName)) continue;
+      
+      items.push({
+        id: getFileId(fileUri) + '_' + source,
+        uri: fileUri,
+        type: getMediaType(fileName),
+        name: fileName,
+        source,
+      });
+    }
+    
+    console.log(`[SAF] Loaded ${items.length} items from ${source}`);
     return items;
+    
+  } catch (e) {
+    console.error('[SAF] Critical error in readFromSAF:', e);
+    Alert.alert(
+      'Storage Error',
+      'Could not read status files. Please ensure WhatsApp has media and try granting permission again.',
+      [{ text: 'OK' }]
+    );
+    return [];
   }
+}
 
   const loadStatuses = useCallback(async () => {
     const isModernAndroid = Platform.OS === 'android' && androidVersion >= 30;
@@ -561,6 +555,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true);
     try {
+      const delays = [800, 2000, 4000];
       let items: StatusItem[] = [];
 
       if (canUseSAF) {
@@ -598,13 +593,15 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   }, [hasPermission, androidVersion, safGranted, safUri, safUris]);
 
   const refresh = useCallback(async () => {
+    resolvedUriCache.current.clear();
     setIsRefreshing(true);
     // Clear the BFS path cache so every manual refresh re-walks the folder tree.
     // This is what makes the refresh button actually pick up new statuses —
     // without this, a stale cached path (from a previous failed BFS) is reused
     // and the folder appears empty forever until the app restarts.
     resolvedUriCache.current.clear();
-    await loadStatuses();
+    setStatuses([]); // clear UI first
+await loadStatuses();
     await loadSavedItems();
     setIsRefreshing(false);
   }, [loadStatuses]);
