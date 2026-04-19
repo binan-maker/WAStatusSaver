@@ -66,6 +66,7 @@ What NOT to include:
 
 </design_subagent_guidance>
 
+<<<<<<< HEAD
 ## Ground the Brief with Real Site Inputs
 
 If the user provides a real company/site URL, or asks you to create a site for an existing company, gather a little context before delegating:
@@ -76,6 +77,8 @@ If the user provides a real company/site URL, or asks you to create a site for a
 
 Pass only the distilled brand and copy context into the brief. Do this before delegating — the DESIGN subagent cannot call these callbacks itself. Do not paste raw tool output or turn this into layout instructions — the DESIGN subagent still decides structure and visual execution.
 
+=======
+>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
 ## Writing the Creative Brief
 
 Write a creative brief directly in the `task` field. This is the most important part — the design subagent builds its entire visual direction from your brief. A lazy brief produces a generic UI, but an over-specified brief produces a constrained, predictable one.

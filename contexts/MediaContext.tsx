@@ -472,7 +472,11 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const loadStatuses = useCallback(async () => {
     const isModernAndroid = Platform.OS === 'android' && androidVersion >= 30;
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
     // If we have SAF granted, we use it regardless of broad gallery permissions.
     // This is the privacy-friendly way Google prefers.
     const canUseSAF = safGranted || (isModernAndroid && safUri);
@@ -550,7 +554,11 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
         } catch (err) {
           console.log('MediaLibrary save error:', err);
+<<<<<<< HEAD
 
+=======
+          
+>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
           // Only alert user if we aren't on Modern Android (which should have worked)
           // or if the error specifically indicates a permission issue we didn't expect.
           if (!isModernAndroid) {

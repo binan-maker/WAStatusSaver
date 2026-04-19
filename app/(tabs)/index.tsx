@@ -338,7 +338,11 @@ export default function StatusesScreen() {
   const selectedSafGranted = Platform.OS === 'android'
     ? Boolean(safUris[selectedSource])
     : true;
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
   // We prioritize SAF (Folder Access) as the primary way to access statuses.
   // This complies with Google Play's privacy-first media policies.
   const showPermScreen = Platform.OS === 'android' && !selectedSafGranted;
