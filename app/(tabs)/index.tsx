@@ -234,6 +234,7 @@ export default function StatusesScreen() {
     isLoading,
     isRefreshing,
     isInitializing,
+    isGrantingAccess,
     hasPermission,
     safGranted,
     safUris,
@@ -338,11 +339,7 @@ export default function StatusesScreen() {
   const selectedSafGranted = Platform.OS === 'android'
     ? Boolean(safUris[selectedSource])
     : true;
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
   // We prioritize SAF (Folder Access) as the primary way to access statuses.
   // This complies with Google Play's privacy-first media policies.
   const showPermScreen = Platform.OS === 'android' && !selectedSafGranted;
@@ -445,7 +442,7 @@ export default function StatusesScreen() {
         style={styles.listArea}
       >
         <View style={{ width: SW }}>
-          {isLoading ? (
+          {isLoading || isGrantingAccess ? (
             <LoadingShimmer count={GRID_COLUMNS * 4} />
           ) : filteredImages.length === 0 ? (
             <EmptyState
@@ -491,7 +488,7 @@ export default function StatusesScreen() {
         </View>
 
         <View style={{ width: SW }}>
-          {isLoading ? (
+          {isLoading || isGrantingAccess ? (
             <LoadingShimmer count={GRID_COLUMNS * 4} />
           ) : filteredVideos.length === 0 ? (
             <EmptyState

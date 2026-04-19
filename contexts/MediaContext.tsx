@@ -43,6 +43,7 @@ interface MediaContextValue {
   isRefreshing: boolean;
   isInitializing: boolean;
   isRequestingSAF: boolean;
+  isGrantingAccess: boolean;
   hasPermission: boolean;
   safGranted: boolean;
   safUri: string | null;
@@ -277,6 +278,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   }, [loadStatuses]);
 
   const [isRequestingSAF, setIsRequestingSAF] = useState(false);
+  const [isGrantingAccess, setIsGrantingAccess] = useState(false);
 
   const requestSAF = useCallback(async (source: StatusSource = 'whatsapp', manual: boolean = false) => {
     if (Platform.OS !== 'android') return;
@@ -301,23 +303,57 @@ export function MediaProvider({ children }: { children: ReactNode }) {
             setSafUris(nextSafUris);
             setSafUri(result.directoryUri);
             setSafGranted(true);
+
+            // Mark as "granting" so the UI shows shimmer instead of empty state
+            // while we wait for Android to fully mount the SAF folder.
+            setIsGrantingAccess(true);
             setIsLoading(true);
+
+            // Clear the BFS cache for this URI so the fresh grant always triggers
+            // a clean walk — never reuses a stale "empty" result from before.
+            resolvedUriCache.current.delete(result.directoryUri);
+
             try {
-              const safEntries = Object.entries(nextSafUris) as [StatusSource, string][];
-              const results = await Promise.all(safEntries.map(([entrySource, uri]) => readFromSAF(uri, entrySource)));
-              const items = results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+              // === Graceful Delay ===
+              // Android needs ~500-800ms to fully "mount" the newly granted SAF
+              // folder to this process. Reading immediately returns [] even when
+              // files exist. We wait 700ms before the first attempt.
+              await new Promise(res => setTimeout(res, 700));
+
+              const readSAFEntries = async (uriMap: Partial<Record<StatusSource, string>>) => {
+                const entries = Object.entries(uriMap) as [StatusSource, string][];
+                const results = await Promise.all(entries.map(([s, u]) => readFromSAF(u, s)));
+                return results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+              };
+
+              let items = await readSAFEntries(nextSafUris);
+
+              // === Auto-Retry ===
+              // If we still get 0 items after the settling delay, the Android
+              // media indexer may not have exposed the hidden .Statuses folder yet.
+              // Wait another 1.3 seconds and try once more before giving up.
+              if (items.length === 0) {
+                await new Promise(res => setTimeout(res, 1300));
+                // Also clear cache again before retry so BFS re-walks
+                resolvedUriCache.current.delete(result.directoryUri);
+                items = await readSAFEntries(nextSafUris);
+              }
+
               setStatuses(items);
             } finally {
               setIsLoading(false);
+              setIsGrantingAccess(false);
             }
           }
         } catch (e) {
           setIsRequestingSAF(false);
+          setIsGrantingAccess(false);
           Alert.alert('Permission Error', 'Could not access storage. Please try again.');
         }
       }, 500);
     } catch (e) {
       setIsRequestingSAF(false);
+      setIsGrantingAccess(false);
       Alert.alert('Permission Error', 'Could not access storage. Please try again.');
     }
   }, [loadStatuses, safUris]);
@@ -472,11 +508,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const loadStatuses = useCallback(async () => {
     const isModernAndroid = Platform.OS === 'android' && androidVersion >= 30;
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
     // If we have SAF granted, we use it regardless of broad gallery permissions.
     // This is the privacy-friendly way Google prefers.
     const canUseSAF = safGranted || (isModernAndroid && safUri);
@@ -554,11 +586,6 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
         } catch (err) {
           console.log('MediaLibrary save error:', err);
-<<<<<<< HEAD
-
-=======
-          
->>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878
           // Only alert user if we aren't on Modern Android (which should have worked)
           // or if the error specifically indicates a permission issue we didn't expect.
           if (!isModernAndroid) {
@@ -744,6 +771,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     isRefreshing,
     isInitializing,
     isRequestingSAF,
+    isGrantingAccess,
     hasPermission,
     safGranted,
     safUri,
