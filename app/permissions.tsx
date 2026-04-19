@@ -107,9 +107,9 @@ export default function PermissionsScreen() {
             </View>
             <Text style={styles.heroTitle}>{t('grant_access')}</Text>
             <Text style={styles.heroSub}>
-              StatusVault needs storage access to show and save WhatsApp statuses.
+              StatusVault needs two permissions: gallery save access (write-only) and WhatsApp folder access (for reading statuses).
               {'\n'}Android {androidVersion}
-              {androidVersion >= 30 ? ' (Android 11+) requires folder access.' : ' – basic permissions required.'}
+              {androidVersion >= 30 ? ' (Android 11+) — both steps required.' : ' — grant gallery access to save.'}
             </Text>
           </View>
         </LinearGradient><ScrollView
@@ -121,14 +121,14 @@ export default function PermissionsScreen() {
               <StepCard
                 step={1}
                 icon={hasPermission ? 'shield-checkmark' : 'shield-outline'}
-                title="Media Permission"
+                title="Save to Gallery Permission"
                 desc={hasPermission
-                  ? 'Media library access has been granted.'
-                  : 'Allow StatusVault to read and save media to your gallery.'}
+                  ? 'Gallery save permission granted.'
+                  : 'Allow StatusVault to save statuses to your device gallery. This does not grant access to your other photos or videos.'}
                 done={hasPermission}
                 action={!hasPermission
                   ? {
-                    label: requesting ? 'Requesting...' : 'Grant Media Access',
+                    label: requesting ? 'Requesting...' : 'Grant Save Permission',
                     onPress: handleRequestPermission,
                   }
                   : undefined}

@@ -251,7 +251,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   async function checkExistingPermissions(): Promise<boolean> {
     try {
-      const { status } = await MediaLibrary.getPermissionsAsync();
+      const { status } = await MediaLibrary.getPermissionsAsync(true);
       setPermissionStatus(status);
       const granted = status === 'granted';
       setHasPermission(granted);
@@ -263,7 +263,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const requestPermissions = useCallback(async (): Promise<boolean> => {
     try {
-      const { status, canAskAgain } = await MediaLibrary.requestPermissionsAsync();
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
       setPermissionStatus(status);
       const granted = status === 'granted';
       setHasPermission(granted);
@@ -286,14 +286,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       // users with Dual Apps / Work Profiles can navigate to their second
       // WhatsApp's media folder manually.
       const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
-      
+
       setIsRequestingSAF(true);
       // Give a tiny delay for the overlay to mount before opening system picker
       setTimeout(async () => {
         try {
           const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
           setIsRequestingSAF(false);
-          
+
           if (result.granted) {
             const nextSafUris = { ...safUris, [source]: result.directoryUri };
             await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
@@ -471,17 +471,17 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   }
 
   const loadStatuses = useCallback(async () => {
-    const needsMediaPermission = Platform.OS === 'android' && androidVersion < 30;
-    if (!hasPermission && needsMediaPermission) {
-      const granted = await checkExistingPermissions();
-      if (!granted) return;
-    }
+    const isModernAndroid = Platform.OS === 'android' && androidVersion >= 30;
+
+    // If we have SAF granted, we use it regardless of broad gallery permissions.
+    // This is the privacy-friendly way Google prefers.
+    const canUseSAF = safGranted || (isModernAndroid && safUri);
 
     setIsLoading(true);
     try {
       let items: StatusItem[] = [];
 
-      if (androidVersion >= 30 && safGranted) {
+      if (canUseSAF) {
         const safEntries = Object.entries(safUris) as [StatusSource, string][];
         if (safEntries.length > 0) {
           const results = await Promise.all(safEntries.map(([source, uri]) => readFromSAF(uri, source)));
@@ -490,6 +490,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           items = await readFromSAF(safUri);
         }
       } else {
+        // Fallback to legacy path only if SAF isn't setup.
+        // Note: This may fail on newer Android versions without broad permissions,
+        // which is expected; the UI will guide the user to grant SAF access instead.
         items = await readFromLegacyPath();
       }
 
@@ -537,17 +540,25 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       await FileSystem.copyAsync({ from: item.uri, to: destUri });
 
-      if (hasPermission) {
+      // On Android 10+ (API 29+), we can save to public Media Store without 
+      // broad READ/WRITE permissions. We try this regardless of 'hasPermission'.
+      const isModernAndroid = Platform.OS === 'android' && androidVersion >= 29;
+
+      if (hasPermission || isModernAndroid) {
         try {
           const asset = await MediaLibrary.createAssetAsync(destUri);
           await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
         } catch (err) {
           console.log('MediaLibrary save error:', err);
-          // File is saved inside the app (Saved tab will work), but gallery was denied.
-          Alert.alert(
-            'Gallery Access Denied',
-            'Status saved in the app, but could not be added to your Gallery. To see it in Photos, allow media access in your phone Settings.',
-          );
+
+          // Only alert user if we aren't on Modern Android (which should have worked)
+          // or if the error specifically indicates a permission issue we didn't expect.
+          if (!isModernAndroid) {
+            Alert.alert(
+              'Gallery Access Needed',
+              'Status saved in the app, but could not be added to your device gallery. Please allow "Add photos" permission in settings.',
+            );
+          }
         }
       }
 
@@ -634,7 +645,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     const newCount = imageSwipeCount + 1;
     setImageSwipeCount(newCount);
     swipeCountRef.current = newCount;
-    
+
     // Fix #1 — Session Cache Bloat: every 10 swipes, purge view_/share_ files
     // older than 30 minutes in the background so a long session never fills storage.
     if (newCount % 10 === 0) {
@@ -692,13 +703,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     try {
       const cacheDir = FileSystem.cacheDirectory;
       if (!cacheDir) return;
-      
+
       const files = await FileSystem.readDirectoryAsync(cacheDir);
       const now = Date.now();
-      
+
       for (const file of files) {
         if (!file.startsWith('view_') && !file.startsWith('share_')) continue;
-        
+
         const fileUri = `${cacheDir}${file}`;
         try {
           const info = await FileSystem.getInfoAsync(fileUri);

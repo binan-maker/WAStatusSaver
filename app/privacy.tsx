@@ -111,7 +111,7 @@ export default function PrivacyScreen() {
 
         <PolicySection
           title="11. Permissions Explained"
-          content="READ_EXTERNAL_STORAGE / READ_MEDIA_IMAGES / READ_MEDIA_VIDEO:\nRequired to detect and display WhatsApp statuses from the .Statuses folder.\n\nWRITE_EXTERNAL_STORAGE (Android < 10):\nRequired to save statuses to the gallery on older Android versions.\n\nSTORAGE ACCESS FRAMEWORK (Android 11+):\nRequired for users to manually grant folder-level access to the WhatsApp Media directory.\n\nINTERNET:\nRequired for Google Sign-In, Firebase (Auth, Firestore, FCM), Google AdMob, and Razorpay payment processing.\n\nPOST_NOTIFICATIONS (Android 13+):\nOptional. Required only if you choose to enable status-detection push notifications.\n\nNo permissions are requested or used beyond their explicitly stated purpose."
+          content="STORAGE ACCESS FRAMEWORK (SAF — Android 10+):\nUsed to read WhatsApp status files. The user manually grants access only to the WhatsApp .Statuses folder through the system folder picker. No broad photo or video library access is requested or required.\n\nWRITE_EXTERNAL_STORAGE (Android < 10):\nRequired to save statuses to the gallery on devices running Android 9 or below.\n\nGALLERY SAVE PERMISSION (Android 10+):\nWrite-only access to save statuses to your gallery. This does NOT grant access to view or read your existing photos or videos.\n\nINTERNET:\nRequired for Google Sign-In, Firebase (Auth, Firestore, FCM), Google AdMob, and Razorpay payment processing.\n\nPOST_NOTIFICATIONS (Android 13+):\nOptional. Required only if you choose to enable status-detection push notifications.\n\nNo permissions are requested or used beyond their explicitly stated purpose."
         />
 
         <PolicySection

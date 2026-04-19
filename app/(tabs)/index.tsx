@@ -309,7 +309,7 @@ export default function StatusesScreen() {
     } else {
       onImageSwipe();
     }
-    
+
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
@@ -335,20 +335,17 @@ export default function StatusesScreen() {
     []
   );
 
-  const selectedSafGranted = Platform.OS === 'android' && androidVersion >= 30
+  const selectedSafGranted = Platform.OS === 'android'
     ? Boolean(safUris[selectedSource])
-    : safGranted;
-  const needsPermission = !hasPermission && Platform.OS === 'android' && androidVersion < 30;
-  const needsSAF = Platform.OS === 'android' && androidVersion >= 30 && !selectedSafGranted;
-  const showPermScreen = needsPermission || needsSAF;
+    : true;
+
+  // We prioritize SAF (Folder Access) as the primary way to access statuses.
+  // This complies with Google Play's privacy-first media policies.
+  const showPermScreen = Platform.OS === 'android' && !selectedSafGranted;
 
   const handleGrantAccess = useCallback(() => {
-    if (Platform.OS === 'android' && androidVersion >= 30) {
-      requestSAF(selectedSource);
-      return;
-    }
-    router.push('/permissions');
-  }, [androidVersion, requestSAF, selectedSource]);
+    requestSAF(selectedSource);
+  }, [requestSAF, selectedSource]);
 
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
