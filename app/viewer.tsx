@@ -99,10 +99,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const scheduleReveal = useCallback((delayMs: number) => {
     clearRevealTimer();
+    console.log(`[Viewer] Scheduling reveal in ${delayMs}ms for ${item.name}`);
     revealTimerRef.current = setTimeout(() => {
+      console.log(`[Viewer] REVEALING video surface for ${item.name}`);
       setIsVideoVisible(true);
     }, delayMs);
-  }, [clearRevealTimer]);
+  }, [clearRevealTimer, item.name]);
 
   // Reanimated shared values for smooth pinch-to-zoom on images
   const imageScale = useSharedValue(1);
@@ -163,6 +165,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // ── Status listener ──────────────────────────────────────────────────────
   useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
     if (item.type !== 'video') return;
+    console.log(`[Viewer] Player status for ${item.name}: ${status}`);
     const ready = status === 'readyToPlay';
     isReadyToPlayRef.current = ready;
     setIsVideoReady(ready);
@@ -206,21 +209,27 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     isReadyToPlayRef.current = false;
 
     const load = async () => {
+      const loadStart = Date.now();
       try {
         // Wait for any in-flight navigation/gesture animations so the JS thread
         // is free, then call replaceAsync immediately — no extra time buffer.
+        console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
         await new Promise<void>(resolve => {
           InteractionManager.runAfterInteractions(resolve);
         });
         if (cancelled) return;
+        console.log(`[Viewer] Animation done, calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
         await player.replaceAsync(displayUri);
-        if (!cancelled) isLoadingSource.current = false;
+        if (!cancelled) {
+          console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
+          isLoadingSource.current = false;
+        }
         tryStartPlayback();
       } catch (e) {
         if (!cancelled) {
           isLoadingSource.current = false;
-          console.log('Player load error:', e);
+          console.error(`[Viewer] Player load error for ${item.name} (${Date.now() - loadStart}ms):`, e);
         }
       }
     };
@@ -292,14 +301,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     let isMounted = true;
     async function prepare() {
+      const pStart = Date.now();
       try {
         if (!initialSource.startsWith('content://') || item.type === 'image') {
           if (isMounted) setDisplayUri(initialSource);
           return;
         }
+        console.log(`[Viewer] Preparing status for ${item.name}...`);
         const prepared = await prepareStatusForViewing(item as StatusItem);
+        console.log(`[Viewer] Preparation done for ${item.name} (${Date.now() - pStart}ms). Local URI: ${prepared}`);
         if (isMounted) setDisplayUri(prepared);
-      } catch {
+      } catch (e) {
+        console.error(`[Viewer] Preparation failed for ${item.name}:`, e);
         if (isMounted) setDisplayUri(initialSource);
       }
     }
@@ -461,8 +474,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               transition={0}
               priority="high"
               recyclingKey={item.id}
-              onLoadStart={() => setImageLoaded(false)}
-              onLoad={() => setImageLoaded(true)}
+              onLoadStart={() => {
+                console.log(`[Viewer] Image LOAD START: ${item.name}`);
+                setImageLoaded(false);
+              }}
+              onLoad={() => {
+                console.log(`[Viewer] Image LOAD SUCCESS: ${item.name}`);
+                setImageLoaded(true);
+              }}
+              onError={(e) => {
+                console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
+              }}
             />
             {/* Branded skeleton shimmer while the full-res image decodes */}
             {!imageLoaded && <ImageSkeleton />}
@@ -602,19 +624,20 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
-  // Pre-copy the next 2 items' URIs in the background so they are ready before swipe.
-  // Staggered 200ms apart to avoid concurrent disk I/O on budget phones.
+  // Pre-copy the next 2 videos in the background so they are ready before swipe.
+  // Images are skipped because expo-image handles content:// URIs efficiently,
+  // avoiding the slow 3-second disk I/O copy bottleneck.
   useEffect(() => {
     const next1 = items[currentIndex + 1];
-    if (next1 && next1.uri.startsWith('content://')) {
+    if (next1 && next1.type === 'video' && next1.uri.startsWith('content://')) {
       prepareStatusForViewing(next1 as StatusItem).catch(() => {});
     }
     const timer = setTimeout(() => {
       const next2 = items[currentIndex + 2];
-      if (next2 && next2.uri.startsWith('content://')) {
+      if (next2 && next2.type === 'video' && next2.uri.startsWith('content://')) {
         prepareStatusForViewing(next2 as StatusItem).catch(() => {});
       }
-    }, 200);
+    }, 400); // Increased stagger to 400ms to further reduce disk I/O pressure
     return () => clearTimeout(timer);
   }, [currentIndex, items, prepareStatusForViewing]);
 

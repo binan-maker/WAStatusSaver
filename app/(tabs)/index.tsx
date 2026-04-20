@@ -253,26 +253,34 @@ export default function StatusesScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
   const navigationRef = useRef<Map<string, number>>(new Map());
+  const lastRefreshTime = useRef<number>(0);
 
-  // Load statuses on mount and when permissions change
-  useEffect(() => {
-    loadStatuses();
-  }, []);
-
-  // Refresh when permissions are granted — but not during an active SAF grant
-  // (requestSAF handles its own loading with the 700 ms mounting delay).
+  // Consolidated Load Effect:
+  // Triggers on mount, or whenever permissions are granted.
   useEffect(() => {
     if (isGrantingAccess) return;
-    if (hasPermission || (androidVersion >= 30 && safGranted)) {
+    
+    const needsSAF = androidVersion >= 30;
+    const isReady = hasPermission || (needsSAF && safGranted);
+    
+    if (isReady) {
       loadStatuses();
     }
-  }, [hasPermission, safGranted, isGrantingAccess]);
+  }, [hasPermission, safGranted, isGrantingAccess, androidVersion]);
 
   // Auto-refresh when the user returns to the app from WhatsApp
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        refresh();
+        const now = Date.now();
+        // Throttle: Don't refresh more than once every 30 seconds via AppState
+        // This prevents infinite loops from AdMob focus shifts.
+        if (now - lastRefreshTime.current > 30000) {
+          lastRefreshTime.current = now;
+          refresh(true); // Silent refresh to avoid shimmering
+        } else {
+          console.log('[Loader] AppState active, but throttled. Skipping refresh.');
+        }
       }
     });
     return () => sub.remove();
@@ -339,13 +347,20 @@ export default function StatusesScreen() {
     ? Boolean(safUris[selectedSource])
     : true;
 
-  // We prioritize SAF (Folder Access) as the primary way to access statuses.
-  // This complies with Google Play's privacy-first media policies.
-  const showPermScreen = Platform.OS === 'android' && !selectedSafGranted;
+  // ON ANDROID 11+ (API 30+): We require SAF (Folder Access) for reading statuses.
+  // ON ANDROID 10 & BELOW: We only require standard Media Library permission.
+  const showPermScreen = Platform.OS === 'android' && (
+    androidVersion >= 30 ? !selectedSafGranted : !hasPermission
+  );
 
   const handleGrantAccess = useCallback(() => {
-    requestSAF(selectedSource);
-  }, [requestSAF, selectedSource]);
+    if (androidVersion >= 30) {
+      requestSAF(selectedSource);
+    } else {
+      // For legacy versions, send them to the permissions guide
+      router.push('/permissions');
+    }
+  }, [requestSAF, selectedSource, androidVersion]);
 
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
@@ -389,12 +404,19 @@ export default function StatusesScreen() {
             style={styles.permGlow}
           />
           <View style={styles.permIconWrap}>
-            <MaterialCommunityIcons name="folder-lock-open-outline" size={52} color={COLORS.PRIMARY} />
+            <MaterialCommunityIcons 
+              name={androidVersion >= 30 ? "folder-lock-open-outline" : "shield-key-outline"} 
+              size={52} 
+              color={COLORS.PRIMARY} 
+            />
           </View>
-          <Text style={styles.permTitle}>{selectedSourceLabel} Setup Required</Text>
+          <Text style={styles.permTitle}>
+            {androidVersion >= 30 ? `${selectedSourceLabel} Setup Required` : 'Permission Required'}
+          </Text>
           <Text style={styles.permSub}>
-            Grant folder access to view {selectedSourceLabel} statuses.{'\n'}
-            The picker will open directly to the {selectedSourceLabel} Media folder.
+            {androidVersion >= 30 
+              ? `Grant folder access to view ${selectedSourceLabel} statuses.\nThe picker will open directly to the ${selectedSourceLabel} Media folder.`
+              : `Allow access to your device gallery to scan and save ${selectedSourceLabel} statuses.`}
           </Text>
           <TouchableOpacity
             style={styles.permBtn}
@@ -402,7 +424,9 @@ export default function StatusesScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="shield-checkmark" size={17} color="#fff" />
-            <Text style={styles.permBtnText}>Grant {selectedSourceLabel}</Text>
+            <Text style={styles.permBtnText}>
+              {androidVersion >= 30 ? `Grant ${selectedSourceLabel}` : 'Grant Permission'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.guideLink} onPress={() => router.push('/guide')}>
             <Ionicons name="book-outline" size={14} color={COLORS.PRIMARY} />

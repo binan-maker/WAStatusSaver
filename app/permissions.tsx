@@ -107,9 +107,11 @@ export default function PermissionsScreen() {
             </View>
             <Text style={styles.heroTitle}>{t('grant_access')}</Text>
             <Text style={styles.heroSub}>
-              StatusVault needs two permissions: gallery save access (write-only) and WhatsApp folder access (for reading statuses).
+              {androidVersion >= 30 
+                ? 'StatusVault needs two permissions: gallery save access (write-only) and WhatsApp folder access (for reading statuses).'
+                : 'StatusVault needs gallery access to save statuses. On this Android version, statuses are scanned automatically once permission is granted.'}
               {'\n'}Android {androidVersion}
-              {androidVersion >= 30 ? ' (Android 11+) — both steps required.' : ' — grant gallery access to save.'}
+              {androidVersion >= 30 ? ' (Android 11+) — both steps required.' : ' — simple setup mode.'}
             </Text>
           </View>
         </LinearGradient><ScrollView
@@ -121,14 +123,14 @@ export default function PermissionsScreen() {
               <StepCard
                 step={1}
                 icon={hasPermission ? 'shield-checkmark' : 'shield-outline'}
-                title="Save to Gallery Permission"
+                title="Gallery & Media Access"
                 desc={hasPermission
-                  ? 'Gallery save permission granted.'
-                  : 'Allow StatusVault to save statuses to your device gallery. This does not grant access to your other photos or videos.'}
+                  ? 'Access granted successfully.'
+                  : 'Tap "Allow" on the system prompt to let StatusVault read and save statuses. This is required for the app to function on this device.'}
                 done={hasPermission}
                 action={!hasPermission
                   ? {
-                    label: requesting ? 'Requesting...' : 'Grant Save Permission',
+                    label: requesting ? 'Requesting...' : 'Grant Access',
                     onPress: handleRequestPermission,
                   }
                   : undefined}
