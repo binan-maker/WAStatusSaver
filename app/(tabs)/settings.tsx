@@ -25,12 +25,10 @@ import { useSubscriptionStatus } from '@/hooks/subscription/useSubscriptionStatu
 import { AdBanner } from '@/components/ads/AdBanner';
 import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/subscription/SubscriptionPlansCard';
-import { NoticeBoardCard } from '@/components/feedback/NoticeBoardCard';
 import { Share } from 'react-native';
 import COLORS from '@/constants/colors';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
-import { useAppNoticeDirect } from '@/hooks/feedback/useAppNotice';
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -89,7 +87,6 @@ export default function SettingsScreen() {
   const { language, setLanguage, t } = useLanguage();
   const { user, signInWithGoogle, signOut, deleteAccount } = useFirebaseAuth();
   const { isSubscribed, status, remainingSeconds, refresh: refreshSubscription, loading: subLoading } = useSubscriptionStatus();
-  const { notice: boardNotice, loading: noticeLoading } = useAppNoticeDirect();
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
@@ -261,8 +258,6 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={16} color={COLORS.TEXT_MUTED} />
           </TouchableOpacity>
         )}
-
-        <NoticeBoardCard notice={boardNotice} loading={noticeLoading} />
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>

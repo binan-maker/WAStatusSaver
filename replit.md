@@ -79,13 +79,13 @@ components/                 # Domain-grouped React Native components
   media/                    # MediaCard, EmptyState, LoadingShimmer, SAFGuideOverlay
   subscription/             # SubscriptionPlansCard, PaymentSuccessModal
   auth/                     # GoogleSignInModal
-  feedback/                 # AppNotice, MilestoneRatingCard, NoticeBoardCard
+  feedback/                 # MilestoneRatingCard
   common/                   # AppLoadingScreen, ErrorBoundary, ErrorFallback, KeyboardAwareScrollViewCompat
 
 hooks/                      # Domain-grouped custom hooks
   ads/                      # useAppOpenAd, useFreeAdsState
   subscription/             # useSubscriptionStatus
-  feedback/                 # useAppNotice, useMilestoneRating
+  feedback/                 # useMilestoneRating
   media/                    # useStatusReminder
 
 contexts/                   # React Context providers

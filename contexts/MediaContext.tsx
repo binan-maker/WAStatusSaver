@@ -313,8 +313,6 @@ export function MediaProvider({ children }: { children: ReactNode }) {
             // while we wait for Android to fully mount the SAF folder.
             setIsGrantingAccess(true);
             setIsLoading(true);
-            resolvedUriCache.current.delete(result.directoryUri);
-
             // Clear the BFS cache for this URI so the fresh grant always triggers
             // a clean walk — never reuses a stale "empty" result from before.
             resolvedUriCache.current.delete(result.directoryUri);
@@ -345,29 +343,22 @@ export function MediaProvider({ children }: { children: ReactNode }) {
                 items = await readSAFEntries(nextSafUris);
               }
 
-             setStatuses(items);
-
-if (items.length === 0) {
-  Alert.alert(
-    "No Status Found",
-    "Open WhatsApp, view at least one status, then come back and tap refresh."
-  );
-}
+            setStatuses(items);
             } finally {
               setIsLoading(false);
               setIsGrantingAccess(false);
             }
           }
         } catch (e) {
+          console.error('[SAF] requestSAF inner error:', e);
           setIsRequestingSAF(false);
           setIsGrantingAccess(false);
-          Alert.alert('Permission Error', 'Could not access storage. Please try again.');
         }
       }, 500);
     } catch (e) {
+      console.error('[SAF] requestSAF outer error:', e);
       setIsRequestingSAF(false);
       setIsGrantingAccess(false);
-      Alert.alert('Permission Error', 'Could not access storage. Please try again.');
     }
   }, [loadStatuses, safUris]);
 
@@ -415,25 +406,30 @@ if (items.length === 0) {
   // even when readDirectoryAsync doesn't list it (hidden folder problem).
   // Format: content://authority/tree/TREE_DOC_ID/document/CHILD_DOC_ID
   function buildChildDocUri(treeUri: string, childRelativePath: string): string | null {
-  try {
-    // Extract authority and tree document ID properly
-    const match = treeUri.match(/^(content:\/\/[^\/]+\/tree\/)(.+)$/);
-    if (!match) return null;
-    
-    const prefix = match[1]; // "content://com.android.externalstorage.documents/tree/"
-    let treeDocId = match[2]; // Already encoded, e.g. "primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia"
-    
-    // Decode once to work with plain path, then re-encode ONLY the child segment
-    const decodedTree = decodeURIComponent(treeDocId);
-    const childDocId = decodedTree + childRelativePath; // e.g. ".../Media/.Statuses"
-    
-    // Re-encode the FULL path for the document URI
-    return `${prefix}${encodeURIComponent(treeDocId)}/document/${encodeURIComponent(childDocId)}`;
-  } catch (e) {
-    console.warn('[SAF] buildChildDocUri failed:', e);
-    return null;
+    try {
+      // Android tree+document URI format:
+      //   content://authority/tree/TREE_DOC_ID/document/CHILD_DOC_ID
+      // TREE_DOC_ID must stay exactly as returned by the system (already %-encoded).
+      // CHILD_DOC_ID = decoded tree path + relative child path, then encoded once.
+      const match = treeUri.match(/^(content:\/\/[^/]+\/tree\/)(.+)$/);
+      if (!match) return null;
+
+      const prefix = match[1];   // e.g. "content://com.android.externalstorage.documents/tree/"
+      const treeDocId = match[2]; // already %-encoded, e.g. "primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia"
+
+      // Decode to get the plain path string
+      const decodedTree = decodeURIComponent(treeDocId);
+      // Append child segment (plain text) to form the document ID
+      const childDocId = decodedTree + childRelativePath;
+
+      // Tree part: use treeDocId as-is (NOT re-encoded — it is already encoded by the system)
+      // Document part: encode childDocId once
+      return `${prefix}${treeDocId}/document/${encodeURIComponent(childDocId)}`;
+    } catch (e) {
+      console.warn('[SAF] buildChildDocUri failed:', e);
+      return null;
+    }
   }
-}
 
   // Smart BFS: follows only known folder names toward .Statuses up to 6 levels
   // deep. Works regardless of which level the user granted:
@@ -504,12 +500,9 @@ if (items.length === 0) {
     }
 
     if (!targetUri) {
-      // ✅ CRITICAL: Give user actionable feedback instead of silent failure
-      Alert.alert(
-        '⚠️ Status Folder Not Found',
-        'Please grant access to the folder containing ".Statuses" (usually WhatsApp/Media). Try again and select the "Media" folder, not individual files.',
-        [{ text: 'Retry', onPress: () => requestSAF(forcedSource, true) }]
-      );
+      // .Statuses folder not found — return empty silently.
+      // The calling code (requestSAF / loadStatuses) handles user feedback.
+      console.warn('[SAF] .Statuses folder not found for URI:', safDirUri);
       return [];
     }
 
@@ -536,12 +529,7 @@ if (items.length === 0) {
     return items;
     
   } catch (e) {
-    console.error('[SAF] Critical error in readFromSAF:', e);
-    Alert.alert(
-      'Storage Error',
-      'Could not read status files. Please ensure WhatsApp has media and try granting permission again.',
-      [{ text: 'OK' }]
-    );
+    console.error('[SAF] Error in readFromSAF:', e);
     return [];
   }
 }

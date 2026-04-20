@@ -19,8 +19,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
 import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
-import { useAppNotice } from '@/hooks/feedback/useAppNotice';
-import { AppNoticeCard } from '@/components/feedback/AppNotice';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
 import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
 import { MediaCard } from '@/components/media/MediaCard';
@@ -225,7 +223,6 @@ function StatusSourceSelector({
 export default function StatusesScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('images');
   const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
-  const { notice, visible: noticeVisible, dismiss: dismissNotice } = useAppNotice();
   const saveRating = useMilestoneRating('save');
   const shareRating = useMilestoneRating('share');
   const {
@@ -262,12 +259,14 @@ export default function StatusesScreen() {
     loadStatuses();
   }, []);
 
-  // Refresh when permissions are granted
+  // Refresh when permissions are granted — but not during an active SAF grant
+  // (requestSAF handles its own loading with the 700 ms mounting delay).
   useEffect(() => {
+    if (isGrantingAccess) return;
     if (hasPermission || (androidVersion >= 30 && safGranted)) {
       loadStatuses();
     }
-  }, [hasPermission, safGranted]);
+  }, [hasPermission, safGranted, isGrantingAccess]);
 
   // Auto-refresh when the user returns to the app from WhatsApp
   useEffect(() => {
@@ -420,10 +419,6 @@ export default function StatusesScreen() {
 
       <StatusSourceSelector selectedSource={selectedSource} onSelectSource={setSelectedSource} />
       <SAFGuideOverlay visible={isRequestingSAF} />
-
-      {notice && (
-        <AppNoticeCard notice={notice} visible={noticeVisible} onDismiss={dismissNotice} />
-      )}
 
       <SubTabBar
         activeTab={activeTab}
