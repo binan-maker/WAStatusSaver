@@ -63,7 +63,7 @@ export default function TermsScreen() {
             <Text style={styles.heroBadgeText}>Legal Document</Text>
           </View>
           <Text style={styles.heroTitle}>Terms &amp; Conditions</Text>
-          <Text style={styles.heroMeta}>Last updated: April 17, 2026 · Version 1.3.3</Text>
+          <Text style={styles.heroMeta}>Last updated: April 20, 2026 · Version 1.4.0</Text>
         </View>
 
         <View style={styles.highlight}>
@@ -99,12 +99,12 @@ export default function TermsScreen() {
 
         <Section
           title="4. Refund & Cancellation Policy"
-          content={"All sales are final as digital goods cannot be returned. We will issue a refund if:\n\n• You were charged but Pro was not activated (contact us within 7 days with your payment ID)\n• You were charged twice for the same period\n• The app is non-functional on your device and we cannot resolve it within 14 days\n\nRefund requests: Email ahmedsameerbinan2@gmail.com with your order ID, payment ID, and reason. Approved refunds are processed within 7–10 business days."}
+          content={"All sales are final as digital goods cannot be returned.\n\nGoogle Play Store purchases: Refunds are subject to Google Play's standard refund policy. You can request a refund directly from the Play Store app within 48 hours of purchase (Play Store → Profile → Payments & subscriptions → Order history). For issues beyond 48 hours, contact us with your Google Order ID.\n\nIndus App Store / other store purchases (Razorpay): We will issue a refund if:\n• You were charged but Pro was not activated (contact us within 7 days with your Razorpay Payment ID)\n• You were charged twice for the same period\n• The app is non-functional on your device and we cannot resolve it within 14 days\n\nRefund requests (Razorpay): Email ahmedsameerbinan2@gmail.com with your order ID, payment ID, and reason. Approved refunds are processed within 7–10 business days."}
         />
 
         <Section
           title="5. Payment Processing"
-          content="Payments are processed by Razorpay Software Private Limited, an RBI-licensed payment aggregator. We never store your card number, UPI PIN, or bank credentials. We accept UPI, credit/debit cards, net banking, and wallets."
+          content={"StatusVault uses different payment systems depending on which app store you installed it from:\n\n• Google Play Store: Payments are handled entirely by Google Play Billing. Google processes the transaction and issues a receipt to your Gmail. We never receive your card or UPI details. Purchases appear on your Google Play account.\n\n• Indus App Store / Other stores: Payments are processed by Razorpay Software Private Limited, an RBI-licensed payment aggregator. We never store your card number, UPI PIN, or bank credentials. Accepted methods: UPI, credit/debit cards, net banking, and wallets.\n\nIn both cases, subscription status is verified server-side and stored in Firebase Firestore linked to your Firebase UID."}
         />
 
         <Section
@@ -129,7 +129,7 @@ export default function TermsScreen() {
 
         <Section
           title="10. Contact Us"
-          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021."}
+          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021.\n\nFor Google Play billing disputes: Use the Play Store app or contact Google Play Support.\nFor Razorpay billing disputes: Contact Razorpay Support at razorpay.com/support."}
         />
 
         <View style={styles.footer}>

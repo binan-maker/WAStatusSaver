@@ -70,6 +70,14 @@
         border-radius: 0 8px 8px 0;
         margin: 20px 0;
       }
+      .store-block {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin: 16px 0;
+      }
+      .store-block h3 { margin-top: 0; }
       .pricing-table {
         width: 100%;
         border-collapse: collapse;
@@ -114,9 +122,9 @@
       <div class="badge">Legal Document</div>
       <h1>Terms &amp; Conditions</h1>
       <div class="meta">
-        Last updated: <strong>April 17, 2026</strong> &nbsp;·&nbsp;
-        Effective date: <strong>April 17, 2026</strong> &nbsp;·&nbsp;
-        App version: <strong>1.3.3</strong>
+        Last updated: <strong>April 20, 2026</strong> &nbsp;·&nbsp;
+        Effective date: <strong>April 20, 2026</strong> &nbsp;·&nbsp;
+        App version: <strong>1.4.0</strong>
       </div>
 
       <div class="highlight">
@@ -194,21 +202,40 @@
       </ul>
 
       <h2>6. Payment Processing</h2>
-      <p>All payments are processed by <strong>Razorpay Software Private Limited</strong>, a licensed payment aggregator regulated by the Reserve Bank of India (RBI). By making a payment, you also agree to Razorpay's <a href="https://razorpay.com/terms/" style="color:var(--primary)">Terms of Service</a> and <a href="https://razorpay.com/privacy/" style="color:var(--primary)">Privacy Policy</a>.</p>
-      <p>We accept payments via UPI, credit/debit cards, net banking, and other methods supported by Razorpay. Payment verification is performed server-side using cryptographic signature verification.</p>
+      <p>The payment system used depends on which app store you installed StatusVault from:</p>
+
+      <div class="store-block">
+        <h3>🛍️ Google Play Store</h3>
+        <p>All in-app purchases are handled entirely by <strong>Google Play Billing</strong> — the standard Google payment infrastructure used by all Play Store apps. When you make a purchase, Google presents its native payment sheet (using a saved UPI, card, or Google Pay method). Google issues a signed purchase token to our server, which is verified using the Google Play Developer API before your subscription is activated.</p>
+        <p>By purchasing via the Play Store, you also agree to <a href="https://play.google.com/about/play-terms/" style="color:var(--primary)">Google Play's Terms of Service</a>.</p>
+        <p>We never receive your card number, UPI PIN, or Google account password. We only receive a token confirming that a valid purchase was made.</p>
+      </div>
+
+      <div class="store-block">
+        <h3>📱 Indus App Store &amp; Other Stores</h3>
+        <p>Payments are processed by <strong>Razorpay Software Private Limited</strong>, a licensed payment aggregator regulated by the Reserve Bank of India (RBI). Accepted methods: UPI (PhonePe, GPay, BHIM, etc.), credit/debit cards, net banking, and wallets.</p>
+        <p>By making a payment via Razorpay, you also agree to Razorpay's <a href="https://razorpay.com/terms/" style="color:var(--primary)">Terms of Service</a> and <a href="https://razorpay.com/privacy/" style="color:var(--primary)">Privacy Policy</a>.</p>
+        <p>Payment verification is performed server-side using HMAC-SHA256 cryptographic signature verification. We never store your card number, UPI PIN, or bank credentials.</p>
+      </div>
 
       <h2>7. Refund and Cancellation Policy</h2>
       <div class="highlight">
-        <strong>General Policy:</strong> Due to the nature of digital goods, all sales are final. We do not offer refunds once a subscription has been activated and access has been granted.
+        <strong>General Policy:</strong> Due to the nature of digital goods, all sales are final. Refund eligibility depends on the store from which you purchased.
       </div>
-      <p><strong>Exceptions — we will issue a refund if:</strong></p>
+
+      <h3>Google Play Store Purchases</h3>
+      <p>Refunds are subject to <strong>Google Play's standard refund policy</strong>. You can request a refund directly within the Play Store app within 48 hours of purchase:</p>
+      <p>Play Store → Profile icon → Payments &amp; subscriptions → Order history → Your StatusVault order → Request a refund.</p>
+      <p>For billing issues beyond 48 hours, contact us at <a href="mailto:ahmedsameerbinan2@gmail.com" style="color:var(--primary)">ahmedsameerbinan2@gmail.com</a> with your Google Order ID.</p>
+
+      <h3>Indus App Store / Other Store Purchases (Razorpay)</h3>
+      <p><strong>We will issue a refund if:</strong></p>
       <ul>
-        <li>You were charged but your subscription was not activated (technical failure on our end). Contact us within 7 days with your payment ID.</li>
+        <li>You were charged but your subscription was not activated (technical failure). Contact us within 7 days with your Razorpay Payment ID.</li>
         <li>You were charged twice for the same subscription period.</li>
-        <li>The App is found to be fundamentally non-functional on your device and we are unable to resolve the issue within 14 days of your report.</li>
+        <li>The App is fundamentally non-functional on your device and we are unable to resolve the issue within 14 days of your report.</li>
       </ul>
-      <p><strong>How to request a refund:</strong> Email <a href="mailto:ahmedsameerbinan2@gmail.com" style="color:var(--primary)">ahmedsameerbinan2@gmail.com</a> with your order ID, payment ID, and the reason for your request. Refund requests are reviewed within 5 business days. Approved refunds are processed via the original payment method within 7–10 business days.</p>
-      <p>Refund disputes can also be raised with Razorpay directly through the Razorpay customer portal.</p>
+      <p><strong>How to request a Razorpay refund:</strong> Email <a href="mailto:ahmedsameerbinan2@gmail.com" style="color:var(--primary)">ahmedsameerbinan2@gmail.com</a> with your Razorpay order ID, payment ID, and the reason for your request. Requests are reviewed within 5 business days. Approved refunds are processed via the original payment method within 7–10 business days.</p>
 
       <h2>8. Free Tier and Advertisements</h2>
       <p>The free tier of StatusVault displays advertisements served by Google AdMob. By using the free tier, you acknowledge and consent to the display of ads as described in our Privacy Policy. Ads are removed for the duration of an active Pro subscription.</p>
@@ -226,7 +253,7 @@
       <p>StatusVault's ability to access WhatsApp statuses depends on WhatsApp's current storage implementation. Future updates to WhatsApp may affect functionality. This is outside our control.</p>
 
       <h2>11. Limitation of Liability</h2>
-      <p>To the maximum extent permitted by applicable law, the Developer shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of data, loss of profits, or any other commercial damages arising from your use of the App. Our total liability to you for any claim shall not exceed the amount you paid for the App in the 12 months preceding the claim.</p>
+      <p>To the maximum extent permitted by applicable law, the Developer shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of data, loss of profits, or any other commercial damages arising from your use of the App, or from the failure of any third-party service (Google Play Billing, Razorpay, Firebase, Google AdMob). Our total liability to you for any claim shall not exceed the amount you paid for the App in the 12 months preceding the claim.</p>
 
       <h2>12. Governing Law and Disputes</h2>
       <p>These Terms are governed by the laws of India. Any disputes arising from these Terms or your use of the App shall be subject to the exclusive jurisdiction of the courts of India. Before initiating legal proceedings, you agree to attempt to resolve the dispute informally by contacting us at <a href="mailto:ahmedsameerbinan2@gmail.com" style="color:var(--primary)">ahmedsameerbinan2@gmail.com</a>.</p>
@@ -245,6 +272,7 @@
         <p><strong>Email:</strong> <a href="mailto:ahmedsameerbinan2@gmail.com">ahmedsameerbinan2@gmail.com</a></p>
         <p><strong>Response time:</strong> Within 7 working days</p>
         <p><strong>Grievance Officer (India):</strong> Binan — reachable at the email above as per the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021.</p>
+        <p><strong>For Google Play billing disputes:</strong> Use the Play Store app → Order history, or contact <a href="https://support.google.com/googleplay" style="color:var(--primary)">Google Play Support</a></p>
         <p style="margin-bottom:0"><strong>For Razorpay disputes:</strong> <a href="https://razorpay.com/support/" style="color:var(--primary)">Razorpay Support</a></p>
       </div>
     </main>

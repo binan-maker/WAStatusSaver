@@ -140,7 +140,7 @@ The payment system is fully separated into two self-contained folders with zero 
 | Indus App Store / Other | Razorpay | `payment-providers/razorpay/` | `payment-providers/google-play/` |
 | Google Play Store | Google Play Billing | `payment-providers/google-play/` | `payment-providers/razorpay/` |
 
-To switch: edit 2 lines in `payment-providers/index.ts` + 2 lines in `payment-providers/server.ts`.
+**Current default: Google Play Store (Play Store build active).** To switch to Indus/Razorpay: edit 2 lines in `payment-providers/index.ts` + 2 lines in `payment-providers/server.ts`.
 
 ### Env Vars — Razorpay build
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
