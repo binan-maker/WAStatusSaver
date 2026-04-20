@@ -1,17 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
+import * as IAP from "react-native-iap";
 import { apiRequest } from "@/lib/query-client";
 import type { SubscriptionPlanId } from "@/shared/subscription-plans";
 import type { PaymentProviderHookOptions, PaymentProviderHookResult } from "../../shared/types";
 import { GOOGLE_PLAY_PLANS, getPlanByProductId } from "./plans";
 
-function getIAP() {
-  try {
-    return require("react-native-iap");
-  } catch {
-    return null;
-  }
-}
+// Utility to check if we are in a build with real IAP support
+const hasIAPSupport = Platform.OS === "android" && typeof IAP.initConnection === "function";
 
 export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentProviderHookResult {
   const { deviceId, user, getIdToken, onPaymentSuccess, refresh } = opts;
@@ -21,8 +17,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      const iap = getIAP();
-      if (iap) iap.endConnection().catch(() => {});
+      if (hasIAPSupport) IAP.endConnection().catch(() => {});
     };
   }, []);
 
@@ -38,14 +33,12 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
   const safeSetSuccessPlanId = safe(setSuccessPlanId);
 
   useEffect(() => {
-    if (!deviceId || !user) return;
-    const iap = getIAP();
-    if (!iap) return;
+    if (!deviceId || !user || !hasIAPSupport) return;
 
     const checkUnfinished = async () => {
       try {
-        await iap.initConnection();
-        const purchases = await iap.getAvailablePurchases();
+        await IAP.initConnection();
+        const purchases = await IAP.getAvailablePurchases();
         if (!purchases || purchases.length === 0) return;
 
         const freshToken = await getIdToken(true).catch(() => null);
@@ -71,7 +64,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
             if (data.active) {
               onPaymentSuccess(plan.id, data);
               Alert.alert("Pro Access Activated", "Your Google Play purchase has been verified. Ads are removed!");
-              await iap.finishTransaction({ purchase, isConsumable: false }).catch(() => {});
+              await IAP.finishTransaction({ purchase, isConsumable: false }).catch(() => {});
               break;
             }
           } catch {}
@@ -91,14 +84,16 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       return false;
     }
 
-    if (Platform.OS === "web") {
-      Alert.alert("Open on phone", "Google Play purchases are only available in the Android app build.");
+    if (Platform.OS !== "android") {
+      Alert.alert("Android Only", "Google Play purchases are only available in the Android app build.");
       return false;
     }
 
-    const iap = getIAP();
-    if (!iap) {
-      Alert.alert("Purchase unavailable", "Google Play Billing is not available in this build.");
+    if (!hasIAPSupport) {
+      Alert.alert(
+        "Build Check Required",
+        "Google Play Billing is disabled in this preview. Please use the official APK build to test payments."
+      );
       return false;
     }
 
@@ -108,9 +103,14 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     safeSetPayingPlanId(planId);
 
     try {
-      await iap.initConnection();
+      await IAP.initConnection();
 
-      const products = await iap.getSubscriptions({
+      // Modern API check for v12+
+      if (typeof IAP.getSubscriptions !== "function") {
+        throw new Error("IAP library error: getSubscriptions function missing. This build may be corrupted.");
+      }
+
+      const products = await IAP.getSubscriptions({
         skus: [plan.googlePlayProductId],
       });
 
@@ -120,9 +120,8 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
         return false;
       }
 
-      const purchase = await iap.requestSubscription({
+      const purchase = await IAP.requestSubscription({
         sku: plan.googlePlayProductId,
-        andDangerouslyFinishTransactionAutomaticallyIOS: false,
       });
 
       if (!purchase || !purchase.purchaseToken) {
@@ -155,7 +154,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       const data = await res.json();
 
       if (data.active) {
-        await iap.finishTransaction({ purchase, isConsumable: false }).catch(() => {});
+        await IAP.finishTransaction({ purchase, isConsumable: false }).catch(() => {});
         onPaymentSuccess(planId, data);
         safeSetPayingPlanId(null);
         safeSetSuccessPlanId(planId);
@@ -172,8 +171,8 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       }
     } catch (err: any) {
       safeSetPayingPlanId(null);
-      const code = err?.code;
-      if (code === "E_USER_CANCELLED") return false;
+      const code = err?.code || (err as any)?.debugMessage;
+      if (code === "E_USER_CANCELLED" || code === "USER_CANCELED") return false;
       Alert.alert("Purchase Failed", err?.message || "Something went wrong. Please try again.");
       return false;
     }
