@@ -12,7 +12,7 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
 - **Fonts**: Nunito (Google Fonts via @expo-google-fonts/nunito)
 - **Video**: expo-video
 - **Media**: expo-media-library, expo-sharing, expo-file-system/legacy
-- **Payments**: Razorpay checkout with server-side order creation and signature verification
+- **Payments**: Dual-store architecture — Razorpay (Indus/other stores) OR Google Play Billing (Play Store). Completely separate folders. Switch by changing 2 lines in `payment-providers/index.ts` + `payment-providers/server.ts`, then deleting the unused folder before uploading.
 
 ### Color Palette (Dark Navy + Emerald)
 - Background: #0A0E1A (deep dark navy)
@@ -131,9 +131,30 @@ scripts/                    # Utility scripts
 ```
 
 ## Payment Configuration
-- Required secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON`
-- Optional env var: `FIREBASE_PROJECT_ID` if not included in the service account JSON
-- Firestore collections used: `subscriptions`, `paymentOrders`, `users/{deviceId}/payments`
+
+### Dual-Store Build Switch
+The payment system is fully separated into two self-contained folders with zero runtime if/else:
+
+| Store | Provider | Active folder | Delete before upload |
+|-------|----------|---------------|----------------------|
+| Indus App Store / Other | Razorpay | `payment-providers/razorpay/` | `payment-providers/google-play/` |
+| Google Play Store | Google Play Billing | `payment-providers/google-play/` | `payment-providers/razorpay/` |
+
+To switch: edit 2 lines in `payment-providers/index.ts` + 2 lines in `payment-providers/server.ts`.
+
+### Env Vars — Razorpay build
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
+- `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID` (optional)
+
+### Env Vars — Google Play build
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_PACKAGE_NAME`
+- `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID` (optional)
+
+### Firestore Collections
+- `subscriptions` — active Pro status per user UID
+- `paymentOrders` — Razorpay order records
+- `googlePlayOrders` — Google Play purchase records
+- `users/{uid}/payments` — full payment history
 
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`

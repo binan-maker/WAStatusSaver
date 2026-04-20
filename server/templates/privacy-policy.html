@@ -137,7 +137,8 @@
       <h3>2.1 Information You Provide</h3>
       <ul>
         <li><strong>Google Account (optional):</strong> If you choose to sign in with Google to sync your Pro subscription, we collect your Google UID, email address, and display name. Sign-in is only required to use the paid Pro subscription across devices.</li>
-        <li><strong>Payment Information:</strong> Payments are processed by Razorpay. We never see or store your card number, bank details, or UPI PIN. Razorpay shares only a payment confirmation token and your email/phone with us, which we store to verify your subscription.</li>
+        <li><strong>Payment Information (Razorpay — Indus App Store &amp; other stores):</strong> Payments on the Indus App Store version and other non-Play Store builds are processed by Razorpay. We never see or store your card number, bank details, or UPI PIN. Razorpay shares only a payment confirmation token and your email/phone with us, which we store to verify your subscription.</li>
+        <li><strong>Payment Information (Google Play Billing — Google Play Store):</strong> Payments on the Google Play Store version are handled entirely by Google Play Billing. We receive only a purchase token from Google to verify your subscription server-side. We do not see or store any payment card or bank details. Google Play's privacy policy governs how Google handles your payment data.</li>
       </ul>
 
       <h3>2.2 Information Collected Automatically</h3>
@@ -161,7 +162,8 @@
       <h2>3. How We Use Your Information</h2>
       <ul>
         <li>To verify and activate your Pro subscription.</li>
-        <li>To send you a payment receipt (via Razorpay's email system).</li>
+        <li>To send you a payment receipt (via Razorpay's email system, on Razorpay builds).</li>
+        <li>To verify Google Play purchases server-side using the Google Play Developer API (on Play Store build).</li>
         <li>To display ads to free-tier users via Google AdMob.</li>
         <li>To diagnose and fix technical issues using anonymised crash data.</li>
         <li>To communicate with you about support requests you initiate.</li>
@@ -171,7 +173,8 @@
       <p>Subscription data is stored in <strong>Google Firebase Firestore</strong>, which is hosted on Google Cloud infrastructure with encryption at rest and in transit (TLS/SSL). Payment order records are retained for up to 7 years as required by Indian tax law (GST compliance).</p>
       <p>We implement the following security measures:</p>
       <ul>
-        <li>HMAC-SHA256 signature verification on all Razorpay payments</li>
+        <li>HMAC-SHA256 signature verification on all Razorpay payments (Razorpay builds)</li>
+        <li>Server-side Google Play purchase token verification via the Google Play Developer API (Play Store build)</li>
         <li>Firebase Authentication token verification on every authenticated API request</li>
         <li>No raw payment credentials stored on our servers</li>
         <li>All API communication over HTTPS</li>
@@ -179,7 +182,8 @@
 
       <h2>5. Third-Party Services</h2>
       <ul>
-        <li><strong>Razorpay:</strong> Payment processing. <a href="https://razorpay.com/privacy/" style="color:var(--primary)">Razorpay Privacy Policy</a></li>
+        <li><strong>Razorpay (Indus App Store &amp; other stores):</strong> Payment processing for non-Play Store builds. <a href="https://razorpay.com/privacy/" style="color:var(--primary)">Razorpay Privacy Policy</a></li>
+        <li><strong>Google Play Billing (Google Play Store):</strong> Payment processing for the Play Store build. All payment data is handled by Google. <a href="https://policies.google.com/privacy" style="color:var(--primary)">Google Privacy Policy</a></li>
         <li><strong>Google Firebase:</strong> Authentication and database. <a href="https://firebase.google.com/support/privacy" style="color:var(--primary)">Firebase Privacy Policy</a></li>
         <li><strong>Google AdMob:</strong> Advertising (free users only). <a href="https://policies.google.com/privacy" style="color:var(--primary)">Google Privacy Policy</a></li>
         <li><strong>Google Sign-In:</strong> Optional account authentication. <a href="https://policies.google.com/privacy" style="color:var(--primary)">Google Privacy Policy</a></li>

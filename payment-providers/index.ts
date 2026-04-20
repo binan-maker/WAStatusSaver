@@ -1,23 +1,30 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  STORE BUILD SWITCH
+//  CLIENT-SIDE PAYMENT PROVIDER SWITCH
 //  ─────────────────────────────────────────────────────────────────────────
-//  Choose ONE store target. Comment out the other line, then DELETE the
-//  folder you are NOT building for before submitting to the store.
+//  Activate ONE store target by uncommenting the correct export line.
+//  Keep the other line commented out. Then delete the unused folder before
+//  uploading to the store.
 //
-//  ┌─ INDUS APP STORE BUILD ────────────────────────────────────────────────
-//  │  Active provider: Razorpay (INR, direct payment)
-//  │  Delete before build: payment-providers/google-play/
-//  │  Required env vars: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
-//  │                     RAZORPAY_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON
+//  Also update payment-providers/server.ts to match this choice.
+//
+//  ┌─ INDUS APP STORE / OTHER STORES ──────────────────────────────────────
+//  │  Payment provider: Razorpay (INR direct payment — NO Google Play code)
+//  │  Step 1: Keep the razorpay line below ACTIVE (uncommented)
+//  │  Step 2: Comment out the google-play line below
+//  │  Step 3: Delete payment-providers/google-play/ before uploading
+//  │  Env vars needed: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET,
+//  │                   RAZORPAY_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON
 //  └────────────────────────────────────────────────────────────────────────
 export * from "./razorpay";
 
-//  ┌─ GOOGLE PLAY STORE BUILD ──────────────────────────────────────────────
-//  │  Active provider: Google Play Billing (INR, managed by Play Store)
-//  │  Delete before build: payment-providers/razorpay/
-//  │  Required env vars: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
-//  │                     GOOGLE_PLAY_PACKAGE_NAME, FIREBASE_SERVICE_ACCOUNT_JSON
-//  │  Required setup: Add product IDs in Google Play Console:
+//  ┌─ GOOGLE PLAY STORE ────────────────────────────────────────────────────
+//  │  Payment provider: Google Play Billing (NO Razorpay code)
+//  │  Step 1: Comment out the razorpay line above
+//  │  Step 2: Uncomment the google-play line below
+//  │  Step 3: Delete payment-providers/razorpay/ before uploading
+//  │  Env vars needed: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+//  │                   GOOGLE_PLAY_PACKAGE_NAME, FIREBASE_SERVICE_ACCOUNT_JSON
+//  │  Setup: Add product IDs in Google Play Console:
 //  │    statusvault_pro_monthly, statusvault_pro_quarterly, statusvault_pro_yearly
 //  └────────────────────────────────────────────────────────────────────────
 // export * from "./google-play";
