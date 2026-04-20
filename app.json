@@ -2,7 +2,7 @@
   "expo": {
     "name": "StatusVault",
     "slug": "statusvault",
-    "version": "1.3.6",
+    "version": "1.3.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "statusvault",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.binan.statussaver",
-      "versionCode": 38,
+      "versionCode": 39,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
@@ -29,7 +29,8 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "com.google.android.gms.permission.AD_ID"
+        "com.google.android.gms.permission.AD_ID",
+        "com.android.vending.BILLING"
       ],
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
@@ -89,7 +90,8 @@
         }
       ],
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "react-native-iap"
     ],
     "experiments": {
       "typedRoutes": true,
