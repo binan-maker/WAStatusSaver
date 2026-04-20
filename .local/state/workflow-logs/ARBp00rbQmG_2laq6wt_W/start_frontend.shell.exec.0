@@ -1,0 +1,244 @@
+
+> expo-app@1.0.0 expo:dev
+> EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN:5000 expo start --localhost
+
+[1G[0K[90mStarting project at /home/runner/workspace[39m
+[31mJsonFileError: Error parsing JSON: {[39m
+[31m  "expo": {[39m
+[31m    "name": "StatusVault",[39m
+[31m    "slug": "statusvault",[39m
+[31m    "version": "1.3.6",[39m
+[31m    "orientation": "portrait",[39m
+[31m    "icon": "./assets/images/icon.png",[39m
+[31m    "scheme": "statusvault",[39m
+[31m    "userInterfaceStyle": "dark",[39m
+[31m    "splash": {[39m
+[31m      "image": "./assets/images/splash-icon.png",[39m
+[31m      "resizeMode": "contain",[39m
+[31m      "backgroundColor": "#0A0E1A"[39m
+[31m    },[39m
+[31m    "ios": {[39m
+[31m      "supportsTablet": false,[39m
+[31m      "bundleIdentifier": "com.binan.statussaver"[39m
+[31m    },[39m
+[31m    "android": {[39m
+[31m      "package": "com.binan.statussaver",[39m
+[31m<<<<<<< HEAD[39m
+[31m      "versionCode": 38,[39m
+[31m=======[39m
+[31m      "versionCode": 37,[39m
+[31m>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878[39m
+[31m      "softwareKeyboardLayoutMode": "pan",[39m
+[31m      "adaptiveIcon": {[39m
+[31m        "backgroundColor": "#0A0E1A",[39m
+[31m        "foregroundImage": "./assets/images/android-icon-foreground.png"[39m
+[31m      },[39m
+[31m      "permissions": [[39m
+[31m        "android.permission.WRITE_EXTERNAL_STORAGE",[39m
+[31m        "android.permission.POST_NOTIFICATIONS",[39m
+[31m        "android.permission.RECEIVE_BOOT_COMPLETED",[39m
+[31m        "android.permission.VIBRATE",[39m
+[31m        "com.google.android.gms.permission.AD_ID"[39m
+[31m<<<<<<< HEAD[39m
+[31m      ],[39m
+[31m      "blockedPermissions": [[39m
+[31m        "android.permission.READ_MEDIA_IMAGES",[39m
+[31m        "android.permission.READ_MEDIA_VIDEO",[39m
+[31m        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"[39m
+[31m=======[39m
+[31m>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878[39m
+[31m      ][39m
+[31m    },[39m
+[31m    "web": {[39m
+[31m      "favicon": "./assets/images/favicon.png"[39m
+[31m    },[39m
+[31m    "plugins": [[39m
+[31m      [[39m
+[31m        "expo-build-properties",[39m
+[31m        {[39m
+[31m          "android": {[39m
+[31m            "usesCleartextTraffic": true,[39m
+[31m            "enableProguardInReleaseBuilds": true[39m
+[31m          }[39m
+[31m        }[39m
+[31m      ],[39m
+[31m      [[39m
+[31m        "expo-router",[39m
+[31m        {[39m
+[31m          "origin": "https://replit.com/"[39m
+[31m        }[39m
+[31m      ],[39m
+[31m      [[39m
+[31m        "expo-notifications",[39m
+[31m        {[39m
+[31m          "icon": "./assets/images/icon.png",[39m
+[31m          "color": "#00c48c",[39m
+[31m          "defaultChannel": "status-reminders"[39m
+[31m        }[39m
+[31m      ],[39m
+[31m      [[39m
+[31m        "react-native-google-mobile-ads",[39m
+[31m        {[39m
+[31m          "androidAppId": "ca-app-pub-2087467559495393~8299473677",[39m
+[31m          "iosAppId": "ca-app-pub-3940256099942544~1458002511",[39m
+[31m          "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",[39m
+[31m          "androidAdvertisingIdPermission": true[39m
+[31m        }[39m
+[31m      ],[39m
+[31m      "expo-font",[39m
+[31m      [[39m
+[31m        "expo-video",[39m
+[31m        {[39m
+[31m          "supportsBackgroundPlayback": true,[39m
+[31m          "supportsPictureInPicture": true[39m
+[31m        }[39m
+[31m      ],[39m
+[31m      [[39m
+[31m        "expo-navigation-bar",[39m
+[31m        {[39m
+[31m          "position": "absolute",[39m
+[31m          "backgroundColor": "#00000000"[39m
+[31m        }[39m
+[31m      ],[39m
+[31m      "expo-web-browser",[39m
+[31m      "@react-native-google-signin/google-signin"[39m
+[31m    ],[39m
+[31m    "experiments": {[39m
+[31m      "typedRoutes": true,[39m
+[31m      "reactCompiler": true[39m
+[31m    }[39m
+[31m  }[39m
+[31m}[39m
+[31m[39m
+[31m├─ File: /home/runner/workspace/app.json[39m
+[31m└─ Cause: SyntaxError: JSON5: invalid character '<' at 21:1[39m
+[31m  19 |     "android": {[39m
+[31m  20 |       "package": "com.binan.statussaver",[39m
+[31m> 21 | <<<<<<< HEAD[39m
+[31m     | ^[39m
+[31m  22 |       "versionCode": 38,[39m
+[31m  23 | =======[39m
+[31m  24 |       "versionCode": 37,[39m
+[90mJsonFileError: Error parsing JSON: {[39m
+[90m  "expo": {[39m
+[90m    "name": "StatusVault",[39m
+[90m    "slug": "statusvault",[39m
+[90m    "version": "1.3.6",[39m
+[90m    "orientation": "portrait",[39m
+[90m    "icon": "./assets/images/icon.png",[39m
+[90m    "scheme": "statusvault",[39m
+[90m    "userInterfaceStyle": "dark",[39m
+[90m    "splash": {[39m
+[90m      "image": "./assets/images/splash-icon.png",[39m
+[90m      "resizeMode": "contain",[39m
+[90m      "backgroundColor": "#0A0E1A"[39m
+[90m    },[39m
+[90m    "ios": {[39m
+[90m      "supportsTablet": false,[39m
+[90m      "bundleIdentifier": "com.binan.statussaver"[39m
+[90m    },[39m
+[90m    "android": {[39m
+[90m      "package": "com.binan.statussaver",[39m
+[90m<<<<<<< HEAD[39m
+[90m      "versionCode": 38,[39m
+[90m=======[39m
+[90m      "versionCode": 37,[39m
+[90m>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878[39m
+[90m      "softwareKeyboardLayoutMode": "pan",[39m
+[90m      "adaptiveIcon": {[39m
+[90m        "backgroundColor": "#0A0E1A",[39m
+[90m        "foregroundImage": "./assets/images/android-icon-foreground.png"[39m
+[90m      },[39m
+[90m      "permissions": [[39m
+[90m        "android.permission.WRITE_EXTERNAL_STORAGE",[39m
+[90m        "android.permission.POST_NOTIFICATIONS",[39m
+[90m        "android.permission.RECEIVE_BOOT_COMPLETED",[39m
+[90m        "android.permission.VIBRATE",[39m
+[90m        "com.google.android.gms.permission.AD_ID"[39m
+[90m<<<<<<< HEAD[39m
+[90m      ],[39m
+[90m      "blockedPermissions": [[39m
+[90m        "android.permission.READ_MEDIA_IMAGES",[39m
+[90m        "android.permission.READ_MEDIA_VIDEO",[39m
+[90m        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"[39m
+[90m=======[39m
+[90m>>>>>>> 41d0658df956b6cfbf599dcb36895ddb9a867878[39m
+[90m      ][39m
+[90m    },[39m
+[90m    "web": {[39m
+[90m      "favicon": "./assets/images/favicon.png"[39m
+[90m    },[39m
+[90m    "plugins": [[39m
+[90m      [[39m
+[90m        "expo-build-properties",[39m
+[90m        {[39m
+[90m          "android": {[39m
+[90m            "usesCleartextTraffic": true,[39m
+[90m            "enableProguardInReleaseBuilds": true[39m
+[90m          }[39m
+[90m        }[39m
+[90m      ],[39m
+[90m      [[39m
+[90m        "expo-router",[39m
+[90m        {[39m
+[90m          "origin": "https://replit.com/"[39m
+[90m        }[39m
+[90m      ],[39m
+[90m      [[39m
+[90m        "expo-notifications",[39m
+[90m        {[39m
+[90m          "icon": "./assets/images/icon.png",[39m
+[90m          "color": "#00c48c",[39m
+[90m          "defaultChannel": "status-reminders"[39m
+[90m        }[39m
+[90m      ],[39m
+[90m      [[39m
+[90m        "react-native-google-mobile-ads",[39m
+[90m        {[39m
+[90m          "androidAppId": "ca-app-pub-2087467559495393~8299473677",[39m
+[90m          "iosAppId": "ca-app-pub-3940256099942544~1458002511",[39m
+[90m          "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",[39m
+[90m          "androidAdvertisingIdPermission": true[39m
+[90m        }[39m
+[90m      ],[39m
+[90m      "expo-font",[39m
+[90m      [[39m
+[90m        "expo-video",[39m
+[90m        {[39m
+[90m          "supportsBackgroundPlayback": true,[39m
+[90m          "supportsPictureInPicture": true[39m
+[90m        }[39m
+[90m      ],[39m
+[90m      [[39m
+[90m        "expo-navigation-bar",[39m
+[90m        {[39m
+[90m          "position": "absolute",[39m
+[90m          "backgroundColor": "#00000000"[39m
+[90m        }[39m
+[90m      ],[39m
+[90m      "expo-web-browser",[39m
+[90m      "@react-native-google-signin/google-signin"[39m
+[90m    ],[39m
+[90m    "experiments": {[39m
+[90m      "typedRoutes": true,[39m
+[90m      "reactCompiler": true[39m
+[90m    }[39m
+[90m  }[39m
+[90m}[39m
+[90m[39m
+[90m├─ File: /home/runner/workspace/app.json[39m
+[90m└─ Cause: SyntaxError: JSON5: invalid character '<' at 21:1[39m
+[90m  19 |     "android": {[39m
+[90m  20 |       "package": "com.binan.statussaver",[39m
+[90m> 21 | <<<<<<< HEAD[39m
+[90m     | ^[39m
+[90m  22 |       "versionCode": 38,[39m
+[90m  23 | =======[39m
+[90m  24 |       "versionCode": 37,[39m
+[90m    at parseJsonString (/home/runner/workspace/node_modules/@expo/json-file/build/JsonFile.js:198:19)[39m
+[90m    at JsonFile.read (/home/runner/workspace/node_modules/@expo/json-file/build/JsonFile.js:159:12)[39m
+[90m    at getStaticConfig (/home/runner/workspace/node_modules/expo/node_modules/@expo/config/build/getConfig.js:64:38)[39m
+[90m    at getConfig (/home/runner/workspace/node_modules/expo/node_modules/@expo/config/build/Config.js:206:85)[39m
+[90m    at startAsync (/home/runner/workspace/node_modules/expo/node_modules/@expo/cli/build/src/start/startAsync.js:129:68)[39m
+[90m    at expoStart (/home/runner/workspace/node_modules/expo/node_modules/@expo/cli/build/src/start/index.js:146:12)[39m
+[1G[0K⠙[1G[0K
