@@ -8,7 +8,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { Platform, Alert, Share, Linking } from 'react-native';
+import { Platform, Alert, Share, Linking, InteractionManager } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
@@ -178,6 +178,10 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // In-memory cache: grantedUri → resolved .Statuses URI.
   // Prevents re-walking the folder tree on every loadStatuses call.
   const resolvedUriCache = useRef<Map<string, string>>(new Map());
+  // Guard: prevents a second requestSAF call while one is already in flight
+  // (e.g. double-tap or concurrent effect trigger) which causes the
+  // "unfinished permission request" native error.
+  const safRequestInFlight = useRef(false);
 
   const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
 
@@ -286,79 +290,88 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
   const requestSAF = useCallback(async (source: StatusSource = 'whatsapp', manual: boolean = false) => {
     if (Platform.OS !== 'android') return;
+
+    // Prevent concurrent calls — Android throws "unfinished permission request"
+    // if requestDirectoryPermissionsAsync is called while one is already open.
+    if (safRequestInFlight.current) return;
+    safRequestInFlight.current = true;
+
+    // Work Profile support: when `manual` is true, open at storage root so the
+    // user can navigate to their second WhatsApp's media folder.
+    const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
+
+    setIsRequestingSAF(true);
+
     try {
-      // Fix #2 — Work Profile Blindspot: when `manual` is true (or the standard
-      // initial URI is unavailable), open the picker at the storage root so
-      // users with Dual Apps / Work Profiles can navigate to their second
-      // WhatsApp's media folder manually.
-      const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
+      // Wait for the SAFGuideOverlay to render before launching the system picker.
+      // InteractionManager.runAfterInteractions fires after the current JS frame
+      // finishes painting — keeping the Android activity alive (unlike setTimeout
+      // which can fire after an activity transition and lose the reference).
+      await new Promise<void>(resolve =>
+        InteractionManager.runAfterInteractions(() => resolve())
+      );
 
-      setIsRequestingSAF(true);
-      // Give a tiny delay for the overlay to mount before opening system picker
-      setTimeout(async () => {
-        try {
-          const result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
-          setIsRequestingSAF(false);
+      let result: { granted: boolean; directoryUri: string };
+      try {
+        result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
+      } catch (e) {
+        console.error('[SAF] requestDirectoryPermissionsAsync failed:', e);
+        setIsRequestingSAF(false);
+        safRequestInFlight.current = false;
+        return;
+      }
 
-          if (result.granted) {
-            const nextSafUris = { ...safUris, [source]: result.directoryUri };
-            await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
-            await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
-            
-            setSafUris(nextSafUris);
-            setSafUri(result.directoryUri);
-            setSafGranted(true);
+      setIsRequestingSAF(false);
 
-            // Mark as "granting" so the UI shows shimmer instead of empty state
-            // while we wait for Android to fully mount the SAF folder.
-            setIsGrantingAccess(true);
-            setIsLoading(true);
-            // Clear the BFS cache for this URI so the fresh grant always triggers
-            // a clean walk — never reuses a stale "empty" result from before.
-            resolvedUriCache.current.delete(result.directoryUri);
+      if (!result.granted) {
+        safRequestInFlight.current = false;
+        return;
+      }
 
-            try {
-              // === Graceful Delay ===
-              // Android needs ~500-800ms to fully "mount" the newly granted SAF
-              // folder to this process. Reading immediately returns [] even when
-              // files exist. We wait 700ms before the first attempt.
-              await new Promise(res => setTimeout(res, 700));
+      const nextSafUris = { ...safUris, [source]: result.directoryUri };
+      await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
+      await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
 
-              const readSAFEntries = async (uriMap: Partial<Record<StatusSource, string>>) => {
-                const entries = Object.entries(uriMap) as [StatusSource, string][];
-                const results = await Promise.all(entries.map(([s, u]) => readFromSAF(u, s)));
-                return results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
-              };
+      setSafUris(nextSafUris);
+      setSafUri(result.directoryUri);
+      setSafGranted(true);
 
-              let items = await readSAFEntries(nextSafUris);
+      // Show shimmer while Android mounts the newly granted SAF folder.
+      setIsGrantingAccess(true);
+      setIsLoading(true);
+      // Clear BFS cache so we never reuse a stale "empty" result.
+      resolvedUriCache.current.delete(result.directoryUri);
 
-              // === Auto-Retry ===
-              // If we still get 0 items after the settling delay, the Android
-              // media indexer may not have exposed the hidden .Statuses folder yet.
-              // Wait another 1.3 seconds and try once more before giving up.
-              if (items.length === 0) {
-                await new Promise(res => setTimeout(res, 1300));
-                // Also clear cache again before retry so BFS re-walks
-                resolvedUriCache.current.delete(result.directoryUri);
-                items = await readSAFEntries(nextSafUris);
-              }
+      try {
+        // Android needs ~700ms to fully expose a newly granted hidden folder.
+        await new Promise(res => setTimeout(res, 700));
 
-            setStatuses(items);
-            } finally {
-              setIsLoading(false);
-              setIsGrantingAccess(false);
-            }
-          }
-        } catch (e) {
-          console.error('[SAF] requestSAF inner error:', e);
-          setIsRequestingSAF(false);
-          setIsGrantingAccess(false);
+        const readSAFEntries = async (uriMap: Partial<Record<StatusSource, string>>) => {
+          const entries = Object.entries(uriMap) as [StatusSource, string][];
+          const results = await Promise.all(entries.map(([s, u]) => readFromSAF(u, s)));
+          return results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+        };
+
+        let items = await readSAFEntries(nextSafUris);
+
+        // Auto-retry: if still empty, wait another 1.3 s and try once more.
+        if (items.length === 0) {
+          await new Promise(res => setTimeout(res, 1300));
+          resolvedUriCache.current.delete(result.directoryUri);
+          items = await readSAFEntries(nextSafUris);
         }
-      }, 500);
+
+        setStatuses(items);
+      } finally {
+        setIsLoading(false);
+        setIsGrantingAccess(false);
+        safRequestInFlight.current = false;
+      }
     } catch (e) {
-      console.error('[SAF] requestSAF outer error:', e);
+      console.error('[SAF] requestSAF error:', e);
       setIsRequestingSAF(false);
       setIsGrantingAccess(false);
+      safRequestInFlight.current = false;
     }
   }, [loadStatuses, safUris]);
 
