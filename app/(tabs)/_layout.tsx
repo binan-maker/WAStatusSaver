@@ -16,7 +16,7 @@ export default function TabLayout() {
   const isWeb = Platform.OS === 'web';
   const isIOS = Platform.OS === 'ios';
 
-  const TAB_HEIGHT = 54;
+  const TAB_HEIGHT = 64;
   const tabBarHeight = isWeb ? 84 : TAB_HEIGHT + bottom;
 
   return (

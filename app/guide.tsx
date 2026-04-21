@@ -12,12 +12,14 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
+type TagColorKey = 'PRIMARY' | 'ACCENT_GOLD' | 'ACCENT_BLUE' | 'ACCENT_PINK';
+
 interface AccordionItem {
   title: string;
   icon: keyof typeof Ionicons.glyphMap;
   content: string[];
   tag?: string;
-  tagColor?: string;
+  tagColor?: TagColorKey;
 }
 
 const FAQ_ITEMS: AccordionItem[] = [
@@ -25,7 +27,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'Initial Setup — Android 5 to 9',
     icon: 'phone-portrait-outline',
     tag: 'Legacy',
-    tagColor: COLORS.ACCENT_GOLD,
+    tagColor: 'ACCENT_GOLD',
     content: [
       '1. Open StatusVault and tap "Grant Access".',
       '2. Allow media/storage permission when prompted.',
@@ -41,7 +43,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'Initial Setup — Android 10',
     icon: 'phone-portrait-outline',
     tag: 'Android 10',
-    tagColor: COLORS.ACCENT_BLUE,
+    tagColor: 'ACCENT_BLUE',
     content: [
       '1. Open StatusVault → Grant Access → Allow media permission.',
       '2. StatusVault uses scoped storage but can still read the status folder.',
@@ -58,7 +60,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'Initial Setup — Android 11, 12, 13, 14+',
     icon: 'shield-outline',
     tag: 'Android 11+',
-    tagColor: COLORS.PRIMARY,
+    tagColor: 'PRIMARY',
     content: [
       'Android 11+ uses strict scoped storage (SAF). You must manually select the WhatsApp Media folder:',
       '',
@@ -79,7 +81,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'Google Sign-In (Optional)',
     icon: 'logo-google',
     tag: 'Account',
-    tagColor: COLORS.ACCENT_BLUE,
+    tagColor: 'ACCENT_BLUE',
     content: [
       'Signing in with Google is optional but unlocks account features:',
       '',
@@ -104,7 +106,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'Subscription & Ad-Free Access',
     icon: 'star-outline',
     tag: 'Premium',
-    tagColor: COLORS.ACCENT_GOLD,
+    tagColor: 'ACCENT_GOLD',
     content: [
       'StatusVault offers subscription plans to remove all advertisements.',
       '',
@@ -143,7 +145,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'How Google Play Billing Works',
     icon: 'card-outline',
     tag: 'Play Store',
-    tagColor: COLORS.PRIMARY,
+    tagColor: 'PRIMARY',
     content: [
       'When you install StatusVault from the Google Play Store, all in-app purchases go through Google Play Billing — the same secure system used by every major Android app.',
       '',
@@ -173,7 +175,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'How Razorpay Payments Work (Indus / Other Stores)',
     icon: 'wallet-outline',
     tag: 'Indus Store',
-    tagColor: COLORS.ACCENT_GOLD,
+    tagColor: 'ACCENT_GOLD',
     content: [
       'If you installed StatusVault from the Indus App Store or another non-Play distribution, payments are processed by Razorpay — an RBI-licensed payment aggregator.',
       '',
@@ -206,7 +208,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'Referral Program',
     icon: 'people-outline',
     tag: 'Rewards',
-    tagColor: COLORS.PRIMARY,
+    tagColor: 'PRIMARY',
     content: [
       'Invite friends to earn ad-free days:',
       '',
@@ -346,11 +348,14 @@ function AccordionCard({ item }: { item: AccordionItem }) {
           </View>
           <View style={styles.cardTitleWrap}>
             <Text style={styles.cardTitle}>{item.title}</Text>
-            {item.tag && (
-              <View style={[styles.cardTag, { backgroundColor: (item.tagColor || COLORS.PRIMARY) + '22' }]}>
-                <Text style={[styles.cardTagText, { color: item.tagColor || COLORS.PRIMARY }]}>{item.tag}</Text>
-              </View>
-            )}
+            {item.tag && (() => {
+              const tagHex = item.tagColor ? COLORS[item.tagColor] : COLORS.PRIMARY;
+              return (
+                <View style={[styles.cardTag, { backgroundColor: tagHex + '22' }]}>
+                  <Text style={[styles.cardTagText, { color: tagHex }]}>{item.tag}</Text>
+                </View>
+              );
+            })()}
           </View>
         </View>
         <Ionicons

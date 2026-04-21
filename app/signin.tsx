@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -12,10 +12,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
-import COLORS from "@/constants/colors";
+import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 
 export default function SignInScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const { loading, signInWithGoogle, configured } = useFirebaseAuth();
   const [signingIn, setSigningIn] = useState(false);
@@ -68,9 +70,9 @@ export default function SignInScreen() {
 
       <View style={styles.middle}>
         <View style={styles.featureRow}>
-          <FeatureItem icon="image-multiple" label="Save images & videos" />
-          <FeatureItem icon="translate" label="10 languages supported" />
-          <FeatureItem icon="shield-check" label="Private & secure" />
+          <FeatureItem icon="image-multiple" label="Save images & videos" styles={styles} COLORS={COLORS} />
+          <FeatureItem icon="translate" label="10 languages supported" styles={styles} COLORS={COLORS} />
+          <FeatureItem icon="shield-check" label="Private & secure" styles={styles} COLORS={COLORS} />
         </View>
       </View>
 
@@ -90,7 +92,7 @@ export default function SignInScreen() {
             <ActivityIndicator color="#06100C" size="small" />
           ) : (
             <>
-              <GoogleIcon />
+              <GoogleIcon styles={styles} />
               <Text style={styles.googleBtnText}>Sign in with Google</Text>
             </>
           )}
@@ -106,7 +108,7 @@ export default function SignInScreen() {
             <ActivityIndicator color={COLORS.PRIMARY} size="small" />
           ) : (
             <>
-              <GoogleIcon color={COLORS.PRIMARY} />
+              <GoogleIcon color={COLORS.PRIMARY} styles={styles} />
               <Text style={styles.signupBtnText}>Sign up with Google</Text>
             </>
           )}
@@ -130,7 +132,9 @@ export default function SignInScreen() {
   );
 }
 
-function GoogleIcon({ color = "#06100C" }: { color?: string }) {
+type SignInStyles = ReturnType<typeof createStyles>;
+
+function GoogleIcon({ color = "#06100C", styles }: { color?: string; styles: SignInStyles }) {
   return (
     <View style={styles.gIconWrap}>
       <Text style={[styles.gLetter, { color }]}>G</Text>
@@ -138,7 +142,7 @@ function GoogleIcon({ color = "#06100C" }: { color?: string }) {
   );
 }
 
-function FeatureItem({ icon, label }: { icon: string; label: string }) {
+function FeatureItem({ icon, label, styles, COLORS }: { icon: string; label: string; styles: SignInStyles; COLORS: ThemePalette }) {
   return (
     <View style={styles.featureItem}>
       <View style={styles.featureIconWrap}>
@@ -149,7 +153,7 @@ function FeatureItem({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

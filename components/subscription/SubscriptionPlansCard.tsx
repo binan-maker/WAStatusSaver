@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import COLORS from "@/constants/colors";
+import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 import { useSubscriptionStatus } from "@/hooks/subscription/useSubscriptionStatus";
 
@@ -16,6 +16,8 @@ function formatRemaining(seconds: number) {
 }
 
 export function SubscriptionPlansCard() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { plans, isSubscribed, remainingSeconds, loading } = useSubscriptionStatus();
   const monthlyPlan = plans.find((plan) => plan.id === "monthly");
 
@@ -37,7 +39,7 @@ export function SubscriptionPlansCard() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   banner: {
     flexDirection: "row",
     alignItems: "center",
