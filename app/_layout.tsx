@@ -20,7 +20,7 @@ import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider, useFirebaseAuth } from '@/contexts/AuthContext';
-import { IAPProvider } from 'react-native-iap';
+import { PaymentProviderRoot } from '@/payment-providers';
 import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
 import { GoogleSignInModal } from '@/components/auth/GoogleSignInModal';
 import { useAppOpenAd } from '@/hooks/ads/useAppOpenAd';
@@ -249,13 +249,15 @@ const RootLayout = () => {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <LanguageProvider>
             <AuthProvider>
-              <IAPProvider>
+              <PaymentProviderRoot>
                 <AppContent showOnboarding={showOnboarding} />
-              </IAPProvider>
+              </PaymentProviderRoot>
             </AuthProvider>
           </LanguageProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
   );
-}
+};
+
+export default RootLayout;
