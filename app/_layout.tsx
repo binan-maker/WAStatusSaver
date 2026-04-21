@@ -250,6 +250,7 @@ const RootLayout = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
+<<<<<<< HEAD
           <ThemeProvider>
             <LanguageProvider>
               <AuthProvider>
@@ -259,6 +260,15 @@ const RootLayout = () => {
               </AuthProvider>
             </LanguageProvider>
           </ThemeProvider>
+=======
+          <LanguageProvider>
+            <AuthProvider>
+              <PaymentProviderRoot>
+                <AppContent showOnboarding={showOnboarding} />
+              </PaymentProviderRoot>
+            </AuthProvider>
+          </LanguageProvider>
+>>>>>>> 5f2d5d72d3b278623512d950c16117afb444a875
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
