@@ -2,7 +2,7 @@
   "expo": {
     "name": "StatusVault",
     "slug": "statusvault",
-    "version": "1.3.8",
+    "version": "1.3.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "statusvault",
