@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useLanguage } from '@/contexts/LanguageContext';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
 
 export default function LanguagesScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguage();
   const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
@@ -97,7 +99,7 @@ export default function LanguagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

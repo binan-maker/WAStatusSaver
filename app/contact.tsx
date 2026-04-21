@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/fire
 import { getFirebaseClientApp } from '@/lib/firebase-client';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
 import { useSubscriptionStatus } from '@/hooks/subscription/useSubscriptionStatus';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 const CONTACT_EMAIL = 'ahmedsameerbinan2@gmail.com';
@@ -39,6 +39,8 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', message: '', email: '' };
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <TouchableOpacity
       style={[styles.tab, active && styles.tabActive]}
@@ -63,6 +65,8 @@ function ContactItem({
   onPress: () => void;
   color: string;
 }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <TouchableOpacity style={styles.contactItem} onPress={onPress} activeOpacity={0.75}>
       <View style={[styles.contactIconWrap, { backgroundColor: color + '22' }]}>
@@ -78,6 +82,8 @@ function ContactItem({
 }
 
 export default function ContactScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const { user } = useFirebaseAuth();
   const { isSubscribed } = useSubscriptionStatus();
@@ -315,7 +321,7 @@ export default function ContactScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

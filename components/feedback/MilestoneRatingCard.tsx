@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.binan.statussaver';
@@ -27,6 +27,8 @@ interface Props {
 }
 
 export function MilestoneRatingCard({ visible, type, count, onRate, onLater, onNever }: Props) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const slideAnim = useRef(new Animated.Value(300)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const starScales = [1, 2, 3, 4, 5].map(() => useRef(new Animated.Value(1)).current);
@@ -138,7 +140,7 @@ export function MilestoneRatingCard({ visible, type, count, onRate, onLater, onN
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',

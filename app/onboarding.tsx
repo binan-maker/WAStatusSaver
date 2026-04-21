@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AdBanner } from '@/components/ads/AdBanner';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
 
@@ -23,6 +23,8 @@ const { width } = Dimensions.get('window');
 const isSmallScreen = width < 380;
 
 export default function OnboardingScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguage();
   const [selectedLang, setSelectedLang] = useState(language);
@@ -108,7 +110,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

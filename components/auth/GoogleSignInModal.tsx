@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ActivityIndicator, Modal, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import COLORS from "@/constants/colors";
+import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
 }
 
 export function GoogleSignInModal({ visible }: Props) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.overlay}>
@@ -39,7 +41,7 @@ export function GoogleSignInModal({ visible }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",

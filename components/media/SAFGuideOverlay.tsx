@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE } from '@/constants/theme';
 
 const { height } = Dimensions.get('window');
@@ -19,6 +19,8 @@ interface SAFGuideOverlayProps {
 }
 
 export function SAFGuideOverlay({ visible }: SAFGuideOverlayProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const bounceAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export function SAFGuideOverlay({ visible }: SAFGuideOverlayProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'flex-end',

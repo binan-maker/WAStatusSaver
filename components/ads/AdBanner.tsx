@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
-import COLORS from '@/constants/colors';
+import { useThemeColors } from '@/contexts/ThemeContext';
 import { ADMOB, RADIUS } from '@/constants/theme';
 import { ADS_ENABLED, AD_UNIT_IDS } from '@/constants/admob';
 
@@ -19,6 +19,7 @@ interface AdBannerProps {
 const adUnitId = AD_UNIT_IDS.BANNER;
 
 export function AdBanner({ style, size = BannerAdSize.ANCHORED_ADAPTIVE_BANNER }: AdBannerProps) {
+  const COLORS = useThemeColors();
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);

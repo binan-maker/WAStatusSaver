@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import COLORS from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number }) {
   return <Ionicons name={name} size={size} color={color} />;
@@ -11,6 +11,7 @@ function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMa
 
 export default function TabLayout() {
   const { bottom } = useSafeAreaInsets();
+  const { colors: COLORS, resolved } = useTheme();
   const isAndroid = Platform.OS === 'android';
   const isWeb = Platform.OS === 'web';
   const isIOS = Platform.OS === 'ios';
@@ -41,7 +42,7 @@ export default function TabLayout() {
           isIOS ? (
             <BlurView
               intensity={95}
-              tint="dark"
+              tint={resolved === 'dark' ? 'dark' : 'light'}
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (

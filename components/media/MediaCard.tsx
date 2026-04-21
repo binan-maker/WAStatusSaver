@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 
@@ -31,6 +31,8 @@ function MediaCardInner({
   showDeleteButton = false,
   onDelete,
 }: MediaCardProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const uri = 'localUri' in item ? item.localUri : item.uri;
 
   return (
@@ -121,7 +123,7 @@ function MediaCardInner({
 
 export const MediaCard = React.memo(MediaCardInner);
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   container: {
     width: CARD_SIZE,
     height: CARD_SIZE,

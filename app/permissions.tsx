@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMedia } from '@/contexts/MediaContext';
 import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -29,6 +29,8 @@ interface StepCardProps {
 }
 
 function StepCard({ step, title, desc, icon, done, action, tag }: StepCardProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <View style={[styles.stepCard, done && styles.stepCardDone]}>
       <View style={styles.stepLeft}>
@@ -63,6 +65,8 @@ function StepCard({ step, title, desc, icon, done, action, tag }: StepCardProps)
 }
 
 export default function PermissionsScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const {
     hasPermission,
@@ -216,7 +220,7 @@ export default function PermissionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -28,6 +28,8 @@ interface AppLoadingScreenProps {
 }
 
 export function AppLoadingScreen({ onDone }: AppLoadingScreenProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [stepIndex, setStepIndex] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -138,7 +140,7 @@ export function AppLoadingScreen({ onDone }: AppLoadingScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',

@@ -27,7 +27,7 @@ import { useAppOpenAd } from '@/hooks/ads/useAppOpenAd';
 import { useInterstitialAd } from '@/components/ads/AdInterstitial';
 import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 import { useStatusReminder } from '@/hooks/media/useStatusReminder';
-import COLORS from '@/constants/colors';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,23 +40,22 @@ if (Platform.OS !== 'web') {
     .catch((e) => console.log('Google Mobile Ads initialization error:', e));
 }
 
-async function applyImmersiveMode() {
+async function applyImmersiveMode(bg: string, isDark: boolean) {
   if (Platform.OS !== 'android') return;
   try {
     const sdkVersion = Platform.Version as number;
     if (sdkVersion < 30) {
       await NavigationBar.setVisibilityAsync('visible');
     }
-    await NavigationBar.setButtonStyleAsync('light');
-    // Solid background so the nav bar isn't transparent over app content.
-    // Android 15+ (SDK 35) ignores this in edge-to-edge mode — handled via app.json.
-    await NavigationBar.setBackgroundColorAsync(COLORS.BACKGROUND);
+    await NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+    await NavigationBar.setBackgroundColorAsync(bg);
     await NavigationBar.setBehaviorAsync('inset-swipe');
   } catch {}
 }
 
 function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
   const { user, loading, configured } = useFirebaseAuth();
+  const { colors: COLORS } = useTheme();
   const router = useRouter();
   const segments = useSegments();
 
@@ -136,7 +135,14 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
 function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   useAppOpenAd();
   useStatusReminder();
+  const { colors, resolved } = useTheme();
   const { showAd: showInterstitial } = useInterstitialAd();
+
+  // Re-apply Android nav bar background whenever the theme changes.
+  useEffect(() => {
+    applyImmersiveMode(colors.BACKGROUND, resolved === 'dark');
+  }, [colors, resolved]);
+
   const [interstitialShown, setInterstitialShown] = useState(false);
   const { user, loading, signingIn } = useFirebaseAuth();
   const { isFreeAds, loading: adsLoading } = useFreeAdsState();
@@ -184,7 +190,7 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
 
   return (
     <MediaProvider>
-      <StatusBar style="light" translucent backgroundColor="transparent" />
+      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
       <AuthGate showOnboarding={showOnboarding} />
       <GoogleSignInModal visible={signingIn} />
     </MediaProvider>
@@ -212,15 +218,8 @@ const RootLayout = () => {
 
   useEffect(() => {
     checkOnboarding();
-    applyImmersiveMode();
 
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        next === 'active'
-      ) {
-        applyImmersiveMode();
-      }
       appState.current = next;
     });
 
@@ -251,13 +250,15 @@ const RootLayout = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <LanguageProvider>
-            <AuthProvider>
-              <PaymentProviderRoot>
-                <AppContent showOnboarding={showOnboarding} />
-              </PaymentProviderRoot>
-            </AuthProvider>
-          </LanguageProvider>
+          <ThemeProvider>
+            <LanguageProvider>
+              <AuthProvider>
+                <PaymentProviderRoot>
+                  <AppContent showOnboarding={showOnboarding} />
+                </PaymentProviderRoot>
+              </AuthProvider>
+            </LanguageProvider>
+          </ThemeProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>

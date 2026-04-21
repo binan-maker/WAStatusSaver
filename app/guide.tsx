@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 interface AccordionItem {
@@ -330,6 +330,8 @@ const FAQ_ITEMS: AccordionItem[] = [
 ];
 
 function AccordionCard({ item }: { item: AccordionItem }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [expanded, setExpanded] = useState(false);
   return (
     <View style={styles.card}>
@@ -387,6 +389,8 @@ function AccordionCard({ item }: { item: AccordionItem }) {
 }
 
 export default function GuideScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   return (
     <View style={styles.root}>
@@ -437,7 +441,7 @@ export default function GuideScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

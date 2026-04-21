@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import { AdBanner } from '@/components/ads/AdBanner';
 import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/subscription/SubscriptionPlansCard';
 import { Share } from 'react-native';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
 
@@ -42,6 +42,8 @@ interface SettingRowProps {
 }
 
 function SettingRow({ icon, iconBg, label, sublabel, value, onPress, showArrow = true, danger }: SettingRowProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -66,12 +68,16 @@ function SettingRow({ icon, iconBg, label, sublabel, value, onPress, showArrow =
 }
 
 function SectionHeader({ title }: { title: string }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <Text style={styles.sectionHeader}>{title}</Text>
   );
 }
 
 export default function SettingsScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
   const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
   const {
@@ -675,7 +681,7 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

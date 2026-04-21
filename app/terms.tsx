@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 interface SectionProps {
@@ -19,6 +19,8 @@ interface SectionProps {
 }
 
 function Section({ title, content }: SectionProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -28,6 +30,8 @@ function Section({ title, content }: SectionProps) {
 }
 
 function PricingRow({ plan, duration, price, note }: { plan: string; duration: string; price: string; note?: string }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <View style={styles.priceRow}>
       <View style={{ flex: 1 }}>
@@ -41,6 +45,8 @@ function PricingRow({ plan, duration, price, note }: { plan: string; duration: s
 }
 
 export default function TermsScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
 
   return (
@@ -151,7 +157,7 @@ export default function TermsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

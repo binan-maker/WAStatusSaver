@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRewardedAd } from '@/components/ads/AdReward';
 import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 interface RewardAdButtonProps {
@@ -18,6 +18,8 @@ interface RewardAdButtonProps {
 }
 
 export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { loaded, showAd } = useRewardedAd();
   const { isFreeAds, setFreeAdsFor5Hours, timeRemaining, formatTimeRemaining } = useFreeAdsState();
   const [isLoading, setIsLoading] = useState(false);
@@ -161,7 +163,7 @@ export function RewardAdButton({ variant = 'grid' }: RewardAdButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   // ── Row variant ──────────────────────────────────────────────────────────
   rowCard: {
     marginHorizontal: 0,

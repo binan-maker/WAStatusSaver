@@ -28,7 +28,7 @@ import { EmptyState } from '@/components/media/EmptyState';
 import { LoadingShimmer } from '@/components/media/LoadingShimmer';
 import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
@@ -56,6 +56,8 @@ const STATUS_SOURCE_OPTIONS: { value: StatusSource; label: string; sublabel: str
 
 function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
   const insets = useSafeAreaInsets();
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 6 }]}>
       <View style={styles.headerInner}>
@@ -94,6 +96,8 @@ function SubTabBar({
   imageCnt: number;
   videoCnt: number;
 }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const underlineAnim = useRef(new Animated.Value(activeTab === 'images' ? 0 : 1)).current;
 
   const translateX = underlineAnim.interpolate({
@@ -165,6 +169,8 @@ function StatusSourceSelector({
   selectedSource: StatusSource;
   onSelectSource: (source: StatusSource) => void;
 }) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [open, setOpen] = useState(false);
   const selected = STATUS_SOURCE_OPTIONS.find(option => option.value === selectedSource) || STATUS_SOURCE_OPTIONS[0];
 
@@ -221,6 +227,8 @@ function StatusSourceSelector({
 }
 
 export default function StatusesScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [activeTab, setActiveTab] = useState<TabType>('images');
   const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
   const saveRating = useMilestoneRating('save');
@@ -573,7 +581,7 @@ export default function StatusesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

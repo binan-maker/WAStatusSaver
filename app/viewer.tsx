@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 import { useEventListener } from 'expo';
 
@@ -62,6 +62,8 @@ function ensureShimmer() {
 }
 
 function ImageSkeleton() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   useEffect(() => { ensureShimmer(); }, []);
   const opacity = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.08, 0.22] });
   return (
@@ -77,6 +79,8 @@ function ImageSkeleton() {
 }
 
 function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { prepareStatusForViewing } = useMedia();
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
@@ -550,6 +554,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 }
 
 export default function ViewerScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
   const { id, isSaved: isSavedParam } = params;
   
@@ -898,7 +904,7 @@ const toggleControls = useCallback(() => {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#000',

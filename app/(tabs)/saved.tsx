@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
 import { AdBanner, GridAd } from '@/components/ads/AdBanner';
 import { EmptyState } from '@/components/media/EmptyState';
 import { RewardAdButton } from '@/components/ads/RewardAdButton';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
@@ -35,6 +35,8 @@ type FilterType = 'all' | 'images' | 'videos';
 const FILTERS: FilterType[] = ['all', 'images', 'videos'];
 
 export default function SavedScreen() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [filter, setFilter] = useState<FilterType>('all');
   const {
     savedItems,
@@ -210,7 +212,7 @@ export default function SavedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

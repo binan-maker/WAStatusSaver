@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,12 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRewardedAd } from '@/components/ads/AdReward';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
 export function SupportDeveloperAd() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { loaded, showAd } = useRewardedAd('ca-app-pub-2087467559495393/3096082603');
   const [isLoading, setIsLoading] = useState(false);
   const [watchCompleted, setWatchCompleted] = useState(false);
@@ -106,7 +108,7 @@ export function SupportDeveloperAd() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   card: {
     borderRadius: RADIUS.MD,
     overflow: 'hidden',

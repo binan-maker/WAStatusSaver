@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import COLORS from '@/constants/colors';
+import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 
 const { width: W, height: H } = Dimensions.get('window');
 
-const PARTICLES = [
+const buildParticles = (COLORS: ThemePalette) => [
   { angle: 0,   dist: 120, size: 6,  color: COLORS.PRIMARY },
   { angle: 45,  dist: 100, size: 4,  color: COLORS.ACCENT_BLUE },
   { angle: 90,  dist: 130, size: 5,  color: COLORS.PRIMARY },
@@ -31,6 +31,7 @@ const PARTICLES = [
   { angle: 112, dist: 160, size: 3,  color: COLORS.PRIMARY_LIGHT },
   { angle: 157, dist: 140, size: 3,  color: COLORS.PRIMARY_LIGHT },
 ];
+const PARTICLE_COUNT = 12;
 
 interface PaymentSuccessModalProps {
   visible: boolean;
@@ -45,6 +46,9 @@ export function PaymentSuccessModal({
   remainingDays,
   onDismiss,
 }: PaymentSuccessModalProps) {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const PARTICLES = useMemo(() => buildParticles(COLORS), [COLORS]);
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(0.5)).current;
   const cardOpacity = useRef(new Animated.Value(0)).current;
@@ -272,7 +276,7 @@ export function PaymentSuccessModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   backdrop: {
     flex: 1,
     alignItems: 'center',
