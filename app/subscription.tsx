@@ -16,7 +16,7 @@ import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { SubscriptionPlanId } from "@/shared/subscription-plans";
-import { PaymentSuccessModal } from "@/components/PaymentSuccessModal";
+import { PaymentSuccessModal } from "@/components/subscription/PaymentSuccessModal";
 
 const PERKS = [
   { icon: "block-helper", label: "Zero ads" },
