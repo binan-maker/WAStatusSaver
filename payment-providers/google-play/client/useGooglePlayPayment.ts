@@ -1,10 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
-import * as IAP from "react-native-iap";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { apiRequest } from "@/lib/query-client";
 import type { SubscriptionPlanId } from "@/shared/subscription-plans";
 import type { PaymentProviderHookOptions, PaymentProviderHookResult } from "../../shared/types";
-import { GOOGLE_PLAY_PLANS, GOOGLE_PLAY_PRODUCT_IDS, getPlanByProductId } from "./plans";
+import { GOOGLE_PLAY_PLANS, getPlanByProductId } from "./plans";
+
+const IS_EXPO_GO =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// Lazy-load react-native-iap so Expo Go (which has no native module)
+// never even imports it. Resolved once and cached.
+function loadIAP(): typeof import("react-native-iap") | null {
+  if (IS_EXPO_GO || Platform.OS !== "android") return null;
+  try {
+    return require("react-native-iap");
+  } catch {
+    return null;
+  }
+}
+const IAP = loadIAP();
 
 export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentProviderHookResult {
   const { deviceId, user, getIdToken, onPaymentSuccess } = opts;
@@ -26,8 +41,64 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
   const safeSetPaymentJustSucceeded = safe(setPaymentJustSucceeded);
   const safeSetSuccessPlanId = safe(setSuccessPlanId);
 
-  // Refs to give the onPurchaseSuccess callback access to the latest values
-  // (the callback identity is captured once by useIAP via optionsRef).
+  const dismissPaymentSuccess = useCallback(() => {
+    safeSetPaymentJustSucceeded(false);
+    safeSetSuccessPlanId(null);
+  }, [safeSetPaymentJustSucceeded, safeSetSuccessPlanId]);
+
+  const startPaymentStub = useCallback(async (): Promise<boolean> => {
+    Alert.alert(
+      "Payments need a real build",
+      Platform.OS !== "android"
+        ? "Google Play purchases are only available in the Android app build."
+        : "Google Play Billing isn't available in Expo Go. Build the Android app (development or production build) to test payments.",
+    );
+    return false;
+  }, []);
+
+  // ── Expo Go / non-android: stub so the screen still renders. ──
+  if (!IAP) {
+    return {
+      plans: GOOGLE_PLAY_PLANS,
+      payingPlanId,
+      paymentJustSucceeded,
+      successPlanId,
+      isRecoveringPayment: false,
+      providerName: "google-play",
+      startPayment: startPaymentStub,
+      dismissPaymentSuccess,
+    };
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useGooglePlayPaymentNative({
+    opts,
+    payingPlanId, paymentJustSucceeded, successPlanId,
+    safeSetPayingPlanId, safeSetPaymentJustSucceeded, safeSetSuccessPlanId,
+    dismissPaymentSuccess,
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  Native-only implementation (only invoked when IAP module loaded)
+// ──────────────────────────────────────────────────────────────────────────
+function useGooglePlayPaymentNative(args: {
+  opts: PaymentProviderHookOptions;
+  payingPlanId: SubscriptionPlanId | null;
+  paymentJustSucceeded: boolean;
+  successPlanId: SubscriptionPlanId | null;
+  safeSetPayingPlanId: (v: SubscriptionPlanId | null) => void;
+  safeSetPaymentJustSucceeded: (v: boolean) => void;
+  safeSetSuccessPlanId: (v: SubscriptionPlanId | null) => void;
+  dismissPaymentSuccess: () => void;
+}): PaymentProviderHookResult {
+  const {
+    opts: { deviceId, user, getIdToken, onPaymentSuccess },
+    payingPlanId, paymentJustSucceeded, successPlanId,
+    safeSetPayingPlanId, safeSetPaymentJustSucceeded, safeSetSuccessPlanId,
+    dismissPaymentSuccess,
+  } = args;
+
   const deviceIdRef = useRef(deviceId);
   const userRef = useRef(user);
   const getIdTokenRef = useRef(getIdToken);
@@ -41,7 +112,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
 
   const finishTransactionRef = useRef<((args: any) => Promise<void>) | null>(null);
 
-  const verifyAndFinish = useCallback(async (purchase: IAP.Purchase): Promise<boolean> => {
+  const verifyAndFinish = useCallback(async (purchase: any): Promise<boolean> => {
     const dId = deviceIdRef.current;
     const u = userRef.current;
     if (!dId || !u) return false;
@@ -49,9 +120,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     const plan = getPlanByProductId(purchase.productId);
     if (!plan) return false;
 
-    const purchaseToken = (purchase as any).purchaseToken
-      ?? (purchase as any).purchaseTokenAndroid
-      ?? "";
+    const purchaseToken = purchase.purchaseToken ?? purchase.purchaseTokenAndroid ?? "";
     if (!purchaseToken) return false;
 
     const freshToken = await getIdTokenRef.current(true).catch(() => null);
@@ -61,15 +130,9 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       const res = await apiRequest(
         "POST",
         "/api/payments/google-play/verify",
-        {
-          purchaseToken,
-          productId: purchase.productId,
-          planId: plan.id,
-          deviceId: dId,
-        },
+        { purchaseToken, productId: purchase.productId, planId: plan.id, deviceId: dId },
         { Authorization: `Bearer ${freshToken}` },
       );
-
       if (!res.ok) return false;
       const data = await res.json();
       if (!data?.active) return false;
@@ -91,7 +154,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     } catch {
       return false;
     }
-  }, []);
+  }, [safeSetPayingPlanId, safeSetSuccessPlanId, safeSetPaymentJustSucceeded]);
 
   const {
     connected,
@@ -100,32 +163,25 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     finishTransaction,
     fetchProducts,
     getAvailablePurchases,
-  } = IAP.useIAP({
-    onPurchaseSuccess: (purchase) => {
+  } = IAP!.useIAP({
+    onPurchaseSuccess: (purchase: any) => {
       verifyAndFinish(purchase).catch(() => {});
     },
-    onPurchaseError: (err) => {
-      const code = (err as any)?.code;
-      if (code === "E_USER_CANCELLED" || code === "USER_CANCELED") {
-        safeSetPayingPlanId(null);
-        return;
-      }
+    onPurchaseError: (err: any) => {
+      const code = err?.code;
       safeSetPayingPlanId(null);
+      if (code === "E_USER_CANCELLED" || code === "USER_CANCELED") return;
       Alert.alert("Purchase Failed", err?.message || "Something went wrong. Please try again.");
     },
   });
 
-  // Keep latest finishTransaction available to the verify helper.
   useEffect(() => {
     finishTransactionRef.current = finishTransaction;
   }, [finishTransaction]);
 
-  // When subscription products are restorable (reinstall, re-login),
-  // verify them with the server so Pro reactivates automatically.
   useEffect(() => {
     if (!connected || !deviceId || !user) return;
     if (!availablePurchases || availablePurchases.length === 0) return;
-
     (async () => {
       for (const purchase of availablePurchases) {
         if (!getPlanByProductId(purchase.productId)) continue;
@@ -135,10 +191,8 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     })().catch(() => {});
   }, [connected, availablePurchases, deviceId, user, verifyAndFinish]);
 
-  // On mount: ask the store about any existing entitlements so the
-  // availablePurchases listener above has data to work with.
   useEffect(() => {
-    if (!connected || Platform.OS !== "android") return;
+    if (!connected) return;
     getAvailablePurchases().catch(() => {});
   }, [connected, getAvailablePurchases]);
 
@@ -151,13 +205,11 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       return false;
     }
 
-    if (Platform.OS !== "android") {
-      Alert.alert("Android Only", "Google Play purchases are only available in the Android app build.");
-      return false;
-    }
-
     if (!connected) {
-      Alert.alert("Store not ready", "Could not connect to Google Play. Please make sure you are signed in to the Play Store and try again.");
+      Alert.alert(
+        "Store not ready",
+        "Could not connect to Google Play. Make sure you are signed in to the Play Store and try again.",
+      );
       return false;
     }
 
@@ -167,14 +219,11 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     safeSetPayingPlanId(planId);
 
     try {
-      // Make sure the SKU is loaded by Play Billing before requesting.
       await fetchProducts({
         skus: [plan.googlePlayProductId],
         type: "subs",
       }).catch(() => {});
 
-      // requestPurchase is event-based: the purchaseUpdatedListener
-      // (wired through useIAP onPurchaseSuccess) handles the result.
       await requestPurchase({
         type: "subs",
         request: {
@@ -186,17 +235,12 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       return true;
     } catch (err: any) {
       safeSetPayingPlanId(null);
-      const code = err?.code || (err as any)?.debugMessage;
+      const code = err?.code || err?.debugMessage;
       if (code === "E_USER_CANCELLED" || code === "USER_CANCELED") return false;
       Alert.alert("Purchase Failed", err?.message || "Something went wrong. Please try again.");
       return false;
     }
   }, [deviceId, payingPlanId, getIdToken, user, connected, fetchProducts, requestPurchase, safeSetPayingPlanId]);
-
-  const dismissPaymentSuccess = useCallback(() => {
-    safeSetPaymentJustSucceeded(false);
-    safeSetSuccessPlanId(null);
-  }, [safeSetPaymentJustSucceeded, safeSetSuccessPlanId]);
 
   return {
     plans: GOOGLE_PLAY_PLANS,

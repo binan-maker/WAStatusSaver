@@ -87,8 +87,9 @@
       [
         "expo-navigation-bar",
         {
-          "position": "absolute",
-          "backgroundColor": "#00000000"
+          "position": "relative",
+          "backgroundColor": "#05070A",
+          "buttonStyle": "light"
         }
       ],
       "expo-web-browser",

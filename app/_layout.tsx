@@ -48,6 +48,10 @@ async function applyImmersiveMode() {
       await NavigationBar.setVisibilityAsync('visible');
     }
     await NavigationBar.setButtonStyleAsync('light');
+    // Solid background so the nav bar isn't transparent over app content.
+    // Android 15+ (SDK 35) ignores this in edge-to-edge mode — handled via app.json.
+    await NavigationBar.setBackgroundColorAsync(COLORS.BACKGROUND);
+    await NavigationBar.setBehaviorAsync('inset-swipe');
   } catch {}
 }
 
