@@ -20,6 +20,7 @@ import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AuthProvider, useFirebaseAuth } from '@/contexts/AuthContext';
+import { IAPProvider } from 'react-native-iap';
 import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
 import { GoogleSignInModal } from '@/components/auth/GoogleSignInModal';
 import { useAppOpenAd } from '@/hooks/ads/useAppOpenAd';
@@ -186,7 +187,7 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   );
 }
 
-export default function RootLayout() {
+const RootLayout = () => {
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -248,7 +249,9 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <LanguageProvider>
             <AuthProvider>
-              <AppContent showOnboarding={showOnboarding} />
+              <IAPProvider>
+                <AppContent showOnboarding={showOnboarding} />
+              </IAPProvider>
             </AuthProvider>
           </LanguageProvider>
         </GestureHandlerRootView>
