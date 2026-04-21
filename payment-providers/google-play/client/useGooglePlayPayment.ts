@@ -4,17 +4,10 @@ import * as IAP from "react-native-iap";
 import { apiRequest } from "@/lib/query-client";
 import type { SubscriptionPlanId } from "@/shared/subscription-plans";
 import type { PaymentProviderHookOptions, PaymentProviderHookResult } from "../../shared/types";
-import { GOOGLE_PLAY_PLANS, getPlanByProductId } from "./plans";
+import { GOOGLE_PLAY_PLANS, GOOGLE_PLAY_PRODUCT_IDS, getPlanByProductId } from "./plans";
 
 export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentProviderHookResult {
-  const { deviceId, user, getIdToken, onPaymentSuccess, refresh } = opts;
-
-  // useIAP (v15) only provides State now, Actions are Standalone
-  const {
-    connected,
-    currentPurchase,
-    availablePurchases,
-  } = IAP.useIAP();
+  const { deviceId, user, getIdToken, onPaymentSuccess } = opts;
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -33,94 +26,121 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
   const safeSetPaymentJustSucceeded = safe(setPaymentJustSucceeded);
   const safeSetSuccessPlanId = safe(setSuccessPlanId);
 
-  // Connection Management
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      IAP.initConnection().catch(() => {});
+  // Refs to give the onPurchaseSuccess callback access to the latest values
+  // (the callback identity is captured once by useIAP via optionsRef).
+  const deviceIdRef = useRef(deviceId);
+  const userRef = useRef(user);
+  const getIdTokenRef = useRef(getIdToken);
+  const onPaymentSuccessRef = useRef(onPaymentSuccess);
+  const payingPlanIdRef = useRef<SubscriptionPlanId | null>(null);
+  useEffect(() => { deviceIdRef.current = deviceId; }, [deviceId]);
+  useEffect(() => { userRef.current = user; }, [user]);
+  useEffect(() => { getIdTokenRef.current = getIdToken; }, [getIdToken]);
+  useEffect(() => { onPaymentSuccessRef.current = onPaymentSuccess; }, [onPaymentSuccess]);
+  useEffect(() => { payingPlanIdRef.current = payingPlanId; }, [payingPlanId]);
+
+  const finishTransactionRef = useRef<((args: any) => Promise<void>) | null>(null);
+
+  const verifyAndFinish = useCallback(async (purchase: IAP.Purchase): Promise<boolean> => {
+    const dId = deviceIdRef.current;
+    const u = userRef.current;
+    if (!dId || !u) return false;
+
+    const plan = getPlanByProductId(purchase.productId);
+    if (!plan) return false;
+
+    const purchaseToken = (purchase as any).purchaseToken
+      ?? (purchase as any).purchaseTokenAndroid
+      ?? "";
+    if (!purchaseToken) return false;
+
+    const freshToken = await getIdTokenRef.current(true).catch(() => null);
+    if (!freshToken) return false;
+
+    try {
+      const res = await apiRequest(
+        "POST",
+        "/api/payments/google-play/verify",
+        {
+          purchaseToken,
+          productId: purchase.productId,
+          planId: plan.id,
+          deviceId: dId,
+        },
+        { Authorization: `Bearer ${freshToken}` },
+      );
+
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!data?.active) return false;
+
+      onPaymentSuccessRef.current(plan.id, data);
+
+      try {
+        if (finishTransactionRef.current) {
+          await finishTransactionRef.current({ purchase, isConsumable: false });
+        }
+      } catch {}
+
+      if (payingPlanIdRef.current === plan.id) {
+        safeSetPayingPlanId(null);
+        safeSetSuccessPlanId(plan.id);
+        safeSetPaymentJustSucceeded(true);
+      }
+      return true;
+    } catch {
+      return false;
     }
   }, []);
 
-  // Handle successful purchase from the hook state
+  const {
+    connected,
+    availablePurchases,
+    requestPurchase,
+    finishTransaction,
+    fetchProducts,
+    getAvailablePurchases,
+  } = IAP.useIAP({
+    onPurchaseSuccess: (purchase) => {
+      verifyAndFinish(purchase).catch(() => {});
+    },
+    onPurchaseError: (err) => {
+      const code = (err as any)?.code;
+      if (code === "E_USER_CANCELLED" || code === "USER_CANCELED") {
+        safeSetPayingPlanId(null);
+        return;
+      }
+      safeSetPayingPlanId(null);
+      Alert.alert("Purchase Failed", err?.message || "Something went wrong. Please try again.");
+    },
+  });
+
+  // Keep latest finishTransaction available to the verify helper.
   useEffect(() => {
-    const processPurchase = async () => {
-      if (!currentPurchase || !deviceId || !user) return;
+    finishTransactionRef.current = finishTransaction;
+  }, [finishTransaction]);
 
-      try {
-        const plan = getPlanByProductId(currentPurchase.productId);
-        if (!plan) return;
-
-        const freshToken = await getIdToken(true).catch(() => null);
-        if (!freshToken) return;
-
-        const res = await apiRequest(
-          "POST",
-          "/api/payments/google-play/verify",
-          {
-            purchaseToken: currentPurchase.purchaseToken,
-            productId: currentPurchase.productId,
-            planId: plan.id,
-            deviceId,
-          },
-          { Authorization: `Bearer ${freshToken}` },
-        );
-
-        const data = await res.json();
-        if (data.active) {
-          await IAP.finishTransaction({ purchase: currentPurchase, isConsumable: false }).catch(() => {});
-          onPaymentSuccess(plan.id, data);
-          
-          if (payingPlanId === plan.id) {
-            safeSetPayingPlanId(null);
-            safeSetSuccessPlanId(plan.id);
-            safeSetPaymentJustSucceeded(true);
-          }
-        }
-      } catch {}
-    };
-
-    processPurchase();
-  }, [currentPurchase, deviceId, user, getIdToken, onPaymentSuccess]);
-
-  // Check for available purchases (subscription restoration)
+  // When subscription products are restorable (reinstall, re-login),
+  // verify them with the server so Pro reactivates automatically.
   useEffect(() => {
     if (!connected || !deviceId || !user) return;
+    if (!availablePurchases || availablePurchases.length === 0) return;
 
-    const checkRestoration = async () => {
-      try {
-        if (!availablePurchases || availablePurchases.length === 0) return;
+    (async () => {
+      for (const purchase of availablePurchases) {
+        if (!getPlanByProductId(purchase.productId)) continue;
+        const ok = await verifyAndFinish(purchase);
+        if (ok) break;
+      }
+    })().catch(() => {});
+  }, [connected, availablePurchases, deviceId, user, verifyAndFinish]);
 
-        const freshToken = await getIdToken(true).catch(() => null);
-        if (!freshToken) return;
-
-        for (const purchase of availablePurchases) {
-          const plan = getPlanByProductId(purchase.productId);
-          if (!plan) continue;
-
-          try {
-            const res = await apiRequest(
-              "POST",
-              "/api/payments/google-play/verify",
-              {
-                purchaseToken: purchase.purchaseToken,
-                productId: purchase.productId,
-                planId: plan.id,
-                deviceId,
-              },
-              { Authorization: `Bearer ${freshToken}` },
-            );
-            const data = await res.json();
-            if (data.active) {
-              onPaymentSuccess(plan.id, data);
-              await IAP.finishTransaction({ purchase, isConsumable: false }).catch(() => {});
-              break;
-            }
-          } catch {}
-        }
-      } catch {}
-    };
-
-    checkRestoration();
-  }, [connected, availablePurchases, deviceId, user, getIdToken, onPaymentSuccess]);
+  // On mount: ask the store about any existing entitlements so the
+  // availablePurchases listener above has data to work with.
+  useEffect(() => {
+    if (!connected || Platform.OS !== "android") return;
+    getAvailablePurchases().catch(() => {});
+  }, [connected, getAvailablePurchases]);
 
   const startPayment = useCallback(async (planId: SubscriptionPlanId): Promise<boolean> => {
     if (!deviceId || payingPlanId) return false;
@@ -137,7 +157,8 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     }
 
     if (!connected) {
-      await IAP.initConnection().catch(() => {});
+      Alert.alert("Store not ready", "Could not connect to Google Play. Please make sure you are signed in to the Play Store and try again.");
+      return false;
     }
 
     const plan = GOOGLE_PLAY_PLANS.find((p) => p.id === planId);
@@ -146,23 +167,21 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
     safeSetPayingPlanId(planId);
 
     try {
-      // Compatibility Shield: Try getSubscriptions, fall back to getProducts correctly
-      const fetcher = (IAP as any).getSubscriptions || (IAP as any).getProducts;
-      
-      if (typeof fetcher === 'function') {
-        await fetcher({ skus: [plan.googlePlayProductId] });
-      }
+      // Make sure the SKU is loaded by Play Billing before requesting.
+      await fetchProducts({
+        skus: [plan.googlePlayProductId],
+        type: "subs",
+      }).catch(() => {});
 
-      // Action: Try requestSubscription, fall back to requestPurchase
-      const requester = (IAP as any).requestSubscription || (IAP as any).requestPurchase;
-      
-      if (typeof requester === 'function') {
-        await requester({
-          sku: plan.googlePlayProductId,
-        });
-      } else {
-        throw new Error("Billing system not initialized in this build.");
-      }
+      // requestPurchase is event-based: the purchaseUpdatedListener
+      // (wired through useIAP onPurchaseSuccess) handles the result.
+      await requestPurchase({
+        type: "subs",
+        request: {
+          android: { skus: [plan.googlePlayProductId] },
+          ios: { sku: plan.googlePlayProductId },
+        },
+      } as any);
 
       return true;
     } catch (err: any) {
@@ -172,7 +191,7 @@ export function useGooglePlayPayment(opts: PaymentProviderHookOptions): PaymentP
       Alert.alert("Purchase Failed", err?.message || "Something went wrong. Please try again.");
       return false;
     }
-  }, [deviceId, payingPlanId, getIdToken, user, connected]);
+  }, [deviceId, payingPlanId, getIdToken, user, connected, fetchProducts, requestPurchase, safeSetPayingPlanId]);
 
   const dismissPaymentSuccess = useCallback(() => {
     safeSetPaymentJustSucceeded(false);
