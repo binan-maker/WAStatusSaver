@@ -155,6 +155,22 @@ The payment system is fully separated into two self-contained folders with zero 
 - `paymentOrders` — Razorpay order records
 - `googlePlayOrders` — Google Play purchase records
 - `users/{uid}/payments` — full payment history
+- `influencer_campaigns/{CODE}` — admin-created referral codes (limit, usedCount, status, vipDuration, influencerUid, redeemDurationDays)
+- `referral_redemptions/{uid}_{CODE}` — idempotency ledger; one doc per user+code
+- `referral_devices/{deviceId}` — device fingerprint anti-spoof: which deviceId already claimed a referral
+
+## Influencer Referral System
+- **User flow:** `app/subscription.tsx` shows a "Have a referral code?" input (`components/subscription/ReferralCodeInput.tsx`). Sign-in is enforced before submit. On success the joiner gets 90 days (configurable per code) of free Pro.
+- **Anti-spoof:** redemption is blocked if (a) user has any active subscription, (b) `users/{uid}.referralClaimed === true`, or (c) the device fingerprint already exists in `referral_devices`. All writes happen inside one Firestore transaction.
+- **Influencer VIP:** when admin creates a campaign with an `influencerUid` and `vipDuration` (`LIFETIME` or `{ type: "DAYS", days }`), the influencer's own subscription doc is set immediately. Use `applyVipNow: true` on PATCH to re-apply later.
+- **Admin allowlist:** comma-separated `ADMIN_EMAILS` env var (plus the hardcoded `ahmedsameerbinan1@gmail.com`).
+- **Endpoints** (all under `server/referral-routes.ts`):
+  - `GET    /api/admin/influencer-campaigns` — list
+  - `POST   /api/admin/influencer-campaigns` — create `{ code, limit, redeemDurationDays?, vipDuration?, influencerUid?, influencerEmail?, influencerName?, notes? }`
+  - `PATCH  /api/admin/influencer-campaigns/:code` — update any field; pass `applyVipNow: true` to push VIP again
+  - `POST   /api/admin/influencer-campaigns/:code/ban` / `/unban`
+  - `GET    /api/referrals/lookup/:code` — public preview (slots remaining, etc.)
+  - `POST   /api/referrals/redeem` — body `{ code, deviceId }`, requires `Authorization: Bearer <idToken>`
 
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`

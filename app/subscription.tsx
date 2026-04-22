@@ -17,6 +17,7 @@ import { useFirebaseAuth } from "@/contexts/AuthContext";
 import { useSubscriptionStatus } from "@/hooks/useSubscriptionStatus";
 import { SubscriptionPlanId } from "@/shared/subscription-plans";
 import { PaymentSuccessModal } from "@/components/subscription/PaymentSuccessModal";
+import { ReferralCodeInput } from "@/components/subscription/ReferralCodeInput";
 
 const PERKS = [
   { icon: "block-helper", label: "Zero ads" },
@@ -59,6 +60,7 @@ export default function SubscriptionScreen() {
     isRecoveringPayment,
     dismissPaymentSuccess,
     providerName,
+    refresh,
   } = useSubscriptionStatus();
 
   const isGooglePlay = providerName === "google-play";
@@ -189,6 +191,14 @@ export default function SubscriptionScreen() {
             </Text>
           </View>
         )}
+
+        {/* ── Referral code input ─────────────────────────────────── */}
+        <View style={{ marginTop: SPACING.LG }}>
+          <ReferralCodeInput
+            hasActiveSubscription={isSubscribed}
+            onRedeemed={() => refresh(true)}
+          />
+        </View>
 
         {/* ── Plans ────────────────────────────────────────────────── */}
         <Text style={styles.sectionLabel}>Choose a plan</Text>

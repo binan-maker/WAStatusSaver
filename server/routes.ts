@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { registerAllPaymentRoutes } from "./payment-routes";
 import { registerUserRoutes } from "./user-routes";
+import { registerReferralRoutes } from "./referral-routes";
 
 function readTemplate(name: string): string {
   return fs.readFileSync(path.resolve(process.cwd(), "server", "templates", name), "utf-8");
@@ -16,6 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   registerAllPaymentRoutes(app);
   registerUserRoutes(app);
+  registerReferralRoutes(app);
 
   app.get("/privacy-policy", (_req: Request, res: Response) => {
     res.setHeader("Content-Type", "text/html; charset=utf-8");
