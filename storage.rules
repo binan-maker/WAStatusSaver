@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// ============================================================================
+// StatusVault — Firebase Storage security rules
+//
+// Today the app does NOT upload anything to Firebase Storage. All saved
+// statuses live on the device (Android external storage / SAF). These rules
+// are intentionally locked-down so an accidentally-enabled SDK call cannot
+// dump user content into Storage and rack up billing.
+//
+// If you later add cloud-backup, replace the catch-all deny with a
+// per-user prefix:
+//
+//   match /users/{uid}/{allPaths=**} {
+//     allow read, write: if request.auth != null && request.auth.uid == uid;
+//   }
+// ============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

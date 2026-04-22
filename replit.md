@@ -174,7 +174,7 @@ The payment system is fully separated into two self-contained folders with zero 
 
 ## Personal Referral / Invite & Earn (Viral Growth Ladder)
 - **User flow:** every signed-in user gets a unique short code (e.g. `K3T8N2`) on first visit to `app/invite.tsx`. Sharing the code via `Share.share()` sends a Play Store URL `…?referrer=ref%3DCODE` (works as deferred deep link) plus the code in plain text and a `statusvault://invite?ref=CODE` deep link for users who already have the app.
-- **Reward ladder** (defined in `shared/referral-types.ts → REWARD_LADDER`): 3 friends → 48hr Pro · 10 → 1 wk · 50 → 1 mo · 100 → 3 mo · 500 → Lifetime. Rewards STACK on top of any existing `paidUntil`, never replace it. Each tier can be claimed once (tracked in `user_referrals/{uid}.rewardsClaimed`). Provider on the resulting subscription doc is `referral_ladder`.
+- **Reward ladder** (defined in `shared/referral-types.ts → REWARD_LADDER`): 3 friends → 48 hr Pro · 10 → 1 wk · 50 → 1 mo · 100 → 3 mo · 500 → 1.5 years (548 days). Rewards STACK on top of any existing `paidUntil`, never replace it. Each tier can be claimed once (tracked in `user_referrals/{uid}.rewardsClaimed`). Provider on the resulting subscription doc is `referral_ladder`.
 - **Attribution layers:**
   1. Manual: friend's code typed in the Invite screen.
   2. Deep link: `app/+native-intent.tsx` parses `?ref=CODE` from any inbound `statusvault://` URL and stashes it in AsyncStorage (`pending_referral_code`).
@@ -190,7 +190,13 @@ The payment system is fully separated into two self-contained folders with zero 
   - `referral_install_devices/{deviceId}` — anti-fraud per-device attribution lock
 
 ## Theme Picker
-- Settings → "Appearance" section has a 3-button segmented control (Light / Dark / System) wired to `ThemeContext.setMode()`. Choice is persisted in AsyncStorage under `app_theme_mode`.
+- Settings → "Appearance" section has a 3-button segmented control (Light / Dark / System) wired to `ThemeContext.setMode()`. **System is the default** on first launch (`useState<ThemeMode>('system')` in `ThemeContext.tsx`). Choice is persisted in AsyncStorage under `app_theme_mode`.
+
+## Firebase Rules (Firestore + Storage)
+- `firebase.json` registers `firestore.rules` and `storage.rules` so `firebase deploy --only firestore:rules,storage` ships them.
+- `firestore.rules` — default-deny everything; explicitly allow each signed-in user to READ their own `/users/{uid}`, `/subscriptions/{uid}`, `/user_referrals/{uid}`. Public READ on `/referral_codes/{code}` and `/influencer_campaigns/{code}` (only non-sensitive fields are stored). All WRITES are denied to clients — every write is performed by the Express server through the Firebase Admin SDK, which bypasses these rules.
+- `storage.rules` — default-deny all paths. The app does not currently upload to Storage (statuses live on-device); rule is in place to prevent accidental billing if a stray client SDK call ever ran.
+- To deploy from local machine: `firebase deploy --only firestore:rules,storage`.
 
 ## Recent Bug Fixes — Subscription Flow
 - `ReferralCodeInput.tsx`: detects HTML response bodies (`<!DOCTYPE`, `<html>`) on error and shows a clean "couldn't reach server" message instead of dumping raw HTML; clears code & banner when `hasActiveSubscription` flips true; refuses to fire the redeem request at all when user is already Pro.

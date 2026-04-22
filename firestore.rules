@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// ============================================================================
+// StatusVault — Firestore security rules
+//
+// Architecture: ALL writes go through the Express server (server/*-routes.ts)
+// which authenticates the caller with a Firebase ID token via the Admin SDK.
+// The Admin SDK BYPASSES these rules entirely. So these rules are the
+// "client-direct" surface — they exist to lock down the Firebase Web SDK
+// running inside the React Native app, which is currently used only for
+// Auth (not for any reads/writes to Firestore today).
+//
+// Default posture: deny everything. Explicitly opt-in only the documents
+// that the client actually needs to read directly.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ─── Users (profile docs the server creates on signup) ──────────────
+    // The client may READ its own profile (e.g. to surface display name).
+    // All writes are server-side via Admin SDK.
+    match /users/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ─── Subscriptions (Pro state, paidUntil, lifetime) ─────────────────
+    // The client may READ its own subscription doc to render Pro UI.
+    // ALL writes are server-side (payment webhook → Admin SDK).
+    match /subscriptions/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ─── Personal referral profile (my code, count, claimed rewards) ────
+    // The client reads via GET /api/referrals/me, but allowing direct read
+    // of one's own doc makes the Invite screen resilient if the client ever
+    // wants to subscribe to live updates.
+    match /user_referrals/{uid} {
+      allow read:  if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ─── Referral code reverse-lookup index ─────────────────────────────
+    // Public read so a friend's app can validate a code BEFORE sign-in if
+    // we ever add that. No fields here are sensitive (only `uid`).
+    match /referral_codes/{code} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ─── Influencer / giveaway campaigns ────────────────────────────────
+    // The client GETs /api/referrals/lookup/:code via the server; direct
+    // reads are allowed for the same reason as referral_codes (preview
+    // slots remaining). Writes are admin-only via the server.
+    match /influencer_campaigns/{code} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // ─── Anti-fraud collections (server-only) ───────────────────────────
+    match /referral_redemptions/{id}        { allow read, write: if false; }
+    match /referral_devices/{id}            { allow read, write: if false; }
+    match /referral_install_devices/{id}    { allow read, write: if false; }
+
+    // ─── Payment audit logs (server-only) ───────────────────────────────
+    match /payment_orders/{id}      { allow read, write: if false; }
+    match /payment_history/{id}     { allow read, write: if false; }
+    match /play_purchases/{id}      { allow read, write: if false; }
+
+    // ─── Default deny (catch-all) ───────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

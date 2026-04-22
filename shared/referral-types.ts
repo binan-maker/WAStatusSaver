@@ -59,15 +59,15 @@ export function normalizeReferralCode(raw: unknown): string {
 export interface RewardLadderTier {
   threshold: number;
   label: string;
-  durationDays: number | "LIFETIME";
+  durationDays: number;
 }
 
 export const REWARD_LADDER: RewardLadderTier[] = [
-  { threshold: 3,   label: "48 Hours Pro", durationDays: 2 },
-  { threshold: 10,  label: "1 Week Pro",   durationDays: 7 },
-  { threshold: 50,  label: "1 Month Pro",  durationDays: 30 },
-  { threshold: 100, label: "3 Months Pro", durationDays: 90 },
-  { threshold: 500, label: "Lifetime Pro", durationDays: "LIFETIME" },
+  { threshold: 3,   label: "48 Hours Pro",   durationDays: 2 },
+  { threshold: 10,  label: "1 Week Pro",     durationDays: 7 },
+  { threshold: 50,  label: "1 Month Pro",    durationDays: 30 },
+  { threshold: 100, label: "3 Months Pro",   durationDays: 90 },
+  { threshold: 500, label: "1.5 Years Pro",  durationDays: 548 },
 ];
 
 export interface ReferredUserSummary {

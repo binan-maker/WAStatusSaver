@@ -852,16 +852,13 @@ async function applyLadderRewards(referrerUid: string): Promise<void> {
   const existingPaidUntil =
     subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate().getTime() : 0;
 
-  let willBeLifetime = wasLifetime;
+  // If the user already has lifetime (e.g. paid for it), don't downgrade —
+  // just record the claim so it doesn't fire repeatedly.
   let cursor = Math.max(Date.now(), existingPaidUntil);
 
-  // Stack rewards: every DAYS reward stacks on top of the running cursor
+  // Stack rewards: every reward extends the running cursor
   for (const tier of newTiers) {
-    if (tier.durationDays === "LIFETIME") {
-      willBeLifetime = true;
-    } else {
-      cursor += tier.durationDays * 86400 * 1000;
-    }
+    cursor += tier.durationDays * 86400 * 1000;
   }
 
   const newPaidUntil = new Date(cursor);
@@ -871,22 +868,7 @@ async function applyLadderRewards(referrerUid: string): Promise<void> {
   // Update subscription. We always set provider="referral_ladder" so the
   // payment-history can attribute it; this won't conflict with paid plans
   // because we only ever EXTEND paidUntil, never shorten.
-  if (willBeLifetime) {
-    await subRef.set({
-      active: true,
-      lifetime: true,
-      planId: "referral-lifetime",
-      provider: "referral_ladder",
-      userId: referrerUid,
-      userEmail: ownerEmail || subData.userEmail || null,
-      amount: 0,
-      currency: "INR",
-      lastPaymentId: `referral-ladder:${lastTier.threshold}`,
-      referralLadderTier: lastTier.threshold,
-      referralLadderLabel: lastLabel,
-      updatedAt: firestoreFieldValue.serverTimestamp(),
-    }, { merge: true });
-  } else {
+  if (!wasLifetime) {
     await subRef.set({
       active: true,
       lifetime: false,
