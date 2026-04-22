@@ -134,7 +134,7 @@ export function AppLoadingScreen({ onDone }: AppLoadingScreenProps) {
           </View>
         </View>
 
-        <Text style={styles.bottomText}>100% Offline · Privacy First</Text>
+        <Text style={styles.bottomText}>Built for WhatsApp Statuses</Text>
       </Animated.View>
     </LinearGradient>
   );
