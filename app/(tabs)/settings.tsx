@@ -137,9 +137,12 @@ export default function SettingsScreen() {
   };
 
   const handleDeleteAccount = () => {
+    const proWarning = isSubscribed
+      ? '\n\n⚠️ YOU ARE A PRO MEMBER\n• Your active Pro subscription will be PERMANENTLY LOST.\n• Remaining paid days CANNOT be transferred or refunded.\n• Past payments are non-refundable once the account is deleted.\n• Re-installing the app will NOT restore your Pro access.'
+      : '';
     Alert.alert(
       'Delete Account',
-      'Your account and all associated data will be permanently deleted after 30 days. During this period you can cancel by signing in again.\n\nThis action cannot be undone after 30 days.',
+      `Your account and all associated data will be scheduled for permanent deletion after 30 days. During this 30-day grace period you can cancel by signing in again.${proWarning}\n\nWhat will be deleted:\n• Google sign-in link & profile\n• Subscription records & payment history\n• Referral progress & earned free-Pro days\n• Push notification token\n\nWhat is kept on your device:\n• Statuses already saved to your gallery's "StatusVault" album.\n\nThis action cannot be undone after 30 days.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -148,7 +151,9 @@ export default function SettingsScreen() {
           onPress: () => {
             Alert.alert(
               'Are you absolutely sure?',
-              'Your subscription, referral history, and all account data will be erased permanently after 30 days.',
+              isSubscribed
+                ? 'You will lose your active Pro subscription with no refund. Your subscription, referral history, and all account data will be erased permanently after 30 days.'
+                : 'Your subscription, referral history, and all account data will be erased permanently after 30 days.',
               [
                 { text: 'Go Back', style: 'cancel' },
                 {
@@ -597,12 +602,16 @@ export default function SettingsScreen() {
       >
         <View style={styles.centeredOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowRestoreModal(false)} />
-          <View style={styles.restoreCard}>
+          <View style={[styles.restoreCard, { borderColor: (restoreSuccess ? COLORS.PRIMARY : COLORS.ERROR) + '40' }]}>
             <LinearGradient
-              colors={restoreSuccess ? ['#041E14', '#073D2C'] : ['#1A0A0A', '#2D1010']}
+              colors={
+                restoreSuccess
+                  ? [COLORS.SURFACE, COLORS.PRIMARY + '14', COLORS.SURFACE]
+                  : [COLORS.SURFACE, COLORS.ERROR + '12', COLORS.SURFACE]
+              }
               style={styles.restoreGradient}
             >
-              <View style={[styles.restoreIconWrap, { borderColor: restoreSuccess ? COLORS.PRIMARY + '55' : COLORS.ERROR + '55' }]}>
+              <View style={[styles.restoreIconWrap, { borderColor: restoreSuccess ? COLORS.PRIMARY + '55' : COLORS.ERROR + '55', backgroundColor: COLORS.SURFACE_2 }]}>
                 <MaterialCommunityIcons
                   name={restoreSuccess ? 'crown' : 'information-outline'}
                   size={32}
@@ -610,12 +619,12 @@ export default function SettingsScreen() {
                 />
               </View>
               <Text style={styles.restoreTitle}>
-                {restoreSuccess ? 'Pro Active ✓' : 'No Subscription Found'}
+                {restoreSuccess ? 'Pro Active' : 'No Subscription Found'}
               </Text>
               <Text style={styles.restoreMsg}>
                 {restoreSuccess
                   ? 'Your StatusVault Pro is active and synced. All ads have been removed — enjoy!'
-                  : 'No active subscription was found on this account. If you paid and still see ads, contact us via the Play Store with your Razorpay Payment ID.'}
+                  : 'No active subscription was found on this account. If you paid and still see ads, contact us via the Play Store with your Payment ID.'}
               </Text>
               <TouchableOpacity
                 style={[styles.restoreCloseBtn, { backgroundColor: restoreSuccess ? COLORS.PRIMARY : COLORS.ERROR }]}
@@ -640,22 +649,16 @@ export default function SettingsScreen() {
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowEasterEgg(false)} />
           <View style={styles.easterEggCard}>
             <LinearGradient
-              colors={['#041E14', '#073D2C', '#041E14']}
+              colors={[COLORS.SURFACE, COLORS.PRIMARY + '14', COLORS.SURFACE]}
               style={styles.easterEggGradient}
             >
-              {/* Glow */}
-              <View style={styles.eggGlow} />
-
-              {/* Confetti row */}
-              <Text style={styles.eggConfetti}>✨ 👑 ✨</Text>
-
-              {/* Crown */}
-              <View style={styles.eggCrownWrap}>
-                <MaterialCommunityIcons name="crown" size={52} color={COLORS.PRIMARY} />
+              {/* Monogram */}
+              <View style={styles.eggMonogramWrap}>
+                <Text style={styles.eggMonogram}>B</Text>
               </View>
 
               {/* Name */}
-              <Text style={styles.eggMadeBy}>Made with ❤️ by</Text>
+              <Text style={styles.eggMadeBy}>Made by</Text>
               <Text style={styles.eggName}>Binan</Text>
 
               {/* Divider */}
@@ -668,19 +671,15 @@ export default function SettingsScreen() {
               {/* Blessing */}
               <View style={styles.eggBlessingWrap}>
                 <Text style={styles.eggBlessing}>
-                  May الله bless him,{'\n'}his family, and all who use this app
+                  May الله bless him, his family,{'\n'}and all who use this app.
                 </Text>
               </View>
-
-              {/* Bottom confetti */}
-              <Text style={styles.eggConfettiBottom}>🚀 💚 🌙</Text>
 
               <TouchableOpacity
                 style={styles.closeEggBtn}
                 onPress={() => setShowEasterEgg(false)}
                 activeOpacity={0.82}
               >
-                <MaterialCommunityIcons name="close" size={14} color={COLORS.PRIMARY} />
                 <Text style={styles.closeEggText}>Close</Text>
               </TouchableOpacity>
             </LinearGradient>
@@ -1019,7 +1018,11 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     borderRadius: RADIUS.LG,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: COLORS.PRIMARY + '40',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
   },
   restoreGradient: {
     padding: SPACING.XL,
@@ -1063,16 +1066,16 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
 
   /* Easter Egg / Binan Card */
   easterEggCard: {
-    marginHorizontal: SPACING.LG,
+    marginHorizontal: SPACING.XL,
     borderRadius: RADIUS.LG,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: COLORS.PRIMARY + '55',
-    elevation: 12,
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
   },
   easterEggGradient: {
     padding: SPACING.XL,
@@ -1080,104 +1083,82 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     gap: SPACING.MD,
     position: 'relative',
   },
-  eggGlow: {
-    position: 'absolute',
-    top: -60,
-    alignSelf: 'center',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: COLORS.PRIMARY + '15',
-  },
-  eggConfetti: {
-    fontSize: 28,
-    letterSpacing: 8,
-  },
-  eggCrownWrap: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: COLORS.PRIMARY + '18',
+  eggMonogramWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: COLORS.PRIMARY + '14',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: COLORS.PRIMARY + '55',
-    marginBottom: SPACING.XS,
+    marginBottom: SPACING.SM,
   },
-  eggMadeBy: {
-    fontSize: FONT_SIZE.SM,
-    fontFamily: 'Nunito_400Regular',
-    color: COLORS.TEXT_MUTED,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: -SPACING.SM,
-  },
-  eggName: {
-    fontSize: 52,
+  eggMonogram: {
+    fontSize: 38,
     fontFamily: 'Nunito_800ExtraBold',
     color: COLORS.PRIMARY,
-    letterSpacing: -1.5,
-    lineHeight: 58,
+    lineHeight: 44,
+    letterSpacing: -1,
+  },
+  eggMadeBy: {
+    fontSize: 11,
+    fontFamily: 'Nunito_700Bold',
+    color: COLORS.TEXT_MUTED,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  eggName: {
+    fontSize: 36,
+    fontFamily: 'Nunito_800ExtraBold',
+    color: COLORS.TEXT,
+    letterSpacing: -0.5,
+    lineHeight: 42,
   },
   eggDivider: {
-    width: 60,
+    width: 40,
     height: 2,
-    backgroundColor: COLORS.PRIMARY + '40',
+    backgroundColor: COLORS.PRIMARY,
     borderRadius: 1,
-    marginVertical: SPACING.XS,
+    marginVertical: SPACING.SM,
   },
   eggTitle: {
-    fontSize: FONT_SIZE.SM,
+    fontSize: 11,
     fontFamily: 'Nunito_700Bold',
     color: COLORS.TEXT_SECONDARY,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
   },
   eggAppName: {
-    fontSize: FONT_SIZE.XL,
+    fontSize: FONT_SIZE.LG,
     fontFamily: 'Nunito_800ExtraBold',
-    color: COLORS.TEXT,
-    marginTop: -SPACING.XS,
+    color: COLORS.PRIMARY,
+    marginTop: 2,
   },
   eggBlessingWrap: {
-    backgroundColor: COLORS.PRIMARY + '10',
-    borderRadius: RADIUS.MD,
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD,
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY + '25',
-    marginTop: SPACING.XS,
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.SM,
+    marginTop: SPACING.SM,
   },
   eggBlessing: {
-    fontSize: FONT_SIZE.MD,
-    fontFamily: 'Nunito_600SemiBold',
+    fontSize: FONT_SIZE.SM,
+    fontFamily: 'Nunito_400Regular',
     color: COLORS.TEXT_SECONDARY,
     textAlign: 'center',
-    lineHeight: 24,
-    fontStyle: 'italic',
-  },
-  eggConfettiBottom: {
-    fontSize: 24,
-    letterSpacing: 6,
-    marginTop: SPACING.XS,
+    lineHeight: 20,
   },
   closeEggBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: SPACING.SM,
-    backgroundColor: COLORS.PRIMARY + '18',
-    paddingHorizontal: SPACING.XL,
-    paddingVertical: SPACING.MD,
+    marginTop: SPACING.MD,
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: SPACING.XXL,
+    paddingVertical: SPACING.SM,
     borderRadius: RADIUS.FULL,
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY + '35',
   },
   closeEggText: {
-    color: COLORS.PRIMARY,
-    fontWeight: '700',
-    fontFamily: 'Nunito_700Bold',
+    color: '#04140C',
+    fontFamily: 'Nunito_800ExtraBold',
     fontSize: FONT_SIZE.SM,
+    letterSpacing: 0.5,
   },
   languageModal: {
     maxHeight: '50%',

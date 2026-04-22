@@ -136,6 +136,17 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
         name="contact"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="terms"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="languages"
+        options={{
+          title: 'Language',
+          headerStyle: { backgroundColor: COLORS.SURFACE },
+        }}
+      />
     </Stack>
   );
 }

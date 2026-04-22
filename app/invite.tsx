@@ -176,9 +176,11 @@ ${data.shareUrl}`;
           <Text style={styles.heroSub}>
             Sign in to get your personal invite code and start unlocking rewards.
           </Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleSignIn} activeOpacity={0.85}>
-            <MaterialCommunityIcons name="google" size={18} color="#04140C" />
-            <Text style={styles.primaryBtnText}>Continue with Google</Text>
+          <TouchableOpacity style={styles.googleBtn} onPress={handleSignIn} activeOpacity={0.85}>
+            <View style={styles.googleIconWrap}>
+              <Text style={styles.googleG}>G</Text>
+            </View>
+            <Text style={styles.googleBtnText}>Continue with Google</Text>
           </TouchableOpacity>
         </LinearGradient>
         <LadderTable ladder={REWARD_LADDER} count={0} claimed={[]} COLORS={COLORS} />
@@ -192,7 +194,8 @@ ${data.shareUrl}`;
         <Stack.Screen options={{ title: 'Invite & Earn' }} />
         <Ionicons name="cloud-offline-outline" size={42} color={COLORS.TEXT_MUTED} />
         <Text style={[styles.errorText, { color: COLORS.TEXT }]}>{error || 'Could not load'}</Text>
-        <TouchableOpacity style={styles.primaryBtn} onPress={fetchMine}>
+        <TouchableOpacity style={styles.retryBtn} onPress={fetchMine} activeOpacity={0.85}>
+          <Ionicons name="refresh" size={16} color="#04140C" />
           <Text style={styles.primaryBtnText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -460,6 +463,54 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     backgroundColor: COLORS.PRIMARY,
     paddingVertical: 14,
     borderRadius: RADIUS.MD,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'center',
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: RADIUS.MD,
+    minWidth: 140,
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: RADIUS.MD,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
+  },
+  googleIconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleG: {
+    fontFamily: 'Nunito_800ExtraBold',
+    fontSize: 18,
+    color: '#4285F4',
+    lineHeight: 22,
+  },
+  googleBtnText: {
+    color: '#1F1F1F',
+    fontSize: FONT_SIZE.MD,
+    fontFamily: 'Nunito_700Bold',
+    letterSpacing: 0.2,
   },
   primaryBtnText: {
     color: '#04140C',

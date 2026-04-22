@@ -264,19 +264,64 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   async function loadSavedItems() {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_ITEMS);
-      if (stored) {
-        const items: SavedItem[] = JSON.parse(stored);
-        const valid: SavedItem[] = [];
-        for (const item of items) {
-          try {
-            const info = await FileSystem.getInfoAsync(item.localUri);
-            if (info.exists) valid.push(item);
-          } catch {}
+      const items: SavedItem[] = stored ? JSON.parse(stored) : [];
+      const valid: SavedItem[] = [];
+      for (const item of items) {
+        try {
+          const info = await FileSystem.getInfoAsync(item.localUri);
+          if (info.exists) valid.push(item);
+        } catch {}
+      }
+
+      // Rescan the public "StatusVault" gallery album so items survive app
+      // uninstall / data clear / account deletion. Anything in the album that
+      // is not already in our saved-items list is re-attached.
+      try {
+        const { status } = await MediaLibrary.getPermissionsAsync();
+        if (status === 'granted') {
+          const album = await MediaLibrary.getAlbumAsync('StatusVault');
+          if (album) {
+            const knownUris = new Set(valid.map(v => v.localUri));
+            const knownNames = new Set(valid.map(v => v.name));
+            let after: string | undefined;
+            let pageGuard = 0;
+            while (pageGuard < 20) {
+              pageGuard += 1;
+              const page = await MediaLibrary.getAssetsAsync({
+                album: album.id,
+                mediaType: ['photo', 'video'],
+                first: 100,
+                ...(after ? { after } : {}),
+                sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+              });
+              for (const asset of page.assets) {
+                if (knownUris.has(asset.uri) || knownNames.has(asset.filename)) continue;
+                const isVideo = asset.mediaType === MediaLibrary.MediaType.video;
+                const recovered: SavedItem = {
+                  id: `restored-${asset.id}`,
+                  uri: asset.uri,
+                  localUri: asset.uri,
+                  name: asset.filename,
+                  type: isVideo ? 'video' : 'image',
+                  source: 'whatsapp',
+                  savedAt: Math.floor((asset.creationTime || Date.now())),
+                };
+                valid.push(recovered);
+                knownUris.add(asset.uri);
+                knownNames.add(asset.filename);
+              }
+              if (!page.hasNextPage || !page.endCursor) break;
+              after = page.endCursor;
+            }
+          }
         }
-        setSavedItems(valid);
-        if (valid.length !== items.length) {
-          await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(valid));
-        }
+      } catch (e) {
+        console.log('[loadSavedItems] album rescan skipped:', e);
+      }
+
+      setSavedItems(valid);
+      if (valid.length !== items.length) {
+        await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(valid));
       }
     } catch {}
   }
