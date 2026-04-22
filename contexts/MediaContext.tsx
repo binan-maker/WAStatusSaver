@@ -15,7 +15,7 @@ import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { VIDEO_AD_FREQUENCY } from '@/constants/admob';
+import { VIDEO_AD_FREQUENCY, IMAGE_SWIPE_AD_FREQUENCY, INTERSTITIAL_COOLDOWN_MS } from '@/constants/admob';
 import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
 
 export type MediaType = 'image' | 'video';
@@ -880,10 +880,19 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     return savedItems.some(s => s.id === id);
   }, [savedItems]);
 
+  // Module-scoped guard so cooldown survives across hooks calls in this session.
+  const lastInterstitialAtRef = useRef<number>(0);
+  const canShowInterstitial = () => {
+    const now = Date.now();
+    if (now - lastInterstitialAtRef.current < INTERSTITIAL_COOLDOWN_MS) return false;
+    lastInterstitialAtRef.current = now;
+    return true;
+  };
+
   const onVideoOpen = useCallback((uri: string) => {
     const newCount = videoViewCount + 1;
     setVideoViewCount(newCount);
-    if (newCount % VIDEO_AD_FREQUENCY === 0) {
+    if (newCount > 0 && newCount % VIDEO_AD_FREQUENCY === 0 && canShowInterstitial()) {
       setPendingVideoUri(uri);
       setShowInterstitial(true);
     }
@@ -900,16 +909,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       cleanupCacheFiles(30 * 60 * 1000).catch(() => {});
     }
 
-    // Show interstitial every 8 swipes (fixed)
-    const adFrequency = 8;
-    if (newCount >= adFrequency) {
-      setShowInterstitial(true);
+    if (newCount >= IMAGE_SWIPE_AD_FREQUENCY) {
+      if (canShowInterstitial()) {
+        setShowInterstitial(true);
+      }
+      // Reset the counter even if cooldown blocked the ad, so we don't
+      // immediately fire on the next swipe.
       setImageSwipeCount(0);
       swipeCountRef.current = 0;
-      // Persist to AsyncStorage
       AsyncStorage.setItem('swipeCountForAds', '0').catch(() => {});
     } else {
-      // Persist current count
       AsyncStorage.setItem('swipeCountForAds', String(newCount)).catch(() => {});
     }
   }, [imageSwipeCount, cleanupCacheFiles]);

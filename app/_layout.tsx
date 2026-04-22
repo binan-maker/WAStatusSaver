@@ -194,17 +194,15 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
     }
   }, [user]);
 
+  // Neutralized: we no longer auto-show an interstitial right after sign-in
+  // or on app entry. Interstitials are now driven only by deep usage triggers
+  // (video opens / image swipes) and respect a 3-minute cooldown.
   useEffect(() => {
-    if (!loading && !adsLoading && user && !interstitialShown && !isFreeAds) {
-      if (justSignedInRef.current) {
-        justSignedInRef.current = false;
-        setInterstitialShown(true);
-        return;
-      }
-      setTimeout(() => {
-        showInterstitial();
-      }, 500);
-      setInterstitialShown(true);
+    if (justSignedInRef.current) {
+      justSignedInRef.current = false;
+    }
+    if (!user) {
+      setInterstitialShown(false);
     }
   }, [loading, adsLoading, user, interstitialShown, isFreeAds]);
 
@@ -260,8 +258,10 @@ const RootLayout = () => {
   if (!loadingDone) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" translucent backgroundColor="transparent" />
-        <AppLoadingScreen onDone={() => setLoadingDone(true)} />
+        <ThemeProvider>
+          <StatusBar style="auto" translucent backgroundColor="transparent" />
+          <AppLoadingScreen onDone={() => setLoadingDone(true)} />
+        </ThemeProvider>
       </GestureHandlerRootView>
     );
   }

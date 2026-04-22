@@ -602,16 +602,25 @@ export default function SettingsScreen() {
       >
         <View style={styles.centeredOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowRestoreModal(false)} />
-          <View style={[styles.restoreCard, { borderColor: (restoreSuccess ? COLORS.PRIMARY : COLORS.ERROR) + '40' }]}>
-            <LinearGradient
-              colors={
-                restoreSuccess
-                  ? [COLORS.SURFACE, COLORS.PRIMARY + '14', COLORS.SURFACE]
-                  : [COLORS.SURFACE, COLORS.ERROR + '12', COLORS.SURFACE]
-              }
-              style={styles.restoreGradient}
-            >
-              <View style={[styles.restoreIconWrap, { borderColor: restoreSuccess ? COLORS.PRIMARY + '55' : COLORS.ERROR + '55', backgroundColor: COLORS.SURFACE_2 }]}>
+          <View
+            style={[
+              styles.restoreCard,
+              {
+                backgroundColor: COLORS.SURFACE,
+                borderColor: (restoreSuccess ? COLORS.PRIMARY : COLORS.ERROR) + '55',
+              },
+            ]}
+          >
+            <View style={styles.restoreInner}>
+              <View
+                style={[
+                  styles.restoreIconWrap,
+                  {
+                    borderColor: restoreSuccess ? COLORS.PRIMARY + '55' : COLORS.ERROR + '55',
+                    backgroundColor: COLORS.SURFACE_2,
+                  },
+                ]}
+              >
                 <MaterialCommunityIcons
                   name={restoreSuccess ? 'crown' : 'information-outline'}
                   size={32}
@@ -633,7 +642,7 @@ export default function SettingsScreen() {
               >
                 <Text style={styles.restoreCloseBtnText}>Got It</Text>
               </TouchableOpacity>
-            </LinearGradient>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1002,7 +1011,7 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   centeredOverlay: {
     flex: 1,
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   modalBackdrop: {
     position: 'absolute',
@@ -1025,6 +1034,11 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     shadowRadius: 12,
   },
   restoreGradient: {
+    padding: SPACING.XL,
+    alignItems: 'center',
+    gap: SPACING.MD,
+  },
+  restoreInner: {
     padding: SPACING.XL,
     alignItems: 'center',
     gap: SPACING.MD,

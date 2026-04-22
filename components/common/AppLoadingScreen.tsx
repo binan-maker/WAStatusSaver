@@ -89,7 +89,7 @@ export function AppLoadingScreen({ onDone }: AppLoadingScreenProps) {
 
   return (
     <LinearGradient
-      colors={['#030A06', '#081A10', '#0A0E1A']}
+      colors={[COLORS.BACKGROUND, COLORS.SURFACE, COLORS.BACKGROUND]}
       locations={[0, 0.5, 1]}
       style={styles.container}
     >
