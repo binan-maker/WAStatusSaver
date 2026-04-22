@@ -28,19 +28,36 @@ const INSTALL_DEVICE_COLLECTION = "referral_install_devices"; // {deviceId} → 
 
 const PLAY_STORE_PACKAGE = "com.binan.statussaver";
 
+// Production Railway URL — used as the default short-link base so the viral
+// loop works out of the box without requiring any environment variable on
+// Railway. Override by setting PUBLIC_BASE_URL (e.g. when a custom short
+// domain like svault.me is registered).
+const DEFAULT_PUBLIC_BASE_URL = "https://wastatussaver-production.up.railway.app";
+
 /**
  * Build the canonical short-link base URL.
- * Production should set PUBLIC_BASE_URL=https://svault.me (or whatever short
- * domain is registered). In Replit dev/preview we derive it from the request
- * host so links opened from a phone hit the same proxy URL the app talks to.
+ * Priority:
+ *   1. PUBLIC_BASE_URL env var (for future custom domains)
+ *   2. Hardcoded production Railway URL (always correct in production)
+ *   3. Request host (only used in local dev / preview workspaces)
  */
 function getShortLinkBase(req: Request): string {
   const env = (process.env.PUBLIC_BASE_URL || "").trim();
   if (env) return env.replace(/\/+$/, "");
-  // Honour proxy headers (Replit + most CDNs strip the original scheme/host).
-  const proto = (req.get("x-forwarded-proto") || req.protocol || "https").split(",")[0].trim();
-  const host = (req.get("x-forwarded-host") || req.get("host") || "").split(",")[0].trim();
-  return host ? `${proto}://${host}` : "";
+
+  // In a true local dev workspace (no Railway env present), derive from the
+  // request so phone-tested links hit the dev proxy instead of production.
+  const isLocalDev =
+    !process.env.RAILWAY_ENVIRONMENT &&
+    !process.env.RAILWAY_PROJECT_ID &&
+    process.env.NODE_ENV !== "production";
+  if (isLocalDev) {
+    const proto = (req.get("x-forwarded-proto") || req.protocol || "https").split(",")[0].trim();
+    const host = (req.get("x-forwarded-host") || req.get("host") || "").split(",")[0].trim();
+    if (host) return `${proto}://${host}`;
+  }
+
+  return DEFAULT_PUBLIC_BASE_URL;
 }
 
 function buildPlayStoreUrl(code: string | null): string {
