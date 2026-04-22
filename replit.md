@@ -189,8 +189,10 @@ The payment system is fully separated into two self-contained folders with zero 
   - `referral_codes/{CODE}` — `{ uid }` reverse-lookup
   - `referral_install_devices/{deviceId}` — anti-fraud per-device attribution lock
 
-## Theme Picker
-- Settings → "Appearance" section has a 3-button segmented control (Light / Dark / System) wired to `ThemeContext.setMode()`. **System is the default** on first launch (`useState<ThemeMode>('system')` in `ThemeContext.tsx`). Choice is persisted in AsyncStorage under `app_theme_mode`.
+## Theming (System-Driven, No Picker)
+- The app theme **always follows the OS color scheme** — there is no in-app picker. `ThemeContext.tsx` listens to `Appearance.addChangeListener` and resolves to `LIGHT_COLORS` or `DARK_COLORS` based on `Appearance.getColorScheme()`. `setMode` exists as a no-op shim purely for backward compatibility with any leftover imports.
+- The Android navigation bar background + button-icon colors are re-applied on every theme change in `app/_layout.tsx` via `applyImmersiveMode(colors.BACKGROUND, resolved === 'dark')`. The status bar (where the battery icon lives) flips between `light` and `dark` content via `<StatusBar style={resolved === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />`. So phone chrome at the top and bottom always matches the active theme.
+- The "Ad-Free Active / Subscribe" banner (`components/subscription/SubscriptionPlansCard.tsx`) uses a theme-aware gradient: deep-green premium look in dark mode, soft tinted-surface in light mode so text and the crown icon stay readable.
 
 ## Firebase Rules (Firestore + Storage)
 - `firebase.json` registers `firestore.rules` and `storage.rules` so `firebase deploy --only firestore:rules,storage` ships them.

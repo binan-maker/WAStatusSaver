@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "rea
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
+import { useTheme, useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 import { useSubscriptionStatus } from "@/hooks/subscription/useSubscriptionStatus";
 
@@ -17,13 +17,21 @@ function formatRemaining(seconds: number) {
 
 export function SubscriptionPlansCard() {
   const COLORS = useThemeColors();
+  const { resolved } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { plans, isSubscribed, remainingSeconds, loading } = useSubscriptionStatus();
   const monthlyPlan = plans.find((plan) => plan.id === "monthly");
 
+  // Theme-aware gradient. Dark mode keeps the deep green premium feel,
+  // light mode uses a soft tinted surface so text and the crown icon
+  // remain readable without losing the "Pro" accent.
+  const gradientColors = resolved === "dark"
+    ? ["#031F16", "#063B2B", "#0F131A"] as const
+    : [COLORS.PRIMARY + "1A", COLORS.PRIMARY + "0D", COLORS.SURFACE] as const;
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={() => router.push("/subscription")}>
-      <LinearGradient colors={["#031F16", "#063B2B", "#0F131A"]} style={styles.banner}>
+      <LinearGradient colors={gradientColors} style={styles.banner}>
         <View style={styles.bannerIcon}>
           <MaterialCommunityIcons name="crown" size={26} color={COLORS.PRIMARY} />
         </View>
