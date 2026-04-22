@@ -200,6 +200,24 @@ The payment system is fully separated into two self-contained folders with zero 
 - `storage.rules` — default-deny all paths. The app does not currently upload to Storage (statuses live on-device); rule is in place to prevent accidental billing if a stray client SDK call ever ran.
 - To deploy from local machine: `firebase deploy --only firestore:rules,storage`.
 
+## Viral Short-Link Sharing (April 22, 2026)
+Every shared status (and the Settings "Share App" button) now carries the user's personal install link, so each share doubles as a referral.
+
+**Backend** — `server/referral-routes.ts`
+- New `GET /s/:CODE` route → 302 to `https://play.google.com/store/apps/details?id=com.binan.statussaver&referrer=ref%3DCODE` plus an HTML+JS fallback body for in-app webviews that strip 302s. Codes are normalized to uppercase and validated against `^[A-Z0-9_-]{3,16}$`. Garbage codes still redirect, just to the bare Play Store.
+- `/api/referrals/me` now returns BOTH `shareUrl` (short, e.g. `https://svault.me/K3T8N2` once the domain is live) and `playStoreUrl` (full referrer URL, fallback). Short-link base is read from `PUBLIC_BASE_URL` env var, otherwise derived from request `Host` (handles Replit/CDN proxy headers).
+- Set `PUBLIC_BASE_URL=https://svault.me` in Replit Secrets when the short domain is registered — no app rebuild needed.
+
+**App-side**
+- `lib/share-link.ts` — tiny AsyncStorage cache (`@statusvault_share_link`, `@statusvault_share_code`) plus `buildShareCaption()` helper. Always returns a usable URL (falls back to bare Play Store install link).
+- `hooks/referral/usePrefetchShareLink.ts` — wired into `AuthProvider`. As soon as a Firebase user is detected, fires a one-shot fetch to `/api/referrals/me` and caches the short link. Clears the cache on sign-out so links don't leak across accounts.
+- `app/invite.tsx` — also persists `shareUrl` to the cache on every successful fetch, so the cache is always fresh.
+- `contexts/MediaContext.tsx::shareStatus` — pre-copies `📥 Saved with StatusVault — get it: <shortLink>` to the clipboard immediately before launching `Sharing.shareAsync()`. The first time the user does this, a one-time alert (`@statusvault_share_tip_seen` flag) explains: "Paste it as the caption when you share". WhatsApp/Telegram caption fields become a one-tap long-press → Paste.
+- `app/(tabs)/settings.tsx::handleShareApp` — uses the cached short link instead of the hardcoded long Play Store URL.
+
+**Why pre-copy instead of native ACTION_SEND with EXTRA_TEXT?**
+`expo-sharing.shareAsync()` does NOT expose a caption parameter on Android, and writing a custom Kotlin module to issue `ACTION_SEND` with both `EXTRA_STREAM` and `EXTRA_TEXT` would require ejecting from Expo managed config or writing an Expo Modules native module. The clipboard pre-copy gets us 95% of the viral effect with zero native code, and the user only sees the explanatory alert once.
+
 ## Documentation Sync (April 22, 2026)
 All user-facing legal/help docs updated to match the actual codebase:
 - **In-app screens** (`app/guide.tsx`, `app/privacy.tsx`, `app/terms.tsx`): app version 1.3.7, correct Reward Ladder (3/10/50/100/500 → 2d/1w/1mo/3mo/548d, stacking), new Influencer / Giveaway Codes section, SAF-only permissions list with explicit blocked READ_MEDIA_* perms, unified refund policy (Play Store vs Razorpay), system-driven theme.

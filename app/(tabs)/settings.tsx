@@ -29,6 +29,7 @@ import { Share } from 'react-native';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
+import { getCachedShareLink } from '@/lib/share-link';
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -103,10 +104,13 @@ export default function SettingsScreen() {
 
   const handleShareApp = async () => {
     try {
+      // Personal short link if signed in (e.g. https://svault.me/K3T8N2),
+      // otherwise the bare Play Store install URL.
+      const shortLink = await getCachedShareLink();
       await Share.share({
-        message: 'Check out StatusVault - Save WhatsApp Statuses instantly!\n\nhttps://play.google.com/store/apps/details?id=com.binan.statussaver',
+        message: `Check out StatusVault — save WhatsApp statuses without screenshots!\n\n${shortLink}`,
         title: 'Share StatusVault',
-        url: Platform.OS === 'ios' ? 'https://play.google.com/store/apps/details?id=com.binan.statussaver' : undefined,
+        url: Platform.OS === 'ios' ? shortLink : undefined,
       });
     } catch (e) {
       console.log('Share error:', e);

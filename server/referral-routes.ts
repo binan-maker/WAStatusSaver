@@ -28,6 +28,29 @@ const INSTALL_DEVICE_COLLECTION = "referral_install_devices"; // {deviceId} → 
 
 const PLAY_STORE_PACKAGE = "com.binan.statussaver";
 
+/**
+ * Build the canonical short-link base URL.
+ * Production should set PUBLIC_BASE_URL=https://svault.me (or whatever short
+ * domain is registered). In Replit dev/preview we derive it from the request
+ * host so links opened from a phone hit the same proxy URL the app talks to.
+ */
+function getShortLinkBase(req: Request): string {
+  const env = (process.env.PUBLIC_BASE_URL || "").trim();
+  if (env) return env.replace(/\/+$/, "");
+  // Honour proxy headers (Replit + most CDNs strip the original scheme/host).
+  const proto = (req.get("x-forwarded-proto") || req.protocol || "https").split(",")[0].trim();
+  const host = (req.get("x-forwarded-host") || req.get("host") || "").split(",")[0].trim();
+  return host ? `${proto}://${host}` : "";
+}
+
+function buildPlayStoreUrl(code: string | null): string {
+  const base = `https://play.google.com/store/apps/details?id=${PLAY_STORE_PACKAGE}`;
+  if (!code) return base;
+  return `${base}&referrer=${encodeURIComponent(`ref=${code}`)}`;
+}
+
+const SHORT_CODE_RE = /^[A-Z0-9_-]{3,16}$/;
+
 function getAdminEmails(): Set<string> {
   const set = new Set<string>(["ahmedsameerbinan1@gmail.com"]);
   const raw = process.env.ADMIN_EMAILS || "";
@@ -147,6 +170,36 @@ async function activateInfluencerVip(
 }
 
 export function registerReferralRoutes(app: Express) {
+  // ─────────────────────────────────────────────────────────────────
+  // PUBLIC: Short-link redirect /s/:code → Play Store with ?referrer=ref%3DCODE
+  // Used by every shared status caption, social bio links, etc.
+  // Renders a tiny HTML bouncer with both a meta-refresh AND a JS redirect so
+  // it works inside browsers that strip 302s for in-app webviews.
+  // ─────────────────────────────────────────────────────────────────
+  app.get("/s/:code", (req: Request, res: Response) => {
+    const rawParam = req.params.code;
+    const raw = (typeof rawParam === "string" ? rawParam : "").trim().toUpperCase();
+    const code = SHORT_CODE_RE.test(raw) ? raw : null;
+    const target = buildPlayStoreUrl(code);
+
+    res.set("Cache-Control", "public, max-age=300");
+    // 302 first — fast happy path for normal browsers.
+    res.status(302).set("Location", target).type("html").send(
+      `<!doctype html><html><head>
+<meta charset="utf-8"/>
+<meta http-equiv="refresh" content="0;url=${target}"/>
+<title>Opening StatusVault…</title>
+<style>body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0e1a;color:#e5e7eb;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}a{color:#00c48c}</style>
+</head><body>
+<div>
+  <h2>Opening StatusVault on Google Play…</h2>
+  <p>If nothing happens, <a href="${target}">tap here</a>.</p>
+</div>
+<script>location.replace(${JSON.stringify(target)});</script>
+</body></html>`
+    );
+  });
+
   // ─────────────────────────────────────────────────────────────────
   // ADMIN: List all campaigns
   // ─────────────────────────────────────────────────────────────────
@@ -654,7 +707,11 @@ export function registerReferralRoutes(app: Express) {
       const paidUntilDate = subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate() : null;
       const rewardActive = lifetime || (paidUntilDate ? paidUntilDate.getTime() > Date.now() : false);
 
-      const shareUrl = `https://play.google.com/store/apps/details?id=${PLAY_STORE_PACKAGE}&referrer=${encodeURIComponent(`ref=${code}`)}`;
+      const base = getShortLinkBase(req);
+      const playStoreUrl = buildPlayStoreUrl(code);
+      // Short link → /s/:code → 302 → playStoreUrl. Falls back to the
+      // long URL only if we somehow couldn't determine our own host.
+      const shareUrl = base ? `${base}/s/${code}` : playStoreUrl;
       const deepLink = `statusvault://invite?ref=${code}`;
 
       const payload: MyReferralResponse = {
@@ -663,6 +720,7 @@ export function registerReferralRoutes(app: Express) {
         rewardsClaimed,
         referredUsers,
         shareUrl,
+        playStoreUrl,
         deepLink,
         ladder: REWARD_LADDER,
         nextTier,

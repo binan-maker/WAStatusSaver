@@ -5,6 +5,7 @@ import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-si
 import { GoogleAuthProvider, User, onAuthStateChanged, signInWithCredential, signOut as firebaseSignOut } from "firebase/auth";
 import { appConfig, isFirebaseClientConfigured, isGoogleAuthConfigured } from "@/lib/app-config";
 import { getFirebaseClientAuth } from "@/lib/firebase-client";
+import { usePrefetchShareLink } from "@/hooks/referral/usePrefetchShareLink";
 
 export const SUBSCRIPTION_CACHE_KEY = "@statusvault_subscription_status";
 export const REWARD_ADS_KEY_PREFIX = "free_ads_until_timestamp";
@@ -154,6 +155,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return user.getIdToken(forceRefresh);
     },
   };
+
+  // Background-prefetch the personal short share link so any "Share" button
+  // can pre-copy the user's viral link to the clipboard with zero latency.
+  usePrefetchShareLink(user, value.getIdToken);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -79,7 +79,8 @@ export interface MyReferralResponse {
   referralCount: number;
   rewardsClaimed: string[]; // e.g. ["3","10"]
   referredUsers: ReferredUserSummary[];
-  shareUrl: string;
+  shareUrl: string;       // Short link, e.g. https://svault.me/K3T8N2 — what users actually see
+  playStoreUrl: string;   // Full Play Store URL with referrer baked in (fallback)
   deepLink: string;
   ladder: RewardLadderTier[];
   nextTier: RewardLadderTier | null;

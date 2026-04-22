@@ -13,8 +13,10 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY } from '@/constants/admob';
+import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
 
 export type MediaType = 'image' | 'video';
 export type StatusSource = 'whatsapp' | 'whatsapp_business';
@@ -91,6 +93,7 @@ const STORAGE_KEYS = {
   SAF_URIS: '@statusvault_saf_uris',
   TOTAL_SAVES: '@statusvault_total_saves',
   RATING_PROMPTED: '@statusvault_rating_prompted',
+  SHARE_TIP_SEEN: '@statusvault_share_tip_seen',
 };
 
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.binan.statussaver';
@@ -808,8 +811,42 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // ─── Viral caption pre-copy ────────────────────────────────────
+      // expo-sharing's shareAsync cannot attach a text caption to a media
+      // share, so we pre-copy the user's personal short link to the
+      // clipboard. The recipient's WhatsApp/Telegram caption field is one
+      // long-press → Paste away — and now every shared status carries the
+      // install link that credits the sharer on the Reward Ladder.
+      let captionCopied = false;
+      try {
+        const shortLink = await getCachedShareLink();
+        const caption = buildShareCaption(shortLink);
+        await Clipboard.setStringAsync(caption);
+        captionCopied = true;
+      } catch {
+        // Clipboard write can fail on some OEMs — never block the share.
+      }
+
       await Sharing.shareAsync(shareUri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // One-time tooltip — explains why the clipboard now contains text.
+      if (captionCopied) {
+        try {
+          const seen = await AsyncStorage.getItem(STORAGE_KEYS.SHARE_TIP_SEEN);
+          if (!seen) {
+            await AsyncStorage.setItem(STORAGE_KEYS.SHARE_TIP_SEEN, '1');
+            // Defer one tick so the alert pops AFTER the share sheet is dismissed.
+            setTimeout(() => {
+              Alert.alert(
+                '🔗 Invite link copied!',
+                'We copied your personal install link to the clipboard. Paste it as the caption when you share — every friend who installs gets you closer to free Pro.',
+                [{ text: 'Got it' }],
+              );
+            }, 600);
+          }
+        } catch {}
+      }
     } catch (e) {
       console.error('Share error:', e);
     }

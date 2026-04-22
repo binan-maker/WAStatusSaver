@@ -19,6 +19,7 @@ import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { useFirebaseAuth } from '@/contexts/AuthContext';
 import { apiRequest } from '@/lib/query-client';
 import { getPaymentDeviceId } from '@/lib/device-identity';
+import { cacheShareLink } from '@/lib/share-link';
 import { FONT_SIZE, RADIUS, SPACING } from '@/constants/theme';
 import {
   REWARD_LADDER,
@@ -56,6 +57,11 @@ export default function InviteScreen() {
       });
       const body = (await res.json()) as MyReferralResponse;
       setData(body);
+      // Mirror to AsyncStorage so MediaContext.shareStatus can pre-copy the
+      // viral caption with the user's personal short link.
+      if (body?.shareUrl && body?.code) {
+        cacheShareLink(body.shareUrl, body.code).catch(() => {});
+      }
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Could not load';
       const looksLikeHtml = /<!DOCTYPE|<html/i.test(raw);
