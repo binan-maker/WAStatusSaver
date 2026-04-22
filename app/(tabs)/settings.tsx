@@ -122,10 +122,8 @@ export default function SettingsScreen() {
     if (newCount >= 3) {
       setVersionClickCount(0);
       setShowEasterEgg(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       setVersionClickCount(newCount);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
@@ -656,11 +654,8 @@ export default function SettingsScreen() {
       >
         <View style={styles.centeredOverlay}>
           <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowEasterEgg(false)} />
-          <View style={styles.easterEggCard}>
-            <LinearGradient
-              colors={[COLORS.SURFACE, COLORS.PRIMARY + '14', COLORS.SURFACE]}
-              style={styles.easterEggGradient}
-            >
+          <View style={[styles.easterEggCard, { backgroundColor: COLORS.SURFACE }]}>
+            <View style={styles.easterEggGradient}>
               {/* Monogram */}
               <View style={styles.eggMonogramWrap}>
                 <Text style={styles.eggMonogram}>B</Text>
@@ -691,7 +686,7 @@ export default function SettingsScreen() {
               >
                 <Text style={styles.closeEggText}>Close</Text>
               </TouchableOpacity>
-            </LinearGradient>
+            </View>
           </View>
         </View>
       </Modal>

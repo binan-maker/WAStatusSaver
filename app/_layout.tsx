@@ -142,10 +142,7 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
       />
       <Stack.Screen
         name="languages"
-        options={{
-          title: 'Language',
-          headerStyle: { backgroundColor: COLORS.SURFACE },
-        }}
+        options={{ headerShown: false }}
       />
     </Stack>
   );
