@@ -391,6 +391,7 @@ await applyCanvasActions({ actions: [
 ] });
 ```
 
+<<<<<<< HEAD
 ### Align and Distribute Shapes
 
 Prefer `align` (2+ shapes) and `distribute` (3+ shapes) over hand-computing x/y. Faster to emit, and pixel-perfect where hand math is often off by a few units. Fewer shapes than the minimum returns `INSUFFICIENT_SHAPES`.
@@ -441,6 +442,8 @@ await applyCanvasActions({ actions: [
 
 Do not follow `align`/`distribute` with a manual `move` on any of the same shapes in the same batch -- it undoes the alignment. To rigidly translate a laid-out row or column (preserving gutters), read current positions via `getCanvasState` and issue one `move` per shape with the same delta applied. Re-running `align`/`distribute` recomputes the layout from scratch, not a translation.
 
+=======
+>>>>>>> f01289a16c8358616083ca86e6f0919c3b8d4f8c
 ## Focusing the Viewport: `focusCanvasShapes`
 
 Pan and zoom the user's canvas viewport to center on specific shapes. **Only call after the user asks to see your work** -- don't auto-focus after creating or updating shapes. Finish your work and ask the user if they'd like to see it. Moving the viewport while the user is working is disorienting.
@@ -478,7 +481,10 @@ Pan and zoom the user's canvas viewport to center on specific shapes. **Only cal
 5. **Use https URLs** -- Iframe shapes reject http URLs.
 6. **Label iframes** -- Set `componentPath` and `componentName` so users can identify embedded content.
 7. **Use focus_area** -- For large boards, pass a region to `get_canvas_state` to get detail where you need it.
+<<<<<<< HEAD
 8. **Prefer `align`/`distribute` over manual coordinates when placing shapes together** -- For rows or columns of 3+ shapes you are laying out together, add `distribute` so you don't hand-compute gutters. `align` repositions every shape in `shapeIds` (no anchor), so only pass shapes you actually want moved. To place a new shape next to existing user content, read the anchor's position with `getCanvasState` (check both `focusedShapes` and `blurryShapes`) and create beside it -- share the aligned axis (e.g. `y: anchor.y`), offset the other by the anchor's position plus its size plus a gap (e.g. `x: anchor.x + anchor.w + gap`). Do not pass the anchor into `align`. See "Align and Distribute Shapes" above.
+=======
+>>>>>>> f01289a16c8358616083ca86e6f0919c3b8d4f8c
 
 ### Iframe Sizing
 
@@ -492,7 +498,11 @@ Size the iframe to fit the content -- don't put small components in huge iframes
 - **Multi-page app (desktop):** 1280 x 800 -- standard app viewport.
 - **Multi-page app (mobile):** 390 x 844 -- iPhone viewport.
 
+<<<<<<< HEAD
 **Responsive comparison presets** -- when showing the same component at multiple screen widths, place the iframes at approximate positions then `align` their tops and `distribute` horizontally (see "Align and Distribute Shapes"):
+=======
+**Responsive comparison presets** -- when showing the same component at multiple screen widths, arrange in a row with ~50px gutters:
+>>>>>>> f01289a16c8358616083ca86e6f0919c3b8d4f8c
 
 - Mobile: 390 x 844
 - Tablet: 768 x 1024
