@@ -58,7 +58,6 @@
       }
       .badge {
         display: inline-block;
-        background: var(--primary) + "22";
         background-color: rgba(0,196,140,0.12);
         color: var(--primary);
         border: 1px solid rgba(0,196,140,0.3);
@@ -118,9 +117,9 @@
       <div class="badge">Legal Document</div>
       <h1>Privacy Policy</h1>
       <div class="meta">
-        Last updated: <strong>April 20, 2026</strong> &nbsp;·&nbsp;
-        Effective date: <strong>April 20, 2026</strong> &nbsp;·&nbsp;
-        App version: <strong>1.4.0</strong>
+        Last updated: <strong>April 22, 2026</strong> &nbsp;·&nbsp;
+        Effective date: <strong>April 22, 2026</strong> &nbsp;·&nbsp;
+        App version: <strong>1.3.7</strong>
       </div>
 
       <div class="highlight">
@@ -191,19 +190,65 @@
       </ul>
 
       <h2>6. Storage Permissions</h2>
-      <p>StatusVault requests storage permissions solely to read WhatsApp status files from your device and to save media to your gallery. We never access any other files on your device. All file operations happen locally — no files are ever transmitted to any server.</p>
-      <p>Permissions requested:</p>
+      <p>StatusVault uses the Android Storage Access Framework (SAF) to obtain read access ONLY to the WhatsApp Media folder you explicitly select. We never access any other files on your device. All file operations happen locally — no files are ever transmitted to any server.</p>
+      <p>Permissions actually declared by the app:</p>
       <ul>
-        <li><code>READ_EXTERNAL_STORAGE</code> / <code>READ_MEDIA_IMAGES</code> / <code>READ_MEDIA_VIDEO</code> — to read WhatsApp status files</li>
-        <li><code>WRITE_EXTERNAL_STORAGE</code> — to save statuses to your gallery (Android &lt; 10 only)</li>
-        <li><code>POST_NOTIFICATIONS</code> — for optional status reminder notifications</li>
-        <li><code>com.google.android.gms.permission.AD_ID</code> — required by Google AdMob</li>
+        <li><code>WRITE_EXTERNAL_STORAGE</code> — required to save statuses to your gallery on Android 9 or below; ignored on Android 10+ (the app uses scoped MediaStore APIs instead).</li>
+        <li><code>com.android.vending.BILLING</code> — Google Play Billing in-app purchases (Play Store build only).</li>
+        <li><code>POST_NOTIFICATIONS</code> — optional, only when you opt in to status-reminder notifications (Android 13+).</li>
+        <li><code>RECEIVE_BOOT_COMPLETED</code> — re-arms scheduled reminder notifications after a phone reboot.</li>
+        <li><code>VIBRATE</code> — short haptic taps on a few buttons.</li>
+        <li><code>com.google.android.gms.permission.AD_ID</code> — required by Google AdMob (free tier only).</li>
       </ul>
+      <p><strong>Permissions explicitly BLOCKED at the manifest level</strong> (so they cannot be granted even by accident):</p>
+      <ul>
+        <li><code>READ_MEDIA_IMAGES</code></li>
+        <li><code>READ_MEDIA_VIDEO</code></li>
+        <li><code>READ_MEDIA_AUDIO</code></li>
+        <li><code>READ_MEDIA_VISUAL_USER_SELECTED</code></li>
+        <li><code>RECORD_AUDIO</code></li>
+        <li><code>SYSTEM_ALERT_WINDOW</code></li>
+      </ul>
+      <p>Because the broad <code>READ_MEDIA_*</code> permissions are blocked, StatusVault is structurally incapable of reading your full photo or video library — even if a future update tried to. The only media access available to the app is whatever folder you choose in the SAF folder picker.</p>
 
-      <h2>7. Children's Privacy</h2>
+      <h2>7. Referral & Rewards Data</h2>
+      <p>StatusVault offers two distinct ways to earn free Pro access without payment:</p>
+      <h3>7.1 Personal Invite & Earn (Reward Ladder)</h3>
+      <p>Every signed-in user is automatically issued a unique 6-character invite code. We store, against your Firebase UID, the code itself, the count and Firebase UIDs of users you have referred, the timestamp at which they joined, the reward tiers you have already claimed, and the resulting Pro expiry date. The Reward Ladder grants:</p>
+      <ul>
+        <li>3 friends → 48 hours of Pro</li>
+        <li>10 friends → 1 week of Pro</li>
+        <li>50 friends → 1 month of Pro</li>
+        <li>100 friends → 3 months of Pro</li>
+        <li>500 friends → 1.5 years of Pro (548 days)</li>
+      </ul>
+      <p>Earned days STACK on top of any existing Pro time — you never lose paid days. To prevent abuse, one device fingerprint can only be the source of a single attribution and a user can have only one referrer (immutable once set).</p>
+      <h3>7.2 Influencer / Giveaway Codes</h3>
+      <p>Limited-quantity codes shared by partners can be redeemed once per user from the Subscription screen. We store the code you redeemed, the device fingerprint that claimed it, and the resulting Pro expiry date. Codes cannot be redeemed if you already have an active Pro subscription, and one device fingerprint can only redeem a given code once.</p>
+      <p>Both systems run inside our backend on Firebase Firestore; no third party sees this data.</p>
+
+      <h2>8. Refund Policy</h2>
+      <h3>8.1 Google Play Store Purchases</h3>
+      <p>Refunds follow Google Play's standard policy. You can request a refund directly within the Play Store app within 48 hours of purchase: <em>Play Store → Profile → Payments &amp; subscriptions → Order history → your StatusVault order → Request a refund</em>. For issues beyond 48 hours, email us with your Google Order ID.</p>
+      <h3>8.2 Indus App Store / Other Store Purchases (Razorpay)</h3>
+      <p>We will issue a refund in any of the following cases:</p>
+      <ul>
+        <li>You were charged but Pro was not activated due to a verified technical failure (contact us within 7 days with your Razorpay Payment ID).</li>
+        <li>You were charged twice for the same period.</li>
+        <li>The app is fundamentally non-functional on your device and we are unable to resolve it within 14 days of your report.</li>
+      </ul>
+      <p>Refund window by plan:</p>
+      <ul>
+        <li><strong>1 Month (₹29):</strong> Refund only in the cases listed above. Change-of-mind refunds are not issued for this plan because the transaction value barely exceeds the payment-gateway fee.</li>
+        <li><strong>3 Months (₹79) / 1 Year (₹149):</strong> Full refund within 48 hours of purchase if the request meets the criteria above.</li>
+      </ul>
+      <p>Email <a href="mailto:ahmedsameerbinan2@gmail.com" style="color:var(--primary)">ahmedsameerbinan2@gmail.com</a> with your Razorpay Payment ID and a description of the issue. Decisions are made within 5 business days; approved refunds are returned to the original payment method within 7–10 business days.</p>
+      <p><strong>Anti-abuse:</strong> users who initiate a bank chargeback in lieu of using the refund process above will be permanently banned from future purchases.</p>
+
+      <h2>9. Children's Privacy</h2>
       <p>StatusVault is not directed to children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided personal information to us, please contact us and we will delete it promptly.</p>
 
-      <h2>8. Your Rights (GDPR & Indian IT Act)</h2>
+      <h2>10. Your Rights (GDPR & Indian IT Act)</h2>
       <p>If you are in the European Economic Area or India, you have the following rights:</p>
       <ul>
         <li><strong>Access:</strong> Request a copy of your personal data we hold.</li>
@@ -214,7 +259,7 @@
       </ul>
       <p>To exercise these rights, contact us at <strong>ahmedsameerbinan2@gmail.com</strong>.</p>
 
-      <h2>9. Data Retention</h2>
+      <h2>11. Data Retention</h2>
       <ul>
         <li><strong>Subscription records:</strong> Retained for 7 years (GST/tax compliance)</li>
         <li><strong>Account data:</strong> Deleted within 30 days of account deletion request</li>
@@ -222,10 +267,10 @@
         <li><strong>Crash/analytics data:</strong> Anonymised; retained per Expo's policy</li>
       </ul>
 
-      <h2>10. Changes to This Policy</h2>
+      <h2>12. Changes to This Policy</h2>
       <p>We may update this Privacy Policy from time to time. When we do, we will update the "Last updated" date at the top of this page. Continued use of the app after changes constitutes acceptance of the updated policy. For material changes, we will notify you via an in-app notice.</p>
 
-      <h2>11. Contact Us</h2>
+      <h2>13. Contact Us</h2>
       <div class="contact-card">
         <p><strong>Developer:</strong> Binan</p>
         <p><strong>App:</strong> StatusVault (com.binan.statussaver)</p>

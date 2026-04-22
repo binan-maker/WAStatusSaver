@@ -200,6 +200,11 @@ The payment system is fully separated into two self-contained folders with zero 
 - `storage.rules` — default-deny all paths. The app does not currently upload to Storage (statuses live on-device); rule is in place to prevent accidental billing if a stray client SDK call ever ran.
 - To deploy from local machine: `firebase deploy --only firestore:rules,storage`.
 
+## Documentation Sync (April 22, 2026)
+All user-facing legal/help docs updated to match the actual codebase:
+- **In-app screens** (`app/guide.tsx`, `app/privacy.tsx`, `app/terms.tsx`): app version 1.3.7, correct Reward Ladder (3/10/50/100/500 → 2d/1w/1mo/3mo/548d, stacking), new Influencer / Giveaway Codes section, SAF-only permissions list with explicit blocked READ_MEDIA_* perms, unified refund policy (Play Store vs Razorpay), system-driven theme.
+- **Web templates** (`server/templates/privacy-policy.html`, `terms.html`): same content; CSS bug in `.badge` fixed; sections renumbered (privacy ends at §13, terms ends at §16). Landing & pricing pages required no doc changes.
+
 ## Recent Bug Fixes — Subscription Flow
 - `ReferralCodeInput.tsx`: detects HTML response bodies (`<!DOCTYPE`, `<html>`) on error and shows a clean "couldn't reach server" message instead of dumping raw HTML; clears code & banner when `hasActiveSubscription` flips true; refuses to fire the redeem request at all when user is already Pro.
 - When a giveaway code returns `CODE_EXHAUSTED`, the banner now offers a CTA pivot to `/invite` ("Invite 3 friends instead → 48 hours of Pro free").

@@ -69,7 +69,7 @@ export default function TermsScreen() {
             <Text style={styles.heroBadgeText}>Legal Document</Text>
           </View>
           <Text style={styles.heroTitle}>Terms &amp; Conditions</Text>
-          <Text style={styles.heroMeta}>Last updated: April 20, 2026 · Version 1.4.0</Text>
+          <Text style={styles.heroMeta}>Last updated: April 22, 2026 · App version 1.3.7</Text>
         </View>
 
         <View style={styles.highlight}>
@@ -115,26 +115,31 @@ export default function TermsScreen() {
 
         <Section
           title="6. Advertisements"
-          content="The free tier displays ads via Google AdMob. By using the free tier, you acknowledge and consent to ad display. Ads are fully removed for the duration of an active Pro subscription."
+          content="The free tier displays advertisements served by Google AdMob. By using the free tier, you acknowledge and consent to ad display. Ads are fully removed for the duration of an active Pro subscription, an active rewarded-ad bonus period, or any free-Pro time earned through the Invite & Earn ladder or an influencer / giveaway code."
         />
 
         <Section
-          title="7. Disclaimer of Warranties"
+          title="7. Invite & Earn and Influencer Codes"
+          content={"Personal invite codes: Every signed-in user automatically receives a unique 6-character invite code. Inviting friends advances you up the Reward Ladder — 3 friends grant 48 hours of free Pro, 10 friends grant 1 week, 50 friends grant 1 month, 100 friends grant 3 months, and 500 friends grant 1.5 years (548 days). Earned days STACK on top of any existing Pro time and are credited automatically once the friend signs in.\n\nInfluencer / giveaway codes: Limited-quantity codes distributed by partners can be redeemed once per user from the Subscription screen. Each code grants the duration set by the campaign (commonly 90 days). Codes cannot be redeemed if you already have an active Pro subscription, and one device fingerprint can only redeem a given code once.\n\nFraud protection: Self-referral, duplicate-account abuse, and chargeback abuse will result in revocation of any free-Pro time granted and may lead to a permanent ban from future code redemption. We reserve the right to retire, suspend, or change reward thresholds at any time; existing earned-Pro days are not retroactively reduced."}
+        />
+
+        <Section
+          title="8. Disclaimer of Warranties"
           content={"StatusVault is provided 'as is' without warranties of any kind. We do not guarantee uninterrupted or error-free operation. The app's ability to access WhatsApp statuses depends on WhatsApp's storage behaviour, which is outside our control and may change with WhatsApp updates."}
         />
 
         <Section
-          title="8. Limitation of Liability"
+          title="9. Limitation of Liability"
           content="To the maximum extent permitted by law, the Developer shall not be liable for any indirect, incidental, or consequential damages. Our total liability for any claim shall not exceed the amount you paid to us in the 12 months preceding the claim."
         />
 
         <Section
-          title="9. Governing Law"
+          title="10. Governing Law"
           content="These Terms are governed by the laws of India. Disputes shall be subject to the exclusive jurisdiction of Indian courts. Consumer disputes may also be addressed through India's National Consumer Disputes Redressal Commission (NCDRC)."
         />
 
         <Section
-          title="10. Contact Us"
+          title="11. Contact Us"
           content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021.\n\nFor Google Play billing disputes: Use the Play Store app or contact Google Play Support.\nFor Razorpay billing disputes: Contact Razorpay Support at razorpay.com/support."}
         />
 
