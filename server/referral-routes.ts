@@ -7,9 +7,13 @@ import {
 import { getAuthenticatedUser } from "../payment-providers/shared/server-utils";
 import {
   normalizeReferralCode,
+  REWARD_LADDER,
+  type AttributeInstallResponse,
   type CampaignStatus,
   type InfluencerCampaign,
+  type MyReferralResponse,
   type ReferralRedeemResponse,
+  type RewardLadderTier,
   type VipDuration,
 } from "../shared/referral-types";
 
@@ -18,6 +22,11 @@ const REDEMPTION_COLLECTION = "referral_redemptions";
 const DEVICE_COLLECTION = "referral_devices";
 const SUBSCRIPTION_COLLECTION = "subscriptions";
 const USER_COLLECTION = "users";
+const USER_REFERRAL_COLLECTION = "user_referrals";        // {uid} → personal stats
+const REFERRAL_CODE_COLLECTION = "referral_codes";         // {CODE} → uid (reverse lookup)
+const INSTALL_DEVICE_COLLECTION = "referral_install_devices"; // {deviceId} → who used it
+
+const PLAY_STORE_PACKAGE = "com.binan.statussaver";
 
 function getAdminEmails(): Set<string> {
   const set = new Set<string>(["ahmedsameerbinan1@gmail.com"]);
@@ -592,4 +601,314 @@ export function registerReferralRoutes(app: Express) {
       next(err);
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // USER: Get my personal referral code, count, and ladder progress
+  // ─────────────────────────────────────────────────────────────────
+  app.get("/api/referrals/me", async (req: Request, res: Response, next) => {
+    try {
+      const db = getFirestoreDb();
+      if (!db) return res.status(503).json({ message: "Service unavailable" });
+      const authUser = await getAuthenticatedUser(req);
+      if (!authUser) return res.status(401).json({ message: "Sign in required" });
+
+      const userRef = db.collection(USER_REFERRAL_COLLECTION).doc(authUser.uid);
+      let snap = await userRef.get();
+      let data = snap.exists ? snap.data() || {} : {};
+
+      // Lazy-create profile + unique code on first call
+      if (!data.myCode) {
+        const newCode = await mintUniqueReferralCode(db, authUser.uid);
+        await userRef.set({
+          myCode: newCode,
+          referralCount: 0,
+          rewardsClaimed: [],
+          referredUserIds: [],
+          referredJoinedAt: [],
+          createdAt: firestoreFieldValue.serverTimestamp(),
+          updatedAt: firestoreFieldValue.serverTimestamp(),
+          ownerEmail: authUser.email || null,
+        }, { merge: true });
+        snap = await userRef.get();
+        data = snap.data() || {};
+      }
+
+      const code: string = data.myCode;
+      const referralCount: number = typeof data.referralCount === "number" ? data.referralCount : 0;
+      const rewardsClaimed: string[] = Array.isArray(data.rewardsClaimed) ? data.rewardsClaimed : [];
+
+      // Build referredUsers join timestamps (cap to most recent 50 for payload size)
+      const joinedAtArr: any[] = Array.isArray(data.referredJoinedAt) ? data.referredJoinedAt : [];
+      const referredUsers = joinedAtArr.slice(-50).map((ts) => ({
+        joinedAt: ts?.toDate?.()?.toISOString?.() || (typeof ts === "string" ? ts : new Date(0).toISOString()),
+      }));
+
+      // Find next tier
+      const nextTier = REWARD_LADDER.find((t) => referralCount < t.threshold) || null;
+      const remainingForNext = nextTier ? Math.max(0, nextTier.threshold - referralCount) : 0;
+
+      // Read current subscription to surface reward state
+      const subSnap = await db.collection(SUBSCRIPTION_COLLECTION).doc(authUser.uid).get();
+      const subData = subSnap.exists ? subSnap.data() || {} : {};
+      const lifetime = Boolean(subData.lifetime);
+      const paidUntilDate = subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate() : null;
+      const rewardActive = lifetime || (paidUntilDate ? paidUntilDate.getTime() > Date.now() : false);
+
+      const shareUrl = `https://play.google.com/store/apps/details?id=${PLAY_STORE_PACKAGE}&referrer=${encodeURIComponent(`ref=${code}`)}`;
+      const deepLink = `statusvault://invite?ref=${code}`;
+
+      const payload: MyReferralResponse = {
+        code,
+        referralCount,
+        rewardsClaimed,
+        referredUsers,
+        shareUrl,
+        deepLink,
+        ladder: REWARD_LADDER,
+        nextTier,
+        remainingForNext,
+        rewardActive,
+        rewardPaidUntil: paidUntilDate ? paidUntilDate.toISOString() : null,
+        rewardLifetime: lifetime,
+      };
+      res.json(payload);
+    } catch (err) {
+      console.error("/api/referrals/me error:", err);
+      next(err);
+    }
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // USER: Attribute the install of THIS signed-in user to a referrer
+  //   body: { code, deviceId }
+  //   Called once after sign-in if the app captured a pending ref code
+  //   from a deep-link or manual entry.
+  // ─────────────────────────────────────────────────────────────────
+  app.post("/api/referrals/attribute-install", async (req: Request, res: Response, next) => {
+    const fail = (status: number, body: AttributeInstallResponse) => res.status(status).json(body);
+    try {
+      const db = getFirestoreDb();
+      if (!db) return fail(503, { success: false, errorCode: "SERVER_ERROR", message: "Service unavailable" });
+
+      const authUser = await getAuthenticatedUser(req);
+      if (!authUser) return fail(401, { success: false, errorCode: "AUTH_REQUIRED", message: "Sign in required" });
+
+      const code = normalizeReferralCode(req.body?.code);
+      if (!code || code.length < 3) {
+        return fail(400, { success: false, errorCode: "INVALID_CODE", message: "Invalid referral code" });
+      }
+      const deviceId = normalizeDeviceId(req.body?.deviceId);
+      if (!deviceId) {
+        return fail(400, { success: false, errorCode: "INVALID_DEVICE", message: "Device id missing" });
+      }
+
+      // Resolve code → referrer uid
+      const codeSnap = await db.collection(REFERRAL_CODE_COLLECTION).doc(code).get();
+      if (!codeSnap.exists) {
+        return fail(404, { success: false, errorCode: "INVALID_CODE", message: "Referral code not found" });
+      }
+      const referrerUid: string | undefined = codeSnap.data()?.uid;
+      if (!referrerUid) {
+        return fail(404, { success: false, errorCode: "INVALID_CODE", message: "Referral code not found" });
+      }
+      if (referrerUid === authUser.uid) {
+        return fail(403, { success: false, errorCode: "SELF_REFER_BLOCKED", message: "You cannot refer yourself" });
+      }
+
+      const meRef = db.collection(USER_REFERRAL_COLLECTION).doc(authUser.uid);
+      const referrerRef = db.collection(USER_REFERRAL_COLLECTION).doc(referrerUid);
+      const installDeviceRef = db.collection(INSTALL_DEVICE_COLLECTION).doc(deviceId);
+
+      const txResult = await db.runTransaction(async (tx) => {
+        const [meSnap, deviceSnap, referrerSnap] = await Promise.all([
+          tx.get(meRef),
+          tx.get(installDeviceRef),
+          tx.get(referrerRef),
+        ]);
+
+        const meData = meSnap.exists ? meSnap.data() || {} : {};
+        if (meData.referrerUid && typeof meData.referrerUid === "string") {
+          return { ok: false as const, code: "ALREADY_ATTRIBUTED" as const, message: "Your install is already attributed" };
+        }
+        if (deviceSnap.exists) {
+          return { ok: false as const, code: "DEVICE_ALREADY_USED" as const, message: "This device has already been credited" };
+        }
+
+        const now = firestoreFieldValue.serverTimestamp();
+
+        // Mark me as attributed
+        tx.set(meRef, {
+          referrerUid,
+          attributedAt: now,
+          attributedDeviceId: deviceId,
+          ownerEmail: authUser.email || meData.ownerEmail || null,
+          // Preserve existing personal-code fields if present
+          referralCount: typeof meData.referralCount === "number" ? meData.referralCount : 0,
+          rewardsClaimed: Array.isArray(meData.rewardsClaimed) ? meData.rewardsClaimed : [],
+          updatedAt: now,
+        }, { merge: true });
+
+        // Increment referrer's count + log my join
+        tx.set(referrerRef, {
+          referralCount: firestoreFieldValue.increment(1),
+          referredUserIds: firestoreFieldValue.arrayUnion(authUser.uid),
+          referredJoinedAt: firestoreFieldValue.arrayUnion(firestoreTimestamp.now()),
+          updatedAt: now,
+        }, { merge: true });
+
+        // Mark device used
+        tx.set(installDeviceRef, {
+          uid: authUser.uid,
+          referrerUid,
+          code,
+          createdAt: now,
+        });
+
+        const referrerName = referrerSnap.exists ? (referrerSnap.data()?.ownerEmail || null) : null;
+        return { ok: true as const, referrerName };
+      });
+
+      if (!txResult.ok) {
+        const status = txResult.code === "ALREADY_ATTRIBUTED" || txResult.code === "DEVICE_ALREADY_USED" ? 409 : 400;
+        return fail(status, { success: false, errorCode: txResult.code, message: txResult.message });
+      }
+
+      // Apply ladder rewards to referrer (outside the txn — reads sub doc)
+      try {
+        await applyLadderRewards(referrerUid);
+      } catch (e) {
+        console.error("applyLadderRewards failed:", e);
+      }
+
+      const okResp: AttributeInstallResponse = {
+        success: true,
+        referrerName: txResult.referrerName,
+        message: "Install attributed. Your friend just got closer to a free reward 🎉",
+      };
+      res.json(okResp);
+    } catch (err) {
+      console.error("/api/referrals/attribute-install error:", err);
+      next(err);
+    }
+  });
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+function generateRandomCode(len = 6): string {
+  // Avoid lookalike chars (0/O, 1/I)
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < len; i++) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return out;
+}
+
+async function mintUniqueReferralCode(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+): Promise<string> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const candidate = generateRandomCode(attempt < 4 ? 6 : 7);
+    const ref = db.collection(REFERRAL_CODE_COLLECTION).doc(candidate);
+    // Don't collide with existing influencer codes either
+    const [codeSnap, campSnap] = await Promise.all([
+      ref.get(),
+      db.collection(CAMPAIGN_COLLECTION).doc(candidate).get(),
+    ]);
+    if (!codeSnap.exists && !campSnap.exists) {
+      await ref.set({ uid, createdAt: firestoreFieldValue.serverTimestamp() });
+      return candidate;
+    }
+  }
+  throw new Error("Failed to mint unique referral code after 8 attempts");
+}
+
+async function applyLadderRewards(referrerUid: string): Promise<void> {
+  const db = getFirestoreDb();
+  if (!db) return;
+
+  const userRef = db.collection(USER_REFERRAL_COLLECTION).doc(referrerUid);
+  const subRef = db.collection(SUBSCRIPTION_COLLECTION).doc(referrerUid);
+
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) return;
+  const userData = userSnap.data() || {};
+  const referralCount: number = typeof userData.referralCount === "number" ? userData.referralCount : 0;
+  const claimed: string[] = Array.isArray(userData.rewardsClaimed) ? userData.rewardsClaimed : [];
+  const ownerEmail: string | null = typeof userData.ownerEmail === "string" ? userData.ownerEmail : null;
+
+  // Find tiers crossed but not yet claimed
+  const newTiers = REWARD_LADDER.filter(
+    (t) => referralCount >= t.threshold && !claimed.includes(String(t.threshold)),
+  );
+  if (newTiers.length === 0) return;
+
+  // Read current subscription
+  const subSnap = await subRef.get();
+  const subData = subSnap.exists ? subSnap.data() || {} : {};
+  const wasLifetime = Boolean(subData.lifetime);
+  const existingPaidUntil =
+    subData.paidUntil?.toDate?.() instanceof Date ? subData.paidUntil.toDate().getTime() : 0;
+
+  let willBeLifetime = wasLifetime;
+  let cursor = Math.max(Date.now(), existingPaidUntil);
+
+  // Stack rewards: every DAYS reward stacks on top of the running cursor
+  for (const tier of newTiers) {
+    if (tier.durationDays === "LIFETIME") {
+      willBeLifetime = true;
+    } else {
+      cursor += tier.durationDays * 86400 * 1000;
+    }
+  }
+
+  const newPaidUntil = new Date(cursor);
+  const lastTier = newTiers[newTiers.length - 1];
+  const lastLabel = lastTier.label;
+
+  // Update subscription. We always set provider="referral_ladder" so the
+  // payment-history can attribute it; this won't conflict with paid plans
+  // because we only ever EXTEND paidUntil, never shorten.
+  if (willBeLifetime) {
+    await subRef.set({
+      active: true,
+      lifetime: true,
+      planId: "referral-lifetime",
+      provider: "referral_ladder",
+      userId: referrerUid,
+      userEmail: ownerEmail || subData.userEmail || null,
+      amount: 0,
+      currency: "INR",
+      lastPaymentId: `referral-ladder:${lastTier.threshold}`,
+      referralLadderTier: lastTier.threshold,
+      referralLadderLabel: lastLabel,
+      updatedAt: firestoreFieldValue.serverTimestamp(),
+    }, { merge: true });
+  } else {
+    await subRef.set({
+      active: true,
+      lifetime: false,
+      paidUntil: firestoreTimestamp.fromDate(newPaidUntil),
+      planId: "referral-ladder",
+      provider: "referral_ladder",
+      userId: referrerUid,
+      userEmail: ownerEmail || subData.userEmail || null,
+      amount: 0,
+      currency: "INR",
+      lastPaymentId: `referral-ladder:${lastTier.threshold}`,
+      referralLadderTier: lastTier.threshold,
+      referralLadderLabel: lastLabel,
+      updatedAt: firestoreFieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+
+  // Mark these tiers as claimed
+  await userRef.set({
+    rewardsClaimed: firestoreFieldValue.arrayUnion(...newTiers.map((t) => String(t.threshold))),
+    lastRewardAppliedAt: firestoreFieldValue.serverTimestamp(),
+    lastRewardLabel: lastLabel,
+    updatedAt: firestoreFieldValue.serverTimestamp(),
+  }, { merge: true });
 }

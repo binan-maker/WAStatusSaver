@@ -172,6 +172,31 @@ The payment system is fully separated into two self-contained folders with zero 
   - `GET    /api/referrals/lookup/:code` — public preview (slots remaining, etc.)
   - `POST   /api/referrals/redeem` — body `{ code, deviceId }`, requires `Authorization: Bearer <idToken>`
 
+## Personal Referral / Invite & Earn (Viral Growth Ladder)
+- **User flow:** every signed-in user gets a unique short code (e.g. `K3T8N2`) on first visit to `app/invite.tsx`. Sharing the code via `Share.share()` sends a Play Store URL `…?referrer=ref%3DCODE` (works as deferred deep link) plus the code in plain text and a `statusvault://invite?ref=CODE` deep link for users who already have the app.
+- **Reward ladder** (defined in `shared/referral-types.ts → REWARD_LADDER`): 3 friends → 48hr Pro · 10 → 1 wk · 50 → 1 mo · 100 → 3 mo · 500 → Lifetime. Rewards STACK on top of any existing `paidUntil`, never replace it. Each tier can be claimed once (tracked in `user_referrals/{uid}.rewardsClaimed`). Provider on the resulting subscription doc is `referral_ladder`.
+- **Attribution layers:**
+  1. Manual: friend's code typed in the Invite screen.
+  2. Deep link: `app/+native-intent.tsx` parses `?ref=CODE` from any inbound `statusvault://` URL and stashes it in AsyncStorage (`pending_referral_code`).
+  3. Post-install Play Referrer: route + DB schema is ready, requires the `react-native-play-install-referrer` native module on a future custom dev build.
+  After sign-in, `hooks/referral/usePendingReferralAttribution.ts` (registered in `app/_layout.tsx`) auto-POSTs the pending code.
+- **Anti-fraud:** must be signed in with Google, one referrer per user (immutable `referredBy` aka `referrerUid`), self-referral blocked, one device-id per attribution (collection `referral_install_devices`).
+- **New endpoints:**
+  - `GET  /api/referrals/me` — returns `MyReferralResponse` (lazy-creates code on first call)
+  - `POST /api/referrals/attribute-install` — body `{ code, deviceId }`, attributes the *signed-in user* as a new referee for the code's owner and triggers `applyLadderRewards()`.
+- **New Firestore collections:**
+  - `user_referrals/{uid}` — `{ myCode, referralCount, rewardsClaimed[], referredUserIds[], referredJoinedAt[], referrerUid? }`
+  - `referral_codes/{CODE}` — `{ uid }` reverse-lookup
+  - `referral_install_devices/{deviceId}` — anti-fraud per-device attribution lock
+
+## Theme Picker
+- Settings → "Appearance" section has a 3-button segmented control (Light / Dark / System) wired to `ThemeContext.setMode()`. Choice is persisted in AsyncStorage under `app_theme_mode`.
+
+## Recent Bug Fixes — Subscription Flow
+- `ReferralCodeInput.tsx`: detects HTML response bodies (`<!DOCTYPE`, `<html>`) on error and shows a clean "couldn't reach server" message instead of dumping raw HTML; clears code & banner when `hasActiveSubscription` flips true; refuses to fire the redeem request at all when user is already Pro.
+- When a giveaway code returns `CODE_EXHAUSTED`, the banner now offers a CTA pivot to `/invite` ("Invite 3 friends instead → 48 hours of Pro free").
+- `app/subscription.tsx` hero & active-Pro `LinearGradient`s are now derived from the active palette (`COLORS.PRIMARY` tint over `COLORS.SURFACE`) so they render correctly in light mode.
+
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`
 2. Update `app.json` with your actual bundle ID

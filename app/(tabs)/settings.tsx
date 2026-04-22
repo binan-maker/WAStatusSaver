@@ -26,7 +26,7 @@ import { AdBanner } from '@/components/ads/AdBanner';
 import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { SubscriptionPlansCard } from '@/components/subscription/SubscriptionPlansCard';
 import { Share } from 'react-native';
-import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
+import { useTheme, useThemeColors, type ThemePalette, type ThemeMode } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
 
@@ -72,6 +72,49 @@ function SectionHeader({ title }: { title: string }) {
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
     <Text style={styles.sectionHeader}>{title}</Text>
+  );
+}
+
+function ThemePicker() {
+  const COLORS = useThemeColors();
+  const { mode, setMode } = useTheme();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+
+  const options: { id: ThemeMode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { id: 'light',  label: 'Light',  icon: 'sunny-outline' },
+    { id: 'dark',   label: 'Dark',   icon: 'moon-outline' },
+    { id: 'system', label: 'System', icon: 'phone-portrait-outline' },
+  ];
+
+  return (
+    <View style={styles.themePickerWrap}>
+      <Text style={styles.themePickerCaption}>Choose how StatusVault looks on this device</Text>
+      <View style={styles.themePickerRow}>
+        {options.map((opt) => {
+          const active = mode === opt.id;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              style={[
+                styles.themeChip,
+                { borderColor: active ? COLORS.PRIMARY : COLORS.SURFACE_3, backgroundColor: active ? COLORS.PRIMARY + '14' : COLORS.SURFACE_2 },
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setMode(opt.id);
+              }}
+              activeOpacity={0.85}
+            >
+              <Ionicons name={opt.icon} size={16} color={active ? COLORS.PRIMARY : COLORS.TEXT_SECONDARY} />
+              <Text style={[styles.themeChipLabel, { color: active ? COLORS.PRIMARY : COLORS.TEXT }]}>
+                {opt.label}
+              </Text>
+              {active && <Ionicons name="checkmark-circle" size={14} color={COLORS.PRIMARY} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -283,6 +326,11 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        <SectionHeader title="Appearance" />
+        <View style={styles.section}>
+          <ThemePicker />
+        </View>
+
         <SectionHeader title={t('preferences')} />
         <View style={styles.section}>
           <SettingRow
@@ -347,6 +395,14 @@ export default function SettingsScreen() {
         <SectionHeader title="Subscription" />
         <SubscriptionPlansCard />
         <View style={styles.section}>
+          <SettingRow
+            icon="gift-outline"
+            iconBg={COLORS.ACCENT_PINK + '22'}
+            label="Invite & Earn Free Pro"
+            sublabel="3 friends → 48hr · 10 → 1wk · 50 → 1mo · 100 → 3mo · 500 → Lifetime"
+            onPress={() => router.push('/invite')}
+            showArrow
+          />
           <SettingRow
             icon="refresh-circle-outline"
             iconBg={COLORS.PRIMARY + '22'}
@@ -853,6 +909,35 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     fontSize: FONT_SIZE.XS,
     color: COLORS.TEXT_SECONDARY,
     fontFamily: 'Nunito_600SemiBold',
+  },
+  themePickerWrap: {
+    paddingHorizontal: SPACING.LG,
+    paddingVertical: SPACING.MD,
+  },
+  themePickerCaption: {
+    color: COLORS.TEXT_SECONDARY,
+    fontSize: FONT_SIZE.XS,
+    fontFamily: 'Nunito_400Regular',
+    marginBottom: SPACING.SM,
+  },
+  themePickerRow: {
+    flexDirection: 'row',
+    gap: SPACING.SM,
+  },
+  themeChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: RADIUS.MD,
+    borderWidth: 1.5,
+  },
+  themeChipLabel: {
+    fontSize: FONT_SIZE.SM,
+    fontFamily: 'Nunito_700Bold',
   },
   sectionHeader: {
     fontSize: FONT_SIZE.SM,

@@ -28,6 +28,7 @@ import { useInterstitialAd } from '@/components/ads/AdInterstitial';
 import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 import { useStatusReminder } from '@/hooks/media/useStatusReminder';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { usePendingReferralAttribution } from '@/hooks/referral/usePendingReferralAttribution';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -125,6 +126,13 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
         }}
       />
       <Stack.Screen
+        name="invite"
+        options={{
+          title: 'Invite & Earn',
+          headerStyle: { backgroundColor: COLORS.SURFACE },
+        }}
+      />
+      <Stack.Screen
         name="contact"
         options={{ headerShown: false }}
       />
@@ -135,6 +143,7 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
 function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
   useAppOpenAd();
   useStatusReminder();
+  usePendingReferralAttribution();
   const { colors, resolved } = useTheme();
   const { showAd: showInterstitial } = useInterstitialAd();
 

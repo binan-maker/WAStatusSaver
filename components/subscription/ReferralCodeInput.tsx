@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { FONT_SIZE, RADIUS, SPACING } from "@/constants/theme";
 import { useFirebaseAuth } from "@/contexts/AuthContext";
@@ -17,6 +18,7 @@ import { getPaymentDeviceId } from "@/lib/device-identity";
 import {
   normalizeReferralCode,
   type ReferralRedeemResponse,
+  type ReferralRedeemErrorCode,
 } from "@/shared/referral-types";
 
 type Props = {
@@ -28,7 +30,7 @@ type Props = {
 
 type Banner =
   | { kind: "success"; title: string; subtitle: string }
-  | { kind: "error"; title: string; subtitle: string }
+  | { kind: "error"; title: string; subtitle: string; errorCode?: ReferralRedeemErrorCode }
   | null;
 
 export function ReferralCodeInput({ hasActiveSubscription, onRedeemed }: Props) {
@@ -40,6 +42,15 @@ export function ReferralCodeInput({ hasActiveSubscription, onRedeemed }: Props) 
   const [submitting, setSubmitting] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
+  // Bug 2 fix — when the user becomes Pro (e.g. by signing in mid-flow), wipe
+  // any stale code/banner so the input doesn't look "stuck".
+  useEffect(() => {
+    if (hasActiveSubscription) {
+      setCode("");
+      setBanner(null);
+    }
+  }, [hasActiveSubscription]);
+
   const cleanCode = normalizeReferralCode(code);
   const canSubmit = cleanCode.length >= 3 && !submitting && !hasActiveSubscription;
 
@@ -49,12 +60,11 @@ export function ReferralCodeInput({ hasActiveSubscription, onRedeemed }: Props) 
       return;
     }
 
+    // Bug 1 fix — if user is already Pro, do NOT fire the request.
+    // Just clear the field so nothing looks "stuck".
     if (hasActiveSubscription) {
-      setBanner({
-        kind: "error",
-        title: "Pro is already active",
-        subtitle: "Wait for your current Pro plan to expire before redeeming a code",
-      });
+      setCode("");
+      setBanner(null);
       return;
     }
 
@@ -104,17 +114,23 @@ export function ReferralCodeInput({ hasActiveSubscription, onRedeemed }: Props) 
         setBanner({ kind: "error", title: "Could not redeem", subtitle: body.message });
       }
     } catch (err) {
-      // apiRequest throws on non-2xx with the body text in the message.
-      // Best-effort: peel the JSON message out so the user sees something useful.
+      // apiRequest throws on non-2xx with body in the message.
+      // Bug 1 fix — if the body is HTML (404 page, gateway error, etc.) we MUST
+      // NOT splat the raw HTML into the banner. Detect it and show a clean msg.
       const raw = err instanceof Error ? err.message : "Unknown error";
       let title = "Could not redeem";
-      let subtitle = raw;
+      let subtitle = "Please check your connection and try again.";
+      let errorCode: ReferralRedeemErrorCode | undefined;
+
       const jsonStart = raw.indexOf("{");
-      if (jsonStart > -1) {
+      const looksLikeHtml = /<!DOCTYPE|<html|<\/html>/i.test(raw);
+
+      if (!looksLikeHtml && jsonStart > -1) {
         try {
           const parsed = JSON.parse(raw.slice(jsonStart)) as ReferralRedeemResponse;
           if (!parsed.success) {
             subtitle = parsed.message;
+            errorCode = parsed.errorCode;
             if (parsed.errorCode === "AUTH_REQUIRED") title = "Sign in required";
             if (parsed.errorCode === "ACTIVE_SUBSCRIPTION") title = "Pro already active";
             if (parsed.errorCode === "ALREADY_REDEEMED") title = "Already redeemed";
@@ -122,10 +138,13 @@ export function ReferralCodeInput({ hasActiveSubscription, onRedeemed }: Props) 
             if (parsed.errorCode === "CODE_BANNED") title = "Code disabled";
             if (parsed.errorCode === "CODE_EXHAUSTED") title = "Code is full";
             if (parsed.errorCode === "INVALID_CODE") title = "Code not found";
+            if (parsed.errorCode === "SELF_REDEEM_BLOCKED") title = "Cannot use your own code";
           }
-        } catch {}
+        } catch {
+          // Falls through to the generic friendly message above.
+        }
       }
-      setBanner({ kind: "error", title, subtitle });
+      setBanner({ kind: "error", title, subtitle, errorCode });
     } finally {
       setSubmitting(false);
     }
@@ -202,6 +221,22 @@ export function ReferralCodeInput({ hasActiveSubscription, onRedeemed }: Props) 
               {banner.title}
             </Text>
             <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
+
+            {/* Influencer-to-Referral pivot: when a giveaway code hits its limit,
+                turn disappointment into action by sending the user to /invite. */}
+            {banner.kind === "error" && banner.errorCode === "CODE_EXHAUSTED" && (
+              <TouchableOpacity
+                onPress={() => router.push("/invite")}
+                activeOpacity={0.85}
+                style={styles.pivotBtn}
+              >
+                <MaterialCommunityIcons name="account-multiple-plus" size={14} color={COLORS.PRIMARY} />
+                <Text style={styles.pivotBtnText}>
+                  Invite 3 friends instead → Get 48 hours of Pro free
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={COLORS.PRIMARY} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -313,5 +348,24 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     fontFamily: "Nunito_400Regular",
     marginTop: 2,
     lineHeight: 16,
+  },
+  pivotBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: SPACING.SM,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.SM,
+    backgroundColor: COLORS.PRIMARY + "15",
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY + "40",
+    alignSelf: "flex-start",
+  },
+  pivotBtnText: {
+    color: COLORS.PRIMARY,
+    fontSize: FONT_SIZE.XS,
+    fontFamily: "Nunito_700Bold",
+    flexShrink: 1,
   },
 });

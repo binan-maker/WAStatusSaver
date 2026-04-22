@@ -53,3 +53,60 @@ export function normalizeReferralCode(raw: unknown): string {
   if (typeof raw !== "string") return "";
   return raw.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 32);
 }
+
+// ─── Personal referral codes & ladder rewards ──────────────────────────────
+
+export interface RewardLadderTier {
+  threshold: number;
+  label: string;
+  durationDays: number | "LIFETIME";
+}
+
+export const REWARD_LADDER: RewardLadderTier[] = [
+  { threshold: 3,   label: "48 Hours Pro", durationDays: 2 },
+  { threshold: 10,  label: "1 Week Pro",   durationDays: 7 },
+  { threshold: 50,  label: "1 Month Pro",  durationDays: 30 },
+  { threshold: 100, label: "3 Months Pro", durationDays: 90 },
+  { threshold: 500, label: "Lifetime Pro", durationDays: "LIFETIME" },
+];
+
+export interface ReferredUserSummary {
+  joinedAt: string; // ISO
+}
+
+export interface MyReferralResponse {
+  code: string;
+  referralCount: number;
+  rewardsClaimed: string[]; // e.g. ["3","10"]
+  referredUsers: ReferredUserSummary[];
+  shareUrl: string;
+  deepLink: string;
+  ladder: RewardLadderTier[];
+  nextTier: RewardLadderTier | null;
+  remainingForNext: number;
+  // Active reward state
+  rewardActive: boolean;
+  rewardPaidUntil: string | null;
+  rewardLifetime: boolean;
+}
+
+export type AttributeInstallErrorCode =
+  | "AUTH_REQUIRED"
+  | "INVALID_CODE"
+  | "SELF_REFER_BLOCKED"
+  | "ALREADY_ATTRIBUTED"
+  | "DEVICE_ALREADY_USED"
+  | "INVALID_DEVICE"
+  | "SERVER_ERROR";
+
+export interface AttributeInstallSuccess {
+  success: true;
+  referrerName: string | null;
+  message: string;
+}
+export interface AttributeInstallError {
+  success: false;
+  errorCode: AttributeInstallErrorCode;
+  message: string;
+}
+export type AttributeInstallResponse = AttributeInstallSuccess | AttributeInstallError;

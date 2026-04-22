@@ -135,7 +135,11 @@ export default function SubscriptionScreen() {
 
         {/* ── Hero ──────────────────────────────────────────────────── */}
         <LinearGradient
-          colors={["#031F16", "#063B2B", "#05070A"]}
+          colors={[
+            COLORS.PRIMARY + "26", // ~15% tint of primary
+            COLORS.PRIMARY + "14",
+            COLORS.SURFACE,
+          ]}
           style={styles.hero}
         >
           <View style={styles.crownWrap}>
@@ -160,7 +164,11 @@ export default function SubscriptionScreen() {
         {/* ── Active Pro card ───────────────────────────────────────── */}
         {isSubscribed && (
           <LinearGradient
-            colors={["#041E14", "#073D2C", "#041E14"]}
+            colors={[
+              COLORS.PRIMARY + "1F",
+              COLORS.PRIMARY + "33",
+              COLORS.PRIMARY + "1F",
+            ]}
             style={styles.activeCard}
           >
             <View style={styles.activeCardInner}>
@@ -262,7 +270,7 @@ export default function SubscriptionScreen() {
                 >
                   {paying || (signingIn && pendingPlanRef.current === plan.id) ? (
                     <ActivityIndicator
-                      color={isSubscribed ? COLORS.PRIMARY : "#06100C"}
+                      color={isSubscribed ? COLORS.PRIMARY : "#04140C"}
                       size="small"
                     />
                   ) : isSubscribed ? (
