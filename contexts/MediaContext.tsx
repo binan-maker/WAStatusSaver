@@ -728,7 +728,34 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       console.log(`[Loader] Total items successfully loaded: ${items.length}`);
       items.sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
-      setStatuses(items);
+      // SELECTIVE PATCHING: Reuse existing item object references when an
+      // item with the same id+modTime is already in state. This keeps
+      // React.memo'd MediaCards from re-rendering at all when the
+      // underlying file hasn't changed — only truly new/changed items
+      // produce new references. Result: pull-to-refresh feels invisible;
+      // unchanged thumbnails never even re-render, new items slide in,
+      // removed items slide out, and scroll position is preserved.
+      setStatuses(prev => {
+        if (prev.length === 0) return items;
+        const prevById = new Map(prev.map(p => [p.id, p]));
+        let changed = items.length !== prev.length;
+        const merged = items.map(item => {
+          const existing = prevById.get(item.id);
+          if (existing && existing.modTime === item.modTime && existing.size === item.size) {
+            return existing; // identical → reuse reference (no re-render)
+          }
+          changed = true;
+          return item;
+        });
+        // If every id matches and order matches, return prev to skip even
+        // the array-level reference change.
+        if (!changed) {
+          for (let i = 0; i < merged.length; i++) {
+            if (merged[i] !== prev[i]) { changed = true; break; }
+          }
+        }
+        return changed ? merged : prev;
+      });
     } catch (e) {
       console.error('[Loader] Error loading statuses:', e);
     } finally {

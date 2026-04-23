@@ -399,6 +399,17 @@ export default function StatusesScreen() {
     setVisitedTabs(prev => (prev[tab] ? prev : { ...prev, [tab]: true }));
   }, []);
 
+  // Pull-to-refresh handler. We pass `silent=true` so the global isLoading
+  // flag doesn't flip — that flag would unmount the FlashList and blank the
+  // entire grid. The RefreshControl's own pull spinner already gives the
+  // user clear visual feedback that a refresh is in flight, so the screen
+  // can stay populated with existing thumbnails (Instagram-style "selective
+  // patching"): unchanged items stay mounted, new ones slide in, removed
+  // ones slide out — no flicker, no scroll-position loss.
+  const handlePullRefresh = useCallback(() => {
+    refresh(true);
+  }, [refresh]);
+
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
     markVisited(tab);
@@ -509,7 +520,16 @@ export default function StatusesScreen() {
           shimmer; it mounts its real grid only when the user swipes to it.
         */}
         <View style={{ width: SW }}>
-          {isLoading || isGrantingAccess ? (
+          {/*
+            SELECTIVE PATCHING: Only show the shimmer when we have NOTHING
+            to display (first load, no items yet). Once any thumbnails are
+            on screen, never blank them out again — even during a refresh
+            the grid stays mounted and identical-id items keep their cells
+            (FlashList recycles by keyExtractor). Pull-to-refresh runs
+            silently; the RefreshControl spinner is the only loading
+            indicator the user sees.
+          */}
+          {(isLoading || isGrantingAccess) && filteredImages.length === 0 ? (
             <LoadingShimmer count={GRID_COLUMNS * 4} />
           ) : filteredImages.length === 0 ? (
             <EmptyState
@@ -528,7 +548,7 @@ export default function StatusesScreen() {
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
-                  onRefresh={refresh}
+                  onRefresh={handlePullRefresh}
                   tintColor={COLORS.PRIMARY}
                   colors={[COLORS.PRIMARY]}
                   progressBackgroundColor={COLORS.SURFACE}
@@ -555,7 +575,7 @@ export default function StatusesScreen() {
         </View>
 
         <View style={{ width: SW }}>
-          {isLoading || isGrantingAccess ? (
+          {(isLoading || isGrantingAccess) && filteredVideos.length === 0 ? (
             <LoadingShimmer count={GRID_COLUMNS * 4} />
           ) : filteredVideos.length === 0 ? (
             <EmptyState
@@ -574,7 +594,7 @@ export default function StatusesScreen() {
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
-                  onRefresh={refresh}
+                  onRefresh={handlePullRefresh}
                   tintColor={COLORS.PRIMARY}
                   colors={[COLORS.PRIMARY]}
                   progressBackgroundColor={COLORS.SURFACE}
