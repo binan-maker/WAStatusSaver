@@ -482,6 +482,15 @@ export default function StatusesScreen() {
         scrollEventThrottle={16}
         style={styles.listArea}
       >
+        {/*
+          ANDROID 11 HEAT FIX: Only the ACTIVE tab's FlashList is mounted.
+          Previously both image AND video grids were mounted simultaneously
+          inside the horizontal ScrollView, so on first paint the OS had to
+          decode 50+ image thumbnails AND 50+ video thumbnails at the same
+          time — a massive CPU spike that made the device hot and slowed the
+          first frame after splash. The inactive tab is now a placeholder
+          shimmer; it mounts its real grid only when the user swipes to it.
+        */}
         <View style={{ width: SW }}>
           {isLoading || isGrantingAccess ? (
             <LoadingShimmer count={GRID_COLUMNS * 4} />
@@ -493,7 +502,7 @@ export default function StatusesScreen() {
               actionLabel="Refresh"
               onAction={refresh}
             />
-          ) : (
+          ) : activeTab === 'images' ? (
             <FlashList
               data={filteredImages}
               keyExtractor={(item) => item.id}
@@ -508,23 +517,23 @@ export default function StatusesScreen() {
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item, index }) => {
-                return (
-                  <MediaCard
-                    item={item}
-                    isSaved={isStatusSaved(item.id)}
-                    onPress={() => handlePress(item)}
-                    onSave={() => handleSave(item)}
-                    onShare={() => handleShare(item)}
-                    showSaveButton
-                  />
-                );
-              }}
+              renderItem={({ item }) => (
+                <MediaCard
+                  item={item}
+                  isSaved={isStatusSaved(item.id)}
+                  onPress={() => handlePress(item)}
+                  onSave={() => handleSave(item)}
+                  onShare={() => handleShare(item)}
+                  showSaveButton
+                />
+              )}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={Platform.OS === 'android'}
-              drawDistance={500}
+              drawDistance={250}
             />
+          ) : (
+            <LoadingShimmer count={GRID_COLUMNS * 4} />
           )}
         </View>
 
@@ -539,7 +548,7 @@ export default function StatusesScreen() {
               actionLabel="Refresh"
               onAction={refresh}
             />
-          ) : (
+          ) : activeTab === 'videos' ? (
             <FlashList
               data={filteredVideos}
               keyExtractor={(item) => item.id}
@@ -554,23 +563,23 @@ export default function StatusesScreen() {
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item, index }) => {
-                return (
-                  <MediaCard
-                    item={item}
-                    isSaved={isStatusSaved(item.id)}
-                    onPress={() => handlePress(item)}
-                    onSave={() => handleSave(item)}
-                    onShare={() => handleShare(item)}
-                    showSaveButton
-                  />
-                );
-              }}
+              renderItem={({ item }) => (
+                <MediaCard
+                  item={item}
+                  isSaved={isStatusSaved(item.id)}
+                  onPress={() => handlePress(item)}
+                  onSave={() => handleSave(item)}
+                  onShare={() => handleShare(item)}
+                  showSaveButton
+                />
+              )}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={Platform.OS === 'android'}
-              drawDistance={500}
+              drawDistance={250}
             />
+          ) : (
+            <LoadingShimmer count={GRID_COLUMNS * 4} />
           )}
         </View>
       </ScrollView>

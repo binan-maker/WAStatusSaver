@@ -73,9 +73,6 @@ function MediaCardInner({
             cachePolicy="memory-disk"
             transition={100}
             recyclingKey={uri}
-            onLoadStart={() => console.log(`[Card] Loading thumbnail: ${item.name}`)}
-            onLoad={() => console.log(`[Card] Thumbnail loaded: ${item.name}`)}
-            onError={(e) => console.error(`[Card] Thumbnail error: ${item.name}`, e)}
           />
         )}
 

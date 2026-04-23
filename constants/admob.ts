@@ -29,4 +29,4 @@ export const VIDEO_AD_FREQUENCY = 25;
 export const IMAGE_SWIPE_AD_FREQUENCY = 30;
 export const INTERSTITIAL_COOLDOWN_MS = 3 * 60 * 1000; // min 3 min between ads
 export const APP_OPEN_AD_COOLDOWN_MS = 30 * 60 * 1000; // min 30 min between app-open ads
-export const ADS_ENABLED = true;
+export const ADS_ENABLED = false;
