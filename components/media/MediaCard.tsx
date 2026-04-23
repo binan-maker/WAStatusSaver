@@ -51,13 +51,29 @@ function MediaCardInner({
             A dark play-button overlay is always shown on top.
           */
           <View style={styles.image}>
+            {/*
+              ANDROID 11+ THUMBNAIL PERF FIX:
+              - videoTimestamp={0} → extract first key-frame (very fast).
+                videoTimestamp={500} forced MediaMetadataRetriever to seek
+                500ms into the file before decoding — on content:// URIs
+                this runs through the SAF resolver + ContentResolver and
+                takes 200-800ms PER thumbnail, freezing the grid on scroll.
+              - priority="low" → expo-image deprioritizes off-screen decodes,
+                keeping scroll buttery instead of fighting for CPU.
+              - allowDownscaling → Glide samples down to grid cell size
+                instead of decoding full-resolution frames into memory.
+              - transition={0} → no fade-in, instant placeholder swap.
+            */}
             <Image
               source={{ uri }}
               style={styles.image}
               contentFit="cover"
               cachePolicy="memory-disk"
               recyclingKey={uri}
-              videoTimestamp={500}
+              videoTimestamp={0}
+              priority="low"
+              allowDownscaling
+              transition={0}
             />
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
@@ -71,7 +87,9 @@ function MediaCardInner({
             style={styles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
-            transition={100}
+            transition={0}
+            priority="low"
+            allowDownscaling
             recyclingKey={uri}
           />
         )}

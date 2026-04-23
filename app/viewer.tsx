@@ -255,6 +255,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // readyToPlay). This eliminates the black screen unconditionally on all devices.
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
+    // ANDROID 11+ HARDWARE DECODER FIX: Only the ACTIVE slot allocates a
+    // decoder via replaceAsync. Pre/next slots stay sourceless so the system
+    // codec pool never runs out. The on-disk file copy (prepareStatusForViewing)
+    // already happened in the parent's prefetch effect, so when the user swipes
+    // here, replaceAsync runs against a warm file:// URI and fires readyToPlay
+    // in 50-150ms — fast enough to feel instant.
+    if (!isActive) return;
 
     let cancelled = false;
     isLoadingSource.current = true;
@@ -308,7 +315,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     };
   // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef
   // to avoid cancelling in-flight replaceAsync on every displayUri change.
-  }, [displayUri, item.type, player]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayUri, item.type, player, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reveal timer cleanup on unmount ─────────────────────────────────────
   useEffect(() => {
@@ -350,13 +357,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // every time displayUri changes.
         tryStartPlaybackRef.current();
       } else {
+        // ANDROID 11+ FIX: Release the hardware decoder the INSTANT this slot
+        // becomes inactive — don't wait for `!isNearActive`. With VideoView
+        // mounted only on the active page (single-surface policy above), the
+        // decoder is useless for prev/next slots and was just blocking the
+        // codec pool, preventing the new active video from allocating its
+        // own decoder. Pausing + replaceAsync(null) frees the slot synchronously
+        // so the next swipe gets a fresh decoder immediately.
         player.muted = true;
-        if (!isNearActive) {
-          player.pause();
-          isReadyToPlayRef.current = false;
-          setIsVideoReady(false);
-          (player as any).replaceAsync?.(null).catch?.(() => {});
-        }
+        player.pause();
+        isReadyToPlayRef.current = false;
+        setIsVideoReady(false);
+        (player as any).replaceAsync?.(null).catch?.(() => {});
       }
     } catch (e) {
       console.log('Player sync error:', e);
@@ -589,7 +601,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 so ExoPlayer has filled its frame pipeline before we reveal.
                 player.release() on unmount frees the hardware codec slot.
               */}
-              {isNearActive && (
+              {/*
+                ANDROID 11+ HARDWARE DECODER FIX:
+                VideoView is now mounted ONLY when this slot is the ACTIVE
+                page — never for prev/next. Android 11/12 phones typically
+                have a 1-2 instance hardware H.264 decoder budget; mounting
+                3 VideoViews simultaneously (prev/cur/next) was exhausting
+                that pool, causing the next swipe's video to silently fail
+                to allocate a decoder and freeze on the thumbnail forever.
+                Single live surface = guaranteed decoder availability =
+                no more "video not playing after swipe" lockups.
+              */}
+              {isActive && (
                 <VideoView
                   key={item.id}
                   player={player}
@@ -862,7 +885,13 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        removeClippedSubviews={!isVideoItem}
+        // ANDROID 11+ FIX: Constant `false` (was dynamically toggling between
+        // image and video items). The boolean flip on every page change forced
+        // FlatList to recreate its cell wrappers, which destroyed the live
+        // VideoView's SurfaceView mid-swipe — causing the dreaded "stuck on
+        // black thumbnail then jumps" stutter. With a fixed value, cell
+        // wrappers stay stable across the entire viewer session.
+        removeClippedSubviews={false}
         updateCellsBatchingPeriod={50}
       />
 
