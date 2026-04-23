@@ -95,6 +95,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once the video surface has rendered its first frame, this stays `true`
+  // for the lifetime of the current source. ExoPlayer sometimes emits brief
+  // `loading` statusChange events mid-playback (network re-buffer, decoder
+  // hiccup, etc.) — without this latch the thumbnail would slap back on top
+  // of the playing video and the user would see what looks like a freeze
+  // 2 seconds in. We reset this latch only when displayUri actually changes.
+  const hasRevealedOnceRef = useRef(false);
 
   const clearRevealTimer = useCallback(() => {
     if (revealTimerRef.current) {
@@ -107,6 +114,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     clearRevealTimer();
     revealTimerRef.current = setTimeout(() => {
       console.log(`[Viewer] REVEALING video surface for ${item.name}`);
+      hasRevealedOnceRef.current = true;
       setIsVideoVisible(true);
     }, delayMs);
   }, [clearRevealTimer, item.name]);
@@ -188,18 +196,30 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         console.log(`[Viewer] Player status for ${item.name}: ${status}`);
         const ready = status === 'readyToPlay';
         isReadyToPlayRef.current = ready;
-        setIsVideoReady(ready);
         if (ready) {
+          setIsVideoReady(true);
           // Always call the latest tryStartPlayback via ref — never a stale closure.
           tryStartPlaybackRef.current();
-          // Always schedule reveal regardless of isActive. If the user is on a
-          // different video, the isActive-reset effect resets isVideoVisible=false
-          // before the timer fires. Guarding here with isActiveRef caused freezes
-          // when the ref was stale-false at readyToPlay time.
-          scheduleRevealRef.current(200);
+          if (!hasRevealedOnceRef.current) {
+            // First-ever readyToPlay for this source: schedule the reveal so
+            // ExoPlayer has time to push the very first frame to the surface.
+            scheduleRevealRef.current(200);
+          } else {
+            // Mid-playback re-buffer just finished. Surface is already
+            // visible; nothing else to do — DO NOT reschedule reveal,
+            // DO NOT touch isVideoVisible.
+          }
         } else {
-          setIsVideoVisible(false);
-          clearRevealTimerRef.current();
+          // Non-ready status (loading / idle / error). Only reset visibility
+          // BEFORE the very first frame has been shown. After we've revealed
+          // once, brief mid-playback buffer events must NOT slap the
+          // thumbnail back on top of the live surface — that's the
+          // "freeze 2 seconds in" symptom users were reporting.
+          if (!hasRevealedOnceRef.current) {
+            setIsVideoReady(false);
+            setIsVideoVisible(false);
+            clearRevealTimerRef.current();
+          }
         }
       });
     } catch (e) {
@@ -211,9 +231,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [player, item.type, item.name]); // stable deps only — callbacks via refs
 
   // Reset ready + visible flags (and cancel any pending reveal) on source change.
+  // Also clear the "has revealed once" latch — the new source needs to earn
+  // its own reveal via a fresh readyToPlay → 200ms delay cycle.
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
+    hasRevealedOnceRef.current = false;
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
