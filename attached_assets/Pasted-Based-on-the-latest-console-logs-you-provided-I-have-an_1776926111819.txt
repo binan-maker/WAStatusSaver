@@ -1,0 +1,34 @@
+Based on the latest console logs you provided, I have analyzed the entire app's execution flow. Here is the explanation of why your app is "stuck," "delayed," and "blinking," explained entirely through the log data:
+1. The "Big Freeze" (The addListener Crash)
+The most important log is this error: ERROR [TypeError: Cannot read property 'addListener' of undefined].
+What it means: When you click to open a video, the app moves to the viewer.tsx screen. It immediately tries to attach a "listener" (to watch the video progress). However, the video player engine isn't ready yet (it's still undefined).
+The Result: The app crashes internally. Because it has an "Error Boundary," it doesn't close the whole app; instead, it resets your screen or sends you back to the home page.
+The "Delay": You click, nothing happens for a second, then the logs explode with errors—this is the app trying and failing to open the video.
+2. The "Infinite Blinking" Loop (AppState Transitions)
+You see hundreds of logs saying AppState transition from active to background.
+The Cause: Every time the Ad system fails (googleMobileAds/no-fill), or every time that addListener crash happens, the Android OS briefly shifts "focus" away from your main screen while it resets.
+The Loop:
+App becomes Active.
+Home page sees "Active" and triggers a Loader Refresh (to look for new WhatsApp statuses).
+During that refresh, an Ad fails or the Crash happens.
+The failure forces the app into the Background for a split second.
+The app comes back to Active, which starts Step 2 again.
+Why it's "Throttled": Your code sees this loop and says AppState active, but throttled. It is refusing to refresh the data because it just did it 1 second ago. This is a safety feature preventing your phone from overheating.
+3. The 1.2 to 2.4 Second Video Delay
+The logs show exactly how long the Android 11+ "SAF" process takes:
+LOG [Media] Copying ... to cache...
+LOG [Media] Copy complete for ... (815ms)
+LOG [Viewer] replaceAsync complete for ... (2193ms)
+Analysis: It takes ~800ms just to move the video out of the protected WhatsApp folder. Then, it takes another 2.1 seconds for the Video Player to "read" that file.
+Total Delay: Between clicking a video and seeing the first frame, there is a 3-second gap. During these 3 seconds, the UI feels "stuck" because the phone's storage is 100% busy copying the heavy video file.
+4. Thumbnail & Images (The good news)
+Logs show Thumb LOADED: ... (memory) or (disk).
+This is nearly instant (0ms to 5ms). The "Grid" (home page) is performing perfectly. The delays only start once you attempt to "Open" or "View" a full-size video.
+5. Permission Denial
+You see the log: [loadSavedItems] album rescan skipped: [Missing MEDIA_LIBRARY permissions].
+This is a constant "background noise" in your logs. Every time the app wakes up, it tries to check your gallery. It fails every time. This doesn't freeze the app, but it adds to the CPU load during that critical first second when the app is trying to start.
+Summary Verdict
+The app is not frozen—it is looping and waiting.
+It is Looping because of an Ad loading error and a code crash.
+It is Waiting because Android 11+ forces a "Deep Copy" of every video, which creates a 3-second physical bottleneck on your phone's hardware.
+To break the cycle, the Ad engine needs to be turned off (as we discussed with the global switch), and the video listener needs to wait until the player is actually "born" before trying to talk to it.

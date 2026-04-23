@@ -23,7 +23,6 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
-import { useEventListener } from 'expo';
 
 import { AdInterstitial } from '@/components/ads/AdInterstitial';
 import { AdBanner } from '@/components/ads/AdBanner';
@@ -167,26 +166,39 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [displayUri, item.type, player]);
 
   // ── Status listener ──────────────────────────────────────────────────────
-  useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
+  // Using a manual useEffect instead of useEventListener from expo because on
+  // Android 11 the native VideoPlayer bridge can be uninitialized on the first
+  // render, making player.addListener undefined → crash. The null-guard + try/catch
+  // here prevents that crash while still wiring up the listener correctly.
+  useEffect(() => {
     if (item.type !== 'video') return;
-    console.log(`[Viewer] Player status for ${item.name}: ${status}`);
-    const ready = status === 'readyToPlay';
-    isReadyToPlayRef.current = ready;
-    setIsVideoReady(ready);
-    if (ready) {
-      tryStartPlayback();
-      // Schedule the thumbnail hide 200 ms AFTER readyToPlay. This gap lets
-      // ExoPlayer push the first frame to the SurfaceView before we reveal it.
-      // Without this delay, readyToPlay fires while the frame pipeline is still
-      // filling, causing audio-only black screen on first play.
-      if (isActiveRef.current) {
-        scheduleReveal(200);
-      }
-    } else {
-      setIsVideoVisible(false);
-      clearRevealTimer();
+    if (!player || typeof player.addListener !== 'function') return;
+    let subscription: { remove: () => void } | null = null;
+    try {
+      subscription = player.addListener('statusChange', ({ status }: { status: string }) => {
+        console.log(`[Viewer] Player status for ${item.name}: ${status}`);
+        const ready = status === 'readyToPlay';
+        isReadyToPlayRef.current = ready;
+        setIsVideoReady(ready);
+        if (ready) {
+          tryStartPlayback();
+          // Schedule the thumbnail hide 200 ms AFTER readyToPlay. This gap lets
+          // ExoPlayer push the first frame to the SurfaceView before we reveal it.
+          if (isActiveRef.current) {
+            scheduleReveal(200);
+          }
+        } else {
+          setIsVideoVisible(false);
+          clearRevealTimer();
+        }
+      });
+    } catch (e) {
+      console.log('[Viewer] Could not attach statusChange listener:', e);
     }
-  });
+    return () => {
+      try { subscription?.remove(); } catch {}
+    };
+  }, [player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset ready + visible flags (and cancel any pending reveal) on source change.
   useEffect(() => {
@@ -477,9 +489,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               source={{ uri: mediaUri }}
               style={styles.image}
               contentFit="contain"
-              cachePolicy="disk"
+              cachePolicy="memory-disk"
               transition={0}
-              priority="high"
               recyclingKey={item.id}
               onLoadStart={() => {
                 console.log(`[Viewer] Image LOAD START: ${item.name}`);
@@ -781,11 +792,11 @@ const toggleControls = useCallback(() => {
         onScrollToIndexFailed={(info) => {
           flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
         }}
-        windowSize={3}
+        windowSize={isVideoItem ? 3 : 5}
         initialNumToRender={1}
-        maxToRenderPerBatch={1}
-        removeClippedSubviews={false}
-        updateCellsBatchingPeriod={50}
+        maxToRenderPerBatch={isVideoItem ? 1 : 2}
+        removeClippedSubviews={!isVideoItem}
+        updateCellsBatchingPeriod={isVideoItem ? 50 : 20}
       />
 
       {/* ── Top bar: back + counter. Always visible for video; toggleable for images ── */}
