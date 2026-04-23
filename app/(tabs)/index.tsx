@@ -12,6 +12,7 @@ import {
   ScrollView,
   ActivityIndicator,
   AppState,
+  InteractionManager,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -399,6 +400,42 @@ export default function StatusesScreen() {
     setVisitedTabs(prev => (prev[tab] ? prev : { ...prev, [tab]: true }));
   }, []);
 
+  // PRE-WARM the videos tab AFTER first paint of images settles.
+  // Without this, the videos FlashList only mounts when the user finishes
+  // swiping — causing a CPU spike right at the end of the swipe (jank)
+  // and a black flash because thumbnails haven't decoded yet.
+  // We wait for: (a) interactions to settle, (b) data is loaded, then
+  // (c) a small idle gap so first paint is buttery smooth, then silently
+  // mount the videos grid offscreen. By the time the user swipes there,
+  // it's fully rendered — instant, zero jank.
+  useEffect(() => {
+    if (visitedTabs.videos) return;
+    if (filteredVideos.length === 0) return;
+    if (isLoading || isInitializing) return;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      // Extra 1.2s gives the active images grid time to fully decode its
+      // visible thumbnails before we start the videos grid in the
+      // background — keeps the first user-visible second buttery on
+      // low-end Android 11 devices.
+      const t = setTimeout(() => {
+        setVisitedTabs(prev => (prev.videos ? prev : { ...prev, videos: true }));
+      }, 1200);
+      return () => clearTimeout(t);
+    });
+    return () => handle.cancel?.();
+  }, [filteredVideos.length, isLoading, isInitializing, visitedTabs.videos]);
+
+  // The instant the user STARTS dragging the horizontal pager, mount BOTH
+  // grids. This way the destination grid renders DURING the swipe
+  // animation rather than at the end — eliminating the jank spike and
+  // black flash users see today.
+  const onScrollBeginDrag = useCallback(() => {
+    setVisitedTabs(prev => {
+      if (prev.images && prev.videos) return prev;
+      return { images: true, videos: true };
+    });
+  }, []);
+
   // Pull-to-refresh handler. We pass `silent=true` so the global isLoading
   // flag doesn't flip — that flag would unmount the FlashList and blank the
   // entire grid. The RefreshControl's own pull spinner already gives the
@@ -506,6 +543,7 @@ export default function StatusesScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScrollBeginDrag={onScrollBeginDrag}
         onMomentumScrollEnd={onScroll}
         scrollEventThrottle={16}
         style={styles.listArea}
@@ -519,7 +557,7 @@ export default function StatusesScreen() {
           first frame after splash. The inactive tab is now a placeholder
           shimmer; it mounts its real grid only when the user swipes to it.
         */}
-        <View style={{ width: SW }}>
+        <View style={{ width: SW, flex: 1 }}>
           {/*
             SELECTIVE PATCHING: Only show the shimmer when we have NOTHING
             to display (first load, no items yet). Once any thumbnails are
@@ -530,7 +568,7 @@ export default function StatusesScreen() {
             indicator the user sees.
           */}
           {(isLoading || isGrantingAccess) && filteredImages.length === 0 ? (
-            <LoadingShimmer count={GRID_COLUMNS * 4} />
+            <LoadingShimmer count={GRID_COLUMNS * 8} />
           ) : filteredImages.length === 0 ? (
             <EmptyState
               icon="images-outline"
@@ -570,13 +608,13 @@ export default function StatusesScreen() {
               drawDistance={250}
             />
           ) : (
-            <LoadingShimmer count={GRID_COLUMNS * 4} />
+            <LoadingShimmer count={GRID_COLUMNS * 8} />
           )}
         </View>
 
-        <View style={{ width: SW }}>
+        <View style={{ width: SW, flex: 1 }}>
           {(isLoading || isGrantingAccess) && filteredVideos.length === 0 ? (
-            <LoadingShimmer count={GRID_COLUMNS * 4} />
+            <LoadingShimmer count={GRID_COLUMNS * 8} />
           ) : filteredVideos.length === 0 ? (
             <EmptyState
               icon="videocam-outline"
@@ -616,7 +654,7 @@ export default function StatusesScreen() {
               drawDistance={250}
             />
           ) : (
-            <LoadingShimmer count={GRID_COLUMNS * 4} />
+            <LoadingShimmer count={GRID_COLUMNS * 8} />
           )}
         </View>
       </ScrollView>
