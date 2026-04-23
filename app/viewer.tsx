@@ -203,7 +203,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           if (!hasRevealedOnceRef.current) {
             // First-ever readyToPlay for this source: schedule the reveal so
             // ExoPlayer has time to push the very first frame to the surface.
-            scheduleRevealRef.current(200);
+            // 80ms is enough for the SurfaceView to bind and accept frames
+            // on Android 11 — was 200ms which added noticeable dead time
+            // between "ready" and visible video.
+            scheduleRevealRef.current(80);
           } else {
             // Mid-playback re-buffer just finished. Surface is already
             // visible; nothing else to do — DO NOT reschedule reveal,
@@ -260,17 +263,25 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     const load = async () => {
       const loadStart = Date.now();
       try {
-        // Wait for any in-flight navigation/gesture animations so the JS thread
-        // is free, then call replaceAsync immediately — no extra time buffer.
-        console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
-        // Race against a 250ms cap so a long-running scroll animation never
-        // blocks the video load entirely on slow Android 11 devices.
-        await Promise.race([
-          new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
-          new Promise<void>(resolve => setTimeout(resolve, 250)),
-        ]);
-        if (cancelled) return;
-        console.log(`[Viewer] Animation done, calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
+        // PERF: For cached/local files (file://) skip the animation wait
+        // entirely — those load instantly and waiting 250ms only adds dead
+        // time before the first frame. The wait was originally needed for
+        // SAF-copy URIs that arrive late and risk colliding with the
+        // navigation animation on slow Android 11 devices.
+        const isLocalCached = displayUri.startsWith('file://');
+        if (!isLocalCached) {
+          console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
+          // Race against a 120ms cap (was 250ms) — the typical navigation
+          // animation is ~300ms but the JS thread is usually free much
+          // sooner. Capping aggressively gets video loading started while
+          // the animation is still finishing.
+          await Promise.race([
+            new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
+            new Promise<void>(resolve => setTimeout(resolve, 120)),
+          ]);
+          if (cancelled) return;
+        }
+        console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
         await player.replaceAsync(displayUri);
         if (!cancelled) {

@@ -339,11 +339,24 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
+    // PERF: Kick off the SAF→cache copy IMMEDIATELY on tap (fire-and-forget).
+    // The viewer would otherwise have to do this copy on its own mount,
+    // adding 100-500ms before the first video frame can appear. By starting
+    // it here in parallel with the navigation animation, by the time the
+    // viewer asks `prepareStatusForViewing` it's either done or much closer
+    // to done — making the tap-to-play feel near-instant. The function
+    // itself is idempotent + cache-aware so a second call is a cheap
+    // getInfoAsync hit.
+    if (item.type === 'video' && item.uri.startsWith('content://')) {
+      prepareStatusForViewing(item).catch(() => {});
+    }
+
     // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
     // Previously onImageSwipe/onVideoOpen ran first and mutated MediaContext
     // state. That caused the FlashList to re-render mid-touch on Android 11,
     // which dropped the in-flight touch event and forced the user to tap a
-    // second time. router.push must be the first thing this handler does.
+    // second time. router.push must be the first thing this handler does
+    // (after the synchronous prefetch kickoff above, which doesn't await).
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
@@ -356,7 +369,7 @@ export default function StatusesScreen() {
     if (item.type === 'video') {
       setTimeout(() => onVideoOpen(item.uri), 0);
     }
-  }, [onVideoOpen]);
+  }, [onVideoOpen, prepareStatusForViewing]);
 
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);
