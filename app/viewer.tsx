@@ -733,23 +733,34 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
-  // Pre-copy the next 2 videos AND prefetch the prev/next images so the user
-  // never sees a blank frame on swipe. Image.prefetch warms expo-image's
-  // memory-disk cache; the next swipe then renders instantly from RAM instead
-  // of paying the Android 11 ContentResolver tax on every navigation.
+  // Pre-copy the next 2 videos AND prefetch the prev/current/next images so
+  // the user never sees a blank frame on swipe. Image.prefetch warms
+  // expo-image's memory-disk cache; the next swipe then renders instantly
+  // from RAM instead of paying the Android 11 ContentResolver tax on every
+  // navigation. The CURRENT item is also prefetched as a safety net for deep
+  // links / app reloads where the parent grid never had a chance to prefetch
+  // it on tap.
   useEffect(() => {
+    const cur = items[currentIndex];
     const next1 = items[currentIndex + 1];
     const prev1 = items[currentIndex - 1];
+
+    if (cur && cur.type === 'image') {
+      const curUri = 'localUri' in cur ? (cur as SavedItem).localUri : cur.uri;
+      Image.prefetch(curUri, 'memory-disk').catch(() => {});
+    }
 
     if (next1) {
       if (next1.type === 'video' && next1.uri.startsWith('content://')) {
         prepareStatusForViewing(next1 as StatusItem).catch(() => {});
       } else if (next1.type === 'image') {
-        Image.prefetch(next1.uri, 'memory-disk').catch(() => {});
+        const nUri = 'localUri' in next1 ? (next1 as SavedItem).localUri : next1.uri;
+        Image.prefetch(nUri, 'memory-disk').catch(() => {});
       }
     }
     if (prev1 && prev1.type === 'image') {
-      Image.prefetch(prev1.uri, 'memory-disk').catch(() => {});
+      const pUri = 'localUri' in prev1 ? (prev1 as SavedItem).localUri : prev1.uri;
+      Image.prefetch(pUri, 'memory-disk').catch(() => {});
     }
 
     const timer = setTimeout(() => {

@@ -59,7 +59,7 @@ interface MediaContextValue {
   requestPermissions: () => Promise<boolean>;
   requestSAF: (source?: StatusSource, manual?: boolean) => Promise<void>;
   loadStatuses: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (silent?: boolean) => Promise<void>;
   saveStatus: (item: StatusItem) => Promise<boolean>;
   deleteFromSaved: (item: SavedItem) => Promise<void>;
   shareStatus: (item: StatusItem | SavedItem) => Promise<void>;

@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
+import { Image as ExpoImage } from 'expo-image';
 import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
 import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
@@ -339,16 +340,19 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-    // PERF: Kick off the SAF→cache copy IMMEDIATELY on tap (fire-and-forget).
-    // The viewer would otherwise have to do this copy on its own mount,
-    // adding 100-500ms before the first video frame can appear. By starting
-    // it here in parallel with the navigation animation, by the time the
-    // viewer asks `prepareStatusForViewing` it's either done or much closer
-    // to done — making the tap-to-play feel near-instant. The function
-    // itself is idempotent + cache-aware so a second call is a cheap
-    // getInfoAsync hit.
+    // PERF: Kick off SAF prep IMMEDIATELY on tap (fire-and-forget).
+    // - For VIDEO content:// URIs: copy to cache so the viewer's replaceAsync
+    //   hits a warm file:// URI (50-150ms readyToPlay vs 1-2s cold).
+    // - For IMAGE URIs (incl. SAF content://): prefetch into expo-image's
+    //   memory-disk cache. On Android 11 the first decode of a content://
+    //   image goes through ContentResolver and can take 800ms-2s; doing it
+    //   here in parallel with the navigation animation means the viewer's
+    //   <Image> resolves nearly instantly from cache instead of staring at
+    //   the skeleton shimmer for 1-2 seconds.
     if (item.type === 'video' && item.uri.startsWith('content://')) {
       prepareStatusForViewing(item).catch(() => {});
+    } else if (item.type === 'image') {
+      ExpoImage.prefetch(item.uri, 'memory-disk').catch(() => {});
     }
 
     // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
@@ -371,6 +375,12 @@ export default function StatusesScreen() {
     }
   }, [onVideoOpen, prepareStatusForViewing]);
 
+  // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
+  // signature. handlePress is already an (item: StatusItem) => void closure
+  // memoised by useCallback above — passing it directly lets React.memo on
+  // MediaCard skip re-renders, so the in-flight touch event isn't dropped on
+  // Android 11. (Inline `() => handlePress(item)` was the root cause of
+  // "I have to tap 3-4 times to open the image".)
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);
     saveRating.increment();
@@ -380,6 +390,10 @@ export default function StatusesScreen() {
     shareStatus(item);
     shareRating.increment();
   }, [shareStatus, shareRating.increment]);
+
+  const handlePressAny = useCallback((item: any) => handlePress(item as StatusItem), [handlePress]);
+  const handleSaveAny = useCallback((item: any) => handleSave(item as StatusItem), [handleSave]);
+  const handleShareAny = useCallback((item: any) => handleShare(item as StatusItem), [handleShare]);
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
@@ -609,15 +623,15 @@ export default function StatusesScreen() {
                 <MediaCard
                   item={item}
                   isSaved={isStatusSaved(item.id)}
-                  onPress={() => handlePress(item)}
-                  onSave={() => handleSave(item)}
-                  onShare={() => handleShare(item)}
+                  onPress={handlePressAny}
+                  onSave={handleSaveAny}
+                  onShare={handleShareAny}
                   showSaveButton
                 />
               )}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              removeClippedSubviews={Platform.OS === 'android'}
+              removeClippedSubviews={false}
               drawDistance={250}
             />
           ) : (
@@ -655,15 +669,15 @@ export default function StatusesScreen() {
                 <MediaCard
                   item={item}
                   isSaved={isStatusSaved(item.id)}
-                  onPress={() => handlePress(item)}
-                  onSave={() => handleSave(item)}
-                  onShare={() => handleShare(item)}
+                  onPress={handlePressAny}
+                  onSave={handleSaveAny}
+                  onShare={handleShareAny}
                   showSaveButton
                 />
               )}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              removeClippedSubviews={Platform.OS === 'android'}
+              removeClippedSubviews={false}
               drawDistance={250}
             />
           ) : (

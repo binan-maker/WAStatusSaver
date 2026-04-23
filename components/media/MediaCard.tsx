@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,15 +10,25 @@ import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 
+type AnyItem = StatusItem | SavedItem;
+
 interface MediaCardProps {
-  item: StatusItem | SavedItem;
+  item: AnyItem;
   isSaved: boolean;
-  onPress: () => void;
-  onSave?: () => void;
-  onShare: () => void;
+  // ANDROID 11+ TAP-RELIABILITY FIX:
+  // These callbacks now take the item as an argument so parents can pass
+  // STABLE useCallback'd handlers (e.g. `onPress={handlePress}`) instead of
+  // inline arrows like `onPress={() => handlePress(item)}`. Inline arrows
+  // create a new function identity every parent render, defeating React.memo
+  // here and causing every thumbnail to re-render mid-touch on cold launch
+  // — which dropped the in-flight touch event and forced the user to tap
+  // 3-4 times before navigation actually fired.
+  onPress: (item: AnyItem) => void;
+  onSave?: (item: AnyItem) => void;
+  onShare: (item: AnyItem) => void;
+  onDelete?: (item: AnyItem) => void;
   showSaveButton?: boolean;
   showDeleteButton?: boolean;
-  onDelete?: () => void;
 }
 
 function MediaCardInner({
@@ -35,34 +45,34 @@ function MediaCardInner({
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const uri = 'localUri' in item ? item.localUri : item.uri;
 
+  // Stable internal handlers. They only change when the upstream callback
+  // identity OR the item identity changes — both of which are stable across
+  // a normal render cycle.
+  const handlePress = useCallback(() => onPress(item), [onPress, item]);
+  const handleSave = useCallback(() => onSave?.(item), [onSave, item]);
+  const handleShare = useCallback(() => onShare(item), [onShare, item]);
+  const handleDelete = useCallback(() => onDelete?.(item), [onDelete, item]);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
         activeOpacity={0.82}
-        onPress={onPress}
+        onPress={handlePress}
         style={styles.touchable}
       >
         {item.type === 'video' ? (
-          /*
-            expo-image on Android uses Glide which can natively extract a video
-            frame from file:// URIs (and many content:// URIs) without any extra
-            native library. The videoTimestamp prop (expo-image ≥ 1.11) requests
-            the frame at 500 ms for a representative thumbnail.
-            A dark play-button overlay is always shown on top.
-          */
           <View style={styles.image}>
             {/*
-              ANDROID 11+ THUMBNAIL PERF FIX:
-              - videoTimestamp={0} → extract first key-frame (very fast).
-                videoTimestamp={500} forced MediaMetadataRetriever to seek
-                500ms into the file before decoding — on content:// URIs
-                this runs through the SAF resolver + ContentResolver and
-                takes 200-800ms PER thumbnail, freezing the grid on scroll.
-              - priority="low" → expo-image deprioritizes off-screen decodes,
-                keeping scroll buttery instead of fighting for CPU.
-              - allowDownscaling → Glide samples down to grid cell size
-                instead of decoding full-resolution frames into memory.
-              - transition={0} → no fade-in, instant placeholder swap.
+              ANDROID 11+ THUMBNAIL PERF:
+              - videoTimestamp={0} → first key-frame, no MediaMetadataRetriever
+                seek (a 500ms seek on a content:// URI takes 200-800ms each).
+              - priority="normal" (was "low") → on cold launch the JS thread
+                is busy and "low" priority decodes were waiting hundreds of
+                milliseconds before Glide picked them up. "normal" gets the
+                visible thumbnails decoded ASAP without fighting any other
+                priority request (there are none — the viewer uses "high").
+              - allowDownscaling → Glide samples down to grid cell size.
+              - transition={0} → instant placeholder swap, no fade.
             */}
             <Image
               source={{ uri }}
@@ -71,7 +81,7 @@ function MediaCardInner({
               cachePolicy="memory-disk"
               recyclingKey={uri}
               videoTimestamp={0}
-              priority="low"
+              priority="normal"
               allowDownscaling
               transition={0}
             />
@@ -88,7 +98,7 @@ function MediaCardInner({
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={0}
-            priority="low"
+            priority="normal"
             allowDownscaling
             recyclingKey={uri}
           />
@@ -104,7 +114,7 @@ function MediaCardInner({
           {showDeleteButton && onDelete && (
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={onDelete}
+              onPress={handleDelete}
               hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
             >
               <Ionicons name="trash-outline" size={13} color="#fff" />
@@ -112,7 +122,7 @@ function MediaCardInner({
           )}
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={onShare}
+            onPress={handleShare}
             hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
           >
             <Ionicons name="share-outline" size={13} color="#fff" />
@@ -120,7 +130,7 @@ function MediaCardInner({
           {showSaveButton && onSave && (
             <TouchableOpacity
               style={[styles.actionBtn, isSaved && styles.savedBtn]}
-              onPress={onSave}
+              onPress={handleSave}
               hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
             >
               <Ionicons
