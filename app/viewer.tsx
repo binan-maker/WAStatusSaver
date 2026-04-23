@@ -218,9 +218,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // Wait for any in-flight navigation/gesture animations so the JS thread
         // is free, then call replaceAsync immediately — no extra time buffer.
         console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
-        await new Promise<void>(resolve => {
-          InteractionManager.runAfterInteractions(resolve);
-        });
+        // Race against a 250ms cap so a long-running scroll animation never
+        // blocks the video load entirely on slow Android 11 devices.
+        await Promise.race([
+          new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
+          new Promise<void>(resolve => setTimeout(resolve, 250)),
+        ]);
         if (cancelled) return;
         console.log(`[Viewer] Animation done, calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
@@ -292,12 +295,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       if (!isActive) {
         setDisplayUri(null);
         setIsVideoReady(false);
+        // DO NOT call replaceAsync(null) here — the active/inactive sync effect
+        // handles that. Calling it from two effects simultaneously causes a race
+        // that corrupts the player state and produces black screen on Android 11.
         if (item.type === 'video' && player) {
           isReadyToPlayRef.current = false;
-          try {
-            player.pause();
-            (player as any).replaceAsync?.(null).catch?.(() => {});
-          } catch {}
+          try { player.pause(); } catch {}
         }
       }
       return;
@@ -533,6 +536,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     cachePolicy="memory-disk"
                     transition={0}
                     recyclingKey={item.id}
+                    videoTimestamp={500}
                   />
                 </View>
               )}
@@ -780,7 +784,7 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        removeClippedSubviews={true}
+        removeClippedSubviews={false}
         updateCellsBatchingPeriod={50}
       />
 
