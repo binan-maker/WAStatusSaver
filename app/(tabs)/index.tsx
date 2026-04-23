@@ -235,7 +235,6 @@ export default function StatusesScreen() {
   const shareRating = useMilestoneRating('share');
   const {
     statuses,
-    onImageSwipe,
     isLoading,
     isRefreshing,
     isInitializing,
@@ -328,17 +327,24 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-    if (item.type === 'video') {
-      onVideoOpen(item.uri);
-    } else {
-      onImageSwipe();
-    }
-
+    // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
+    // Previously onImageSwipe/onVideoOpen ran first and mutated MediaContext
+    // state. That caused the FlashList to re-render mid-touch on Android 11,
+    // which dropped the in-flight touch event and forced the user to tap a
+    // second time. router.push must be the first thing this handler does.
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
     });
-  }, [onVideoOpen, onImageSwipe]);
+
+    // Defer side effects (counters, interstitial scheduling) until after the
+    // navigation transaction is queued and the touch event is fully consumed.
+    // onImageSwipe is intentionally NOT called for image taps — it is meant
+    // for SWIPING inside the viewer, not for tapping a thumbnail to open.
+    if (item.type === 'video') {
+      setTimeout(() => onVideoOpen(item.uri), 0);
+    }
+  }, [onVideoOpen]);
 
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);
