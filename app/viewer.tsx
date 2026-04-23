@@ -371,7 +371,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const mediaUri = displayUri || initialSource;
 
-  // Reset zoom and image-loaded state whenever a different item becomes active
+  // Reset zoom and image-loaded state whenever the item identity changes OR
+  // whenever this slot becomes inactive. The inactive reset is critical:
+  // FlatList recycles cells, so if the user swipes away from a zoomed image
+  // and back, the shared values would still hold the old zoom state. Resetting
+  // on isActive=false guarantees every (re)entry to a slot starts at scale 1.
   useEffect(() => {
     imageScale.value = 1;
     savedScale.value = 1;
@@ -379,6 +383,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     translateY.value = 0;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
+  }, [item.id, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset image-loaded only on item id change (not on every active toggle).
+  useEffect(() => {
     setImageLoaded(false);
   }, [item.id]);
 
@@ -519,16 +527,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               style={styles.image}
               contentFit="contain"
               cachePolicy="memory-disk"
+              priority={isActive ? 'high' : 'normal'}
+              allowDownscaling
               transition={0}
               recyclingKey={item.id}
-              onLoadStart={() => {
-                console.log(`[Viewer] Image LOAD START: ${item.name}`);
-                setImageLoaded(false);
-              }}
-              onLoad={() => {
-                console.log(`[Viewer] Image LOAD SUCCESS: ${item.name}`);
-                setImageLoaded(true);
-              }}
+              onLoad={() => setImageLoaded(true)}
               onError={(e) => {
                 console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
               }}
@@ -653,7 +656,6 @@ export default function ViewerScreen() {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = useRef<FlatList>(null);
   const prevIndex = useRef(initialIndex);
-  const isScrollingRef = useRef(false);
   
   // Update currentIndex and scroll to it when initialIndex changes
   useEffect(() => {
@@ -674,24 +676,37 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
-  // Pre-copy the next 2 videos in the background so they are ready before swipe.
-  // Images are skipped because expo-image handles content:// URIs efficiently,
-  // avoiding the slow 3-second disk I/O copy bottleneck.
+  // Pre-copy the next 2 videos AND prefetch the prev/next images so the user
+  // never sees a blank frame on swipe. Image.prefetch warms expo-image's
+  // memory-disk cache; the next swipe then renders instantly from RAM instead
+  // of paying the Android 11 ContentResolver tax on every navigation.
   useEffect(() => {
     const next1 = items[currentIndex + 1];
-    if (next1 && next1.type === 'video' && next1.uri.startsWith('content://')) {
-      prepareStatusForViewing(next1 as StatusItem).catch(() => {});
+    const prev1 = items[currentIndex - 1];
+
+    if (next1) {
+      if (next1.type === 'video' && next1.uri.startsWith('content://')) {
+        prepareStatusForViewing(next1 as StatusItem).catch(() => {});
+      } else if (next1.type === 'image') {
+        Image.prefetch(next1.uri, 'memory-disk').catch(() => {});
+      }
     }
+    if (prev1 && prev1.type === 'image') {
+      Image.prefetch(prev1.uri, 'memory-disk').catch(() => {});
+    }
+
     const timer = setTimeout(() => {
       const next2 = items[currentIndex + 2];
-      if (next2 && next2.type === 'video' && next2.uri.startsWith('content://')) {
-        prepareStatusForViewing(next2 as StatusItem).catch(() => {});
+      if (next2) {
+        if (next2.type === 'video' && next2.uri.startsWith('content://')) {
+          prepareStatusForViewing(next2 as StatusItem).catch(() => {});
+        } else if (next2.type === 'image') {
+          Image.prefetch(next2.uri, 'memory-disk').catch(() => {});
+        }
       }
-    }, 400); // Increased stagger to 400ms to further reduce disk I/O pressure
+    }, 400);
     return () => clearTimeout(timer);
   }, [currentIndex, items, prepareStatusForViewing]);
-
-  const scrollSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showControls, setShowControls] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -753,36 +768,25 @@ const toggleControls = useCallback(() => {
     ]);
   }, [isSavedView, currentItem, savedItems, deleteFromSaved, items.length]);
 
-  const onScroll = useCallback((event: any) => {
-    if (isScrollingRef.current) return;
+  // Single source of truth for index changes: only onMomentumScrollEnd. The
+  // previous version also fired from onScrollEndDrag → onScroll, which caused
+  // setCurrentIndex to be called twice per swipe on Android 11, triggering a
+  // double re-render of every ViewerItem and producing the "stuck/laggy" feel
+  // on fast flicks. Momentum-end fires once when the page snaps into place.
+  const handleIndexSettled = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SW);
     if (index < 0 || index >= items.length) return;
+    if (index === prevIndex.current) return;
 
-    // Debounce: skip intermediate scroll positions during fast flicks.
-    // 80ms gives the scroll animation time to settle without feeling laggy.
-    if (scrollSettleRef.current) clearTimeout(scrollSettleRef.current);
-    scrollSettleRef.current = setTimeout(() => {
-      setCurrentIndex(index);
-      setShowControls(true);
-      controlsOpacity.setValue(1);
-      if (index !== prevIndex.current) {
-        if (items[index]?.type === 'image') {
-          onImageSwipe();
-        }
-        prevIndex.current = index;
-      }
-    }, 80);
+    setCurrentIndex(index);
+    setShowControls(true);
+    controlsOpacity.setValue(1);
+    if (items[index]?.type === 'image') {
+      onImageSwipe();
+    }
+    prevIndex.current = index;
   }, [items, onImageSwipe, controlsOpacity]);
-
-  const onScrollBeginDrag = useCallback(() => {
-    isScrollingRef.current = true;
-  }, []);
-
-  const onScrollEndDrag = useCallback((event: any) => {
-    isScrollingRef.current = false;
-    onScroll(event);
-  }, [onScroll]);
 
   if (!currentItem) return null;
 
@@ -803,9 +807,9 @@ const toggleControls = useCallback(() => {
           offset: SW * index,
           index,
         })}
-        onMomentumScrollEnd={onScroll}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
+        onMomentumScrollEnd={handleIndexSettled}
+        decelerationRate="fast"
+        disableIntervalMomentum
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
@@ -821,11 +825,11 @@ const toggleControls = useCallback(() => {
         onScrollToIndexFailed={(info) => {
           flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
         }}
-        windowSize={isVideoItem ? 3 : 5}
+        windowSize={3}
         initialNumToRender={1}
-        maxToRenderPerBatch={isVideoItem ? 1 : 2}
+        maxToRenderPerBatch={1}
         removeClippedSubviews={!isVideoItem}
-        updateCellsBatchingPeriod={isVideoItem ? 50 : 20}
+        updateCellsBatchingPeriod={50}
       />
 
       {/* ── Top bar: back + counter. Always visible for video; toggleable for images ── */}
@@ -834,13 +838,22 @@ const toggleControls = useCallback(() => {
           styles.topBar,
           {
             paddingTop: insets.top + 8,
-            opacity: isVideoItem ? 1 : controlsOpacity,
-            pointerEvents: (isVideoItem || showControls) ? 'auto' : 'none',
+            // Top bar is ALWAYS visible for both images and videos. Toggling
+            // it for images caused the back button to require two taps on
+            // Android 11: the first tap was eaten by the gesture detector to
+            // re-show controls, the second finally hit Back. Always-visible
+            // top bar matches Instagram/WhatsApp behavior and guarantees a
+            // single-tap back.
+            opacity: 1,
             zIndex: 150,
           },
         ]}
+        // box-none so taps on empty top-bar area still fall through to the
+        // image gesture detector below, but the back button itself always
+        // receives its own touches.
+        pointerEvents="box-none"
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.topInfo}>
