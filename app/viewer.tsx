@@ -102,12 +102,27 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const scheduleReveal = useCallback((delayMs: number) => {
     clearRevealTimer();
-    console.log(`[Viewer] Scheduling reveal in ${delayMs}ms for ${item.name}`);
     revealTimerRef.current = setTimeout(() => {
       console.log(`[Viewer] REVEALING video surface for ${item.name}`);
       setIsVideoVisible(true);
     }, delayMs);
   }, [clearRevealTimer, item.name]);
+
+  const initialSource = useMemo(() => {
+    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
+  }, [item.id, item.uri]);
+
+  // Player declared BEFORE all effects so every closure captures the same binding.
+  // Starts with no source — replaceAsync feeds the file:// URI after SAF copy.
+  const player = useVideoPlayer(null, (p) => {
+    if (p) {
+      p.loop = true;
+      p.muted = true;
+      if (Platform.OS === 'android') {
+        p.staysActiveInBackground = false;
+      }
+    }
+  });
 
   // Reanimated shared values for smooth pinch-to-zoom on images
   const imageScale = useSharedValue(1);
@@ -119,34 +134,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
 
-  // Fully release the hardware decoder on unmount.
-  // Using player.release() (not just replaceAsync(null)) is critical:
-  // replaceAsync(null) clears the source but may leave the native ExoPlayer
-  // instance holding its hardware codec slot. With windowSize={3}, the FlatList
-  // only keeps 3 items mounted, so each unmount MUST free the decoder slot.
-  // Without release(), after 3-5 videos the hardware codec pool (typically 3-4
-  // slots on Android) is exhausted → new videos decode in black.
+  // Fully release the hardware decoder on unmount to free the codec slot.
+  // player.release() is stronger than replaceAsync(null) — it tears down the
+  // ExoPlayer instance entirely, freeing the hardware codec slot immediately.
   useEffect(() => {
     return () => {
       try { player.release(); } catch {}
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const initialSource = useMemo(() => {
-    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-  }, [item.id, item.uri]);
-
-  // Player starts with no source. A file:// URI is fed in via replaceAsync once
-  // the content:// file has been fully copied to the cache dir.
-  const player = useVideoPlayer(null, (p) => {
-    if (p) {
-      p.loop = true;
-      p.muted = true;
-      if (Platform.OS === 'android') {
-        p.staysActiveInBackground = false;
-      }
-    }
-  });
+  }, [player]);
 
   const tryStartPlayback = useCallback(() => {
     if (
@@ -165,11 +160,25 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   }, [displayUri, item.type, player]);
 
+  // ── Callback refs for the stable status listener ──────────────────────────
+  // The status listener is attached once per player instance and must never be
+  // torn down/re-added when displayUri or other state changes — that would miss
+  // the readyToPlay event. But the listener needs to call tryStartPlayback and
+  // scheduleReveal which change when displayUri changes. Solution: store the
+  // latest callback in a ref and call through the ref inside the stable listener.
+  // This is the same pattern expo's useEventListener uses internally.
+  const tryStartPlaybackRef = useRef(tryStartPlayback);
+  const scheduleRevealRef = useRef(scheduleReveal);
+  const clearRevealTimerRef = useRef(clearRevealTimer);
+  useEffect(() => { tryStartPlaybackRef.current = tryStartPlayback; });
+  useEffect(() => { scheduleRevealRef.current = scheduleReveal; });
+  useEffect(() => { clearRevealTimerRef.current = clearRevealTimer; });
+
   // ── Status listener ──────────────────────────────────────────────────────
-  // Using a manual useEffect instead of useEventListener from expo because on
-  // Android 11 the native VideoPlayer bridge can be uninitialized on the first
-  // render, making player.addListener undefined → crash. The null-guard + try/catch
-  // here prevents that crash while still wiring up the listener correctly.
+  // Attached once per player instance. Uses refs for callbacks so it always
+  // calls the latest tryStartPlayback (with current displayUri). Also wraps
+  // addListener in a try/catch: on Android 11 the native bridge can be
+  // uninitialized on the very first render, making addListener undefined.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!player || typeof player.addListener !== 'function') return;
@@ -181,15 +190,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         isReadyToPlayRef.current = ready;
         setIsVideoReady(ready);
         if (ready) {
-          tryStartPlayback();
-          // Schedule the thumbnail hide 200 ms AFTER readyToPlay. This gap lets
-          // ExoPlayer push the first frame to the SurfaceView before we reveal it.
+          // Always call the latest tryStartPlayback via ref — never a stale closure.
+          tryStartPlaybackRef.current();
           if (isActiveRef.current) {
-            scheduleReveal(200);
+            // 200 ms gap lets ExoPlayer push the first frame before revealing.
+            scheduleRevealRef.current(200);
           }
         } else {
           setIsVideoVisible(false);
-          clearRevealTimer();
+          clearRevealTimerRef.current();
         }
       });
     } catch (e) {
@@ -198,7 +207,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     return () => {
       try { subscription?.remove(); } catch {}
     };
-  }, [player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [player, item.type, item.name]); // stable deps only — callbacks via refs
 
   // Reset ready + visible flags (and cancel any pending reveal) on source change.
   useEffect(() => {
