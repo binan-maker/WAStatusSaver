@@ -89,6 +89,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const isActiveRef = useRef(isActive);
+  // Update synchronously every render so every callback sees the latest value
+  // without waiting for a useEffect to run after paint.
+  isActiveRef.current = isActive;
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,8 +135,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
 
-  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
-
   // Fully release the hardware decoder on unmount to free the codec slot.
   // player.release() is stronger than replaceAsync(null) — it tears down the
   // ExoPlayer instance entirely, freeing the hardware codec slot immediately.
@@ -147,8 +148,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     if (
       item.type !== 'video' ||
       !displayUri ||
-      isLoadingSource.current ||
-      !isReadyToPlayRef.current ||
+      !isReadyToPlayRef.current ||  // set false before replaceAsync, true only on readyToPlay
       !isActiveRef.current
     ) return;
 
@@ -192,10 +192,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         if (ready) {
           // Always call the latest tryStartPlayback via ref — never a stale closure.
           tryStartPlaybackRef.current();
-          if (isActiveRef.current) {
-            // 200 ms gap lets ExoPlayer push the first frame before revealing.
-            scheduleRevealRef.current(200);
-          }
+          // Always schedule reveal regardless of isActive. If the user is on a
+          // different video, the isActive-reset effect resets isVideoVisible=false
+          // before the timer fires. Guarding here with isActiveRef caused freezes
+          // when the ref was stale-false at readyToPlay time.
+          scheduleRevealRef.current(200);
         } else {
           setIsVideoVisible(false);
           clearRevealTimerRef.current();
@@ -252,8 +253,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         if (!cancelled) {
           console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
           isLoadingSource.current = false;
+          // Use ref so we always call the latest tryStartPlayback. Also re-check
+          // isReadyToPlayRef here because on fast cache hits the player fires
+          // readyToPlay synchronously inside replaceAsync before this line runs.
+          tryStartPlaybackRef.current();
         }
-        tryStartPlayback();
       } catch (e) {
         if (!cancelled) {
           isLoadingSource.current = false;
@@ -268,7 +272,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       isLoadingSource.current = false;
       isReadyToPlayRef.current = false;
     };
-  }, [displayUri, item.type, player, tryStartPlayback]);
+  // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef
+  // to avoid cancelling in-flight replaceAsync on every displayUri change.
+  }, [displayUri, item.type, player]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reveal timer cleanup on unmount ─────────────────────────────────────
   useEffect(() => {
@@ -276,26 +282,39 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handle swipe-to-already-ready-video ──────────────────────────────────
-  // When the user swipes to a nearActive video that was already buffered (isVideoReady=true)
-  // but never got to reveal (isVideoVisible=false), kick off a short reveal timer.
-  // The video has been playing muted the whole time so frames are already on screen.
+  // Covers two cases:
+  // A) User swipes to a nearActive video that already hit readyToPlay while
+  //    buffering — isVideoReady=true but isActive was false so reveal was never shown.
+  // B) readyToPlay fires while isActive is already true (e.g. fast cache hit
+  //    that resolves before the first render's useEffect can run).
+  // Both cases are caught by reacting to BOTH isActive and isVideoReady changes.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (isActive && isVideoReady && !isVideoVisible) {
-      scheduleReveal(80);
+      scheduleRevealRef.current(80);
     }
+  }, [isActive, isVideoReady, isVideoVisible, item.type]);
+
+  // ── isActive-false cleanup ───────────────────────────────────────────────
+  // Separate from the reveal effect so changes to isVideoReady don't
+  // accidentally re-run the cleanup path.
+  useEffect(() => {
+    if (item.type !== 'video') return;
     if (!isActive) {
       setIsVideoVisible(false);
-      clearRevealTimer();
+      clearRevealTimerRef.current();
     }
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isActive, item.type]);
 
   // ── Active / inactive sync ───────────────────────────────────────────────
   useEffect(() => {
     if (item.type !== 'video' || !player || isLoadingSource.current) return;
     try {
       if (isActive) {
-        tryStartPlayback();
+        // Use ref so we always call the latest tryStartPlayback without this
+        // effect re-running (and potentially cancelling an in-flight replaceAsync)
+        // every time displayUri changes.
+        tryStartPlaybackRef.current();
       } else {
         player.muted = true;
         if (!isNearActive) {
@@ -308,7 +327,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     } catch (e) {
       console.log('Player sync error:', e);
     }
-  }, [isActive, isNearActive, player, item.type, tryStartPlayback]);
+  // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef.
+  }, [isActive, isNearActive, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── URI preparation ──────────────────────────────────────────────────────
   useEffect(() => {

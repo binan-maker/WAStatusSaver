@@ -276,23 +276,31 @@ export default function StatusesScreen() {
     }
   }, [hasPermission, safGranted, isGrantingAccess, androidVersion]);
 
-  // Auto-refresh when the user returns to the app from WhatsApp
+  // Keep a ref to refresh so the AppState listener is never torn down/re-added
+  // when refresh changes identity (happens whenever loadStatuses re-creates due to
+  // safUris/hasPermission changes). Re-adding mid-session causes brief listener gaps.
+  const refreshRef = useRef(refresh);
+  useEffect(() => { refreshRef.current = refresh; });
+
+  // Auto-refresh when the user returns to the app from WhatsApp.
+  // Stable listener (no deps) — always calls latest refresh via ref.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         const now = Date.now();
-        // Throttle: Don't refresh more than once every 30 seconds via AppState
-        // This prevents infinite loops from AdMob focus shifts.
+        // Throttle: Don't refresh more than once every 30 seconds via AppState.
+        // AdMob focus shifts can cause rapid active/background toggles;
+        // the throttle prevents a SAF BFS scan on every flicker.
         if (now - lastRefreshTime.current > 30000) {
           lastRefreshTime.current = now;
-          refresh(true); // Silent refresh to avoid shimmering
+          refreshRef.current(true); // silent — no shimmer while watching
         } else {
           console.log('[Loader] AppState active, but throttled. Skipping refresh.');
         }
       }
     });
     return () => sub.remove();
-  }, [refresh]);
+  }, []); // stable — uses ref for refresh
 
   const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
   const selectedStatuses = useMemo(
