@@ -230,6 +230,14 @@ export default function StatusesScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [activeTab, setActiveTab] = useState<TabType>('images');
+  // Track which tabs have been visited at least once. Once a tab is opened,
+  // its FlashList stays mounted forever — switching back is instant with no
+  // re-decode of thumbnails. Only the very first paint is single-grid (the
+  // launch heat fix); after one swipe both grids stay alive.
+  const [visitedTabs, setVisitedTabs] = useState<Record<TabType, boolean>>({
+    images: true,
+    videos: false,
+  });
   const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
   const saveRating = useMilestoneRating('save');
   const shareRating = useMilestoneRating('share');
@@ -281,20 +289,23 @@ export default function StatusesScreen() {
   const refreshRef = useRef(refresh);
   useEffect(() => { refreshRef.current = refresh; });
 
-  // Auto-refresh when the user returns to the app from WhatsApp.
-  // Stable listener (no deps) — always calls latest refresh via ref.
+  // Auto-refresh when the user returns to the app — but ONLY if it has been
+  // at least 30 minutes since the last refresh. Statuses don't change often
+  // enough to justify a full SAF folder walk every time the app blinks
+  // active. The user can always pull-to-refresh for an explicit refresh.
+  // The initial load on app open is handled by the mount effect above; this
+  // only catches "user came back after a long time".
+  const APP_STATE_REFRESH_THROTTLE_MS = 30 * 60 * 1000; // 30 minutes
   useEffect(() => {
+    // Seed the timestamp so the very first AppState→active right after
+    // launch never re-triggers a refresh on top of the initial load.
+    lastRefreshTime.current = Date.now();
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         const now = Date.now();
-        // Throttle: Don't refresh more than once every 30 seconds via AppState.
-        // AdMob focus shifts can cause rapid active/background toggles;
-        // the throttle prevents a SAF BFS scan on every flicker.
-        if (now - lastRefreshTime.current > 30000) {
+        if (now - lastRefreshTime.current > APP_STATE_REFRESH_THROTTLE_MS) {
           lastRefreshTime.current = now;
           refreshRef.current(true); // silent — no shimmer while watching
-        } else {
-          console.log('[Loader] AppState active, but throttled. Skipping refresh.');
         }
       }
     });
@@ -384,23 +395,29 @@ export default function StatusesScreen() {
     }
   }, [requestSAF, selectedSource, androidVersion]);
 
+  const markVisited = useCallback((tab: TabType) => {
+    setVisitedTabs(prev => (prev[tab] ? prev : { ...prev, [tab]: true }));
+  }, []);
+
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
+    markVisited(tab);
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
         x: tab === 'images' ? 0 : SW,
         animated: true,
       });
     }
-  }, []);
+  }, [markVisited]);
 
   const onScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
     if (newTab !== activeTab) {
       setActiveTab(newTab);
+      markVisited(newTab);
     }
-  }, [activeTab]);
+  }, [activeTab, markVisited]);
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
@@ -502,7 +519,7 @@ export default function StatusesScreen() {
               actionLabel="Refresh"
               onAction={refresh}
             />
-          ) : activeTab === 'images' ? (
+          ) : visitedTabs.images ? (
             <FlashList
               data={filteredImages}
               keyExtractor={(item) => item.id}
@@ -548,7 +565,7 @@ export default function StatusesScreen() {
               actionLabel="Refresh"
               onAction={refresh}
             />
-          ) : activeTab === 'videos' ? (
+          ) : visitedTabs.videos ? (
             <FlashList
               data={filteredVideos}
               keyExtractor={(item) => item.id}
