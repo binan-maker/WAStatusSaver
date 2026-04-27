@@ -194,8 +194,7 @@ export default function SavedScreen() {
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled
-          removeClippedSubviews={Platform.OS === 'android'}
-          drawDistance={500}
+          drawDistance={1500}
         />
         </>
       )}

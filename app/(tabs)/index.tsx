@@ -508,8 +508,7 @@ export default function StatusesScreen() {
               }}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              removeClippedSubviews={Platform.OS === 'android'}
-              drawDistance={500}
+              drawDistance={1500}
             />
           )}
         </View>
@@ -554,8 +553,7 @@ export default function StatusesScreen() {
               }}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              removeClippedSubviews={Platform.OS === 'android'}
-              drawDistance={500}
+              drawDistance={1500}
             />
           )}
         </View>

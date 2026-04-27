@@ -10,6 +10,10 @@ import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 
+// 32x32 neutral grey blurhash — shown while a recycled cell is decoding the
+// new image so users never see a "black grid" when scrolling back up.
+const THUMB_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
+
 interface MediaCardProps {
   item: StatusItem | SavedItem;
   isSaved: boolean;
@@ -58,6 +62,8 @@ function MediaCardInner({
               cachePolicy="memory-disk"
               recyclingKey={uri}
               videoTimestamp={500}
+              placeholderContentFit="cover"
+              placeholder={THUMB_PLACEHOLDER}
             />
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
@@ -71,11 +77,9 @@ function MediaCardInner({
             style={styles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
-            transition={100}
             recyclingKey={uri}
-            onLoadStart={() => console.log(`[Card] Loading thumbnail: ${item.name}`)}
-            onLoad={() => console.log(`[Card] Thumbnail loaded: ${item.name}`)}
-            onError={(e) => console.error(`[Card] Thumbnail error: ${item.name}`, e)}
+            placeholderContentFit="cover"
+            placeholder={THUMB_PLACEHOLDER}
           />
         )}
 
