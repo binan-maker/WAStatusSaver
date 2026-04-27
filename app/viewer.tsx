@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   FlatList,
   InteractionManager,
+  BackHandler,
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withDecay, runOnJS } from 'react-native-reanimated';
@@ -88,6 +89,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   isActiveRef.current = isActive;
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
+  // ANDROID 11+ DUPLICATE-REPLACEASYNC FIX:
+  // The source-loading effect is keyed on `displayUri`. When the watchdog
+  // calls setDisplayUri(cached) AFTER it has already called replaceAsync(cached)
+  // itself, the effect re-fires and calls replaceAsync(cached) a SECOND time
+  // for the exact same URI. Logs showed: 1848 ms first call, then a duplicate
+  // 146 ms call for the same video. We track the last URI handed to ExoPlayer
+  // and short-circuit when a duplicate would otherwise be issued. The ref is
+  // reset only on real source/item changes (see the source-reset useEffect
+  // below), so legitimate source switches still go through.
+  const lastReplacedSourceRef = useRef<string | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Once the video surface has rendered its first frame, this stays `true`
   // for the lifetime of the current source. ExoPlayer sometimes emits brief
@@ -299,6 +310,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset the dedupe ref whenever we actually navigate to a new ITEM (not on
+  // every displayUri micro-change inside the same item). This guarantees the
+  // first replaceAsync for a freshly-mounted/swiped-in source always goes
+  // through, even if the URI happens to string-match the previous item.
+  useEffect(() => {
+    lastReplacedSourceRef.current = null;
+  }, [item.id]);
+
   // ── Source loading ───────────────────────────────────────────────────────
   // Strategy: call replaceAsync as soon as animations finish (InteractionManager),
   // then rely on the 200 ms isVideoVisible reveal delay to guarantee the first
@@ -321,6 +340,19 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     let cancelled = false;
     let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // ── DEDUPE GUARD ────────────────────────────────────────────────────────
+    // If we've already handed this exact URI to ExoPlayer for this item,
+    // don't replace it again. The watchdog used to set displayUri to the
+    // cached file AFTER it had already called replaceAsync(cached) itself,
+    // causing a duplicate replaceAsync that wasted 100-300 ms of native work
+    // and briefly stalled playback on Android 11. With this short-circuit
+    // the second pass is a no-op.
+    if (lastReplacedSourceRef.current === displayUri) {
+      console.log(`[Viewer] Skipping duplicate replaceAsync for ${item.name}`);
+      return;
+    }
+
     isLoadingSource.current = true;
     isReadyToPlayRef.current = false;
 
@@ -343,6 +375,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         }
         console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
+        // Mark BEFORE awaiting so a watchdog-triggered displayUri update
+        // arriving mid-await doesn't re-fire replaceAsync against the same
+        // source between this line and the await resolving.
+        lastReplacedSourceRef.current = displayUri;
         await player.replaceAsync(displayUri);
         if (cancelled) return;
         console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
@@ -371,6 +407,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   logFallbackCopyTriggered();
                 }
                 isLoadingSource.current = true;
+                // Mark BEFORE the setDisplayUri() below so when the source-
+                // loading effect re-runs with displayUri = cached, the dedupe
+                // guard at the top sees the match and skips the duplicate
+                // replaceAsync. Without this we'd issue a second
+                // replaceAsync(cached) for the exact same URI we just loaded.
+                lastReplacedSourceRef.current = cached;
                 await player.replaceAsync(cached);
                 if (cancelled) return;
                 isLoadingSource.current = false;
@@ -809,6 +851,21 @@ export default function ViewerScreen() {
       loadStatuses();
     }
   }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
+
+  // ── Android hardware-back handling ─────────────────────────────────────
+  // expo-router will pop the stack on hardware back by default, but on some
+  // OEMs (older MIUI / OneUI) the gesture handler / FlatList pager swallows
+  // the press and the user has to tap back several times before the route
+  // actually pops. Owning the handler here guarantees ONE press = one pop.
+  // We return `true` to mark the event as handled so RN doesn't double-fire
+  // the default handler on top of router.back().
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.back();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   const items = useMemo(() => {
     if (isSavedView) {
