@@ -19,6 +19,16 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+// react-native-share is used to AUTO-FILL the caption field in the OS share
+// sheet (WhatsApp, Telegram, Instagram, etc.) — expo-sharing only ships the
+// media URI and cannot attach EXTRA_TEXT to Android's Intent.ACTION_SEND.
+// react-native-share is a native module — it does NOT run in Expo Go, but
+// the project already depends on react-native-iap, react-native-google-mobile-
+// ads, and @react-native-google-signin/google-signin (also native-only), so
+// we are already on a custom dev-client build and adding one more native
+// module is consistent with the existing architecture. The next APK build
+// (EAS or local prebuild) will autolink it automatically.
+import Share from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY, IMAGE_SWIPE_AD_FREQUENCY, INTERSTITIAL_COOLDOWN_MS } from '@/constants/admob';
 import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
@@ -1439,22 +1449,73 @@ const crawlStart = Date.now();
         }
       }
 
-      // ─── Viral caption pre-copy ────────────────────────────────────
-      // expo-sharing's shareAsync cannot attach a text caption to a media
-      // share, so we pre-copy the user's personal short link to the
-      // clipboard. The recipient's WhatsApp/Telegram caption field is one
-      // long-press → Paste away — and now every shared status carries the
-      // install link that credits the sharer on the Reward Ladder.
+      // ─── Viral caption assembly ────────────────────────────────────
+      // Build the caption (personal short link + install copy) once. We
+      // try TWO independent delivery channels for it, in priority order:
+      //   1. Native auto-fill via react-native-share (Intent.ACTION_SEND
+      //      EXTRA_TEXT on Android, UIActivityViewController text item on
+      //      iOS) — most apps (WhatsApp, Telegram, Instagram, Gmail, X,
+      //      Facebook) read this and pre-fill their caption box.
+      //   2. Clipboard backup — for the apps that ignore EXTRA_TEXT
+      //      (some OEM share targets, third-party launchers, anti-spam
+      //      filters), the user can long-press → Paste in the caption box.
+      // Both run unconditionally so we degrade gracefully on any device
+      // where (1) silently doesn't work — there is no reliable signal
+      // back from the share sheet about which apps consumed the text.
+      let caption = '';
       try {
         const shortLink = await getCachedShareLink();
-        const caption = buildShareCaption(shortLink);
-        await Clipboard.setStringAsync(caption);
+        caption = buildShareCaption(shortLink);
       } catch {
-        // Clipboard write can fail on some OEMs — never block the share.
+        // Caption-building failures are non-fatal — we share the media alone.
+      }
+      // Backup: silent clipboard copy (never blocks the share).
+      if (caption) {
+        try { await Clipboard.setStringAsync(caption); } catch {}
       }
 
-      await Sharing.shareAsync(shareUri);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // Resolve the file:// URL react-native-share expects. Web URLs are
+      // valid too but our shareUri is always a local file path here.
+      const fileUrl = shareUri.startsWith('file://') ? shareUri : `file://${shareUri}`;
+      // MIME type: best-guess by item.type. WhatsApp/Telegram preview
+      // correctly with these defaults; misidentifying as the wrong family
+      // (image vs video) breaks the in-share preview.
+      const mimeType = item.type === 'video' ? 'video/mp4' : 'image/jpeg';
+
+      let nativeShareSucceeded = false;
+      try {
+        await Share.open({
+          title: 'Share via',
+          // `message` becomes Intent.EXTRA_TEXT on Android and the text
+          // item on iOS. WhatsApp etc auto-fill their caption from this.
+          message: caption || undefined,
+          url: fileUrl,
+          type: mimeType,
+          // Critical: don't reject the promise when the user backs out
+          // of the share sheet — that's a normal flow, not an error.
+          failOnCancel: false,
+        });
+        nativeShareSucceeded = true;
+      } catch (e: any) {
+        // 'User did not share' is the cancel case — silent. Any other
+        // error means the native module itself is unavailable (e.g.
+        // running in Expo Go without the autolinked binary), so fall
+        // back to expo-sharing so the user can still share the media.
+        const msg = String(e?.message || e || '');
+        if (msg !== 'User did not share' && !msg.includes('cancel')) {
+          console.warn('[Share] react-native-share failed, falling back to expo-sharing:', msg);
+          try {
+            await Sharing.shareAsync(shareUri);
+            nativeShareSucceeded = true;
+          } catch (fallbackErr) {
+            console.error('[Share] expo-sharing fallback also failed:', fallbackErr);
+          }
+        }
+      }
+
+      if (nativeShareSucceeded) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
 
       // ─── Post-share temp cleanup ─────────────────────────────────────
       // Android Intent.ACTION_SEND consumers (WhatsApp, Telegram, etc.)
