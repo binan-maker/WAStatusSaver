@@ -64,6 +64,13 @@
   - Root cause: `app/viewer.tsx` was missing `export default` on `ViewerScreen`. Without a default export, expo-router couldn't resolve the `/viewer` route, fell back to `app/+not-found.tsx` ("Oops!" title + "Go to home screen!" link). Every tap on an image/video pushed the user to the not-found screen.
   - Fix: Changed `function ViewerScreen()` → `export default function ViewerScreen()` (single-line). Verified all other route files (permissions/signin/onboarding/contact) use the same `export default function` pattern.
   - User decision (option 3): skip the full Zustand rewrite (massive risk, the roadmap code is illustrative). Most touch/perf hardening from the roadmap is already in the codebase (stable useCallback handlers, pressRetentionOffset/hitSlop on MediaCard, enqueueCopy SAF queue, immediate haptics, deferred gallery export). The remaining "small zustand-style slice for save/share UI flags" was deferred — current save state is held locally in viewer.tsx and there's no per-card overlay UX driving the need. Will revisit if/when we add per-card save overlays.
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> ba13d776e65d829fb36c5442d0bd2f4e3dd59642
+>>>>>>> 6b3423fc854d0cc6d5df9997c241135b1ade3d49
 
 [x] FIX H — DUPLICATE replaceAsync + HARDWARE BACK BUTTON (2026-04-27, video-player roadmap)
   - User sent a second roadmap diagnosing video-player issues. The roadmap proposed (a) ripping out expo-video and switching back to deprecated expo-av, (b) deleting the swipe-pager FlatList, (c) using undocumented `nativeProps: { useContentResolver, grantUriPermission }` (not real expo-av props). Rejected (a)(b)(c) — would erase ~1200 lines of working code, regress to deprecated lib, and silently fail.
@@ -76,6 +83,7 @@
     2. **Android hardware back button** — added `BackHandler.addEventListener('hardwareBackPress', …)` inside `ViewerScreen` that calls `router.back()` and returns `true`. Some OEMs (older MIUI/OneUI) had the gesture handler / FlatList swallow the press, requiring multiple taps. Owning the handler guarantees one press = one pop.
   - DID NOT apply: expo-av rewrite, single-video viewer, `nativeProps` SAF flags, removal of pager. Existing 120 ms `runAfterInteractions` wait is already skipped for `file://` (added in earlier round) — the only remaining wait is for `content://` which is needed for slow-Android-11 mid-animation collisions.
   - Verified: Metro bundler restarted clean, no syntax errors, no LSP issues.
+<<<<<<< HEAD
 
 [x] FIX L — AUTO-CAPTION SHARING VIA react-native-share (2026-04-27)
   - User requested: when sharing a status, the recipient app's caption field (WhatsApp, Telegram, Instagram, etc.) should be PRE-FILLED with the user's personal short link + invite text. Previously the caption was only copied to clipboard, so the user had to manually paste in the destination app.
@@ -97,6 +105,9 @@
   - Trade-off: +200-700 ms first-load latency on cache miss; cache hits return in ~10 ms (same status replayed = effectively instant). This is the same path the watchdog used to trigger as a fallback — we're just doing it upfront for content:// videos instead of waiting for the streaming attempt to fail.
   - Watchdog still kept (defense in depth) for the rare case where prepareStatusForViewing returns the original content:// URI due to copy failure.
   - Verified: Metro bundler restarted clean, no LSP issues. prepareStatusForViewing already destructured from useMedia() and StatusItem already imported — no new imports needed.
+=======
+<<<<<<< HEAD
+>>>>>>> 6b3423fc854d0cc6d5df9997c241135b1ade3d49
 
 [x] FIX J — WATCHDOG INTERRUPTS MID-PLAYBACK RE-BUFFER → "STUCK AFTER 1 SECOND" (2026-04-27)
   - User confirmed: thumbnail-freeze gone, swipes smooth, but videos play for ~1 second then freeze entirely.
@@ -127,3 +138,10 @@
     2. Backstop catch: if the error message includes "MEDIA_LIBRARY permissions" or "Missing MEDIA_LIBRARY", return null silently without logging — it's expected, not a real error. All other errors still log.
   - DID NOT apply: any app.json permission changes, no UI blink-prevention `hasLoadedOnceRef` (separate concern, no log evidence the user is hitting it; would touch `index.tsx`/`saved.tsx` which are sensitive).
   - Verified: Metro bundler restarted clean, no LSP issues.
+<<<<<<< HEAD
+=======
+=======
+=======
+>>>>>>> 87cdbcffdc488a474af0806c05ff080d7bf1cab9
+>>>>>>> ba13d776e65d829fb36c5442d0bd2f4e3dd59642
+>>>>>>> 6b3423fc854d0cc6d5df9997c241135b1ade3d49
