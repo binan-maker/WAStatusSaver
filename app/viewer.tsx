@@ -89,6 +89,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   isActiveRef.current = isActive;
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
+  // "Has the player ever reached readyToPlay for the current source?" Latch.
+  // Different from isReadyToPlayRef: that one tracks the LIVE status (flips
+  // back to false on every mid-playback re-buffer). This one stays true once
+  // set, until the source actually changes. The watchdog uses THIS ref to
+  // decide whether to fire its fallback-copy path — without it, the watchdog
+  // would mistake a brief mid-playback "loading" status (when ExoPlayer
+  // pulls more bytes from SAF) for a stalled initial load and forcibly
+  // swap the source mid-playback, freezing the video at ~1 second in.
+  const hasEverReachedReadyRef = useRef(false);
   // ANDROID 11+ DUPLICATE-REPLACEASYNC FIX:
   // The source-loading effect is keyed on `displayUri`. When the watchdog
   // calls setDisplayUri(cached) AFTER it has already called replaceAsync(cached)
@@ -265,6 +274,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           // Clear any lingering error state — playback recovered.
           setVideoError(false);
           setIsVideoReady(true);
+          // Latch: the video has now reached readyToPlay at least once for
+          // this source. Mid-playback re-buffers will flip status back to
+          // 'loading' but must NOT cause the watchdog to swap the source.
+          hasEverReachedReadyRef.current = true;
           // Always call the latest tryStartPlayback via ref — never a stale closure.
           tryStartPlaybackRef.current();
           if (!hasRevealedOnceRef.current) {
@@ -310,6 +323,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setIsVideoVisible(false);
     setVideoError(false);
     hasRevealedOnceRef.current = false;
+    // Reset the "ever reached ready" latch on a real source change so the
+    // watchdog can do its job for the new source if needed. NOT reset on
+    // mid-playback re-buffers — those don't change displayUri.
+    hasEverReachedReadyRef.current = false;
     directPlayLoggedRef.current = false;
     fallbackLoggedRef.current = false;
     clearRevealTimer();
@@ -398,11 +415,22 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // serialized queue so it never fights another in-flight prepare.
         if (displayUri.startsWith('content://')) {
           watchdogTimer = setTimeout(async () => {
-            if (cancelled || isReadyToPlayRef.current) return;
+            // Bail if cancelled, OR if the player is currently ready, OR if
+            // it has EVER been ready for this source. The "ever ready" check
+            // is the critical one: ExoPlayer briefly flips status back to
+            // 'loading' during mid-playback re-buffers (every few seconds
+            // when streaming SAF bytes). Without this latch the watchdog
+            // would mistake a 1.5 s re-buffer for an initial-load stall and
+            // forcibly swap the source mid-playback, freezing the video.
+            if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
             console.log(`[Viewer] Watchdog: direct content:// playback stalled for ${item.name}, falling back to cached copy`);
             try {
               const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
-              if (cancelled || isReadyToPlayRef.current) return;
+              // Re-check the latch AFTER the await — the player might have
+              // reached readyToPlay during the cache copy, in which case we
+              // must not swap the source out from under a video that's now
+              // happily playing.
+              if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
               if (cached && cached !== displayUri) {
                 // Telemetry: count this watchdog→fallback cycle ONCE per
                 // source so we can spot devices/installs that hit it
