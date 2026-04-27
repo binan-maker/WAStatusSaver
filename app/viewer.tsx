@@ -190,6 +190,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       }
       isReadyToPlayRef.current = false;
       isLoadingSource.current = true;
+      // Mirror the watchdog's pattern: mark the dedupe ref BEFORE setDisplayUri
+      // so the source-loading effect's re-run with displayUri=cached sees
+      // the match and short-circuits, instead of issuing a duplicate
+      // replaceAsync(cached) immediately after this one.
+      lastReplacedSourceRef.current = cached;
       await player.replaceAsync(cached);
       isLoadingSource.current = false;
       setDisplayUri(cached);
@@ -497,6 +502,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         isReadyToPlayRef.current = false;
         setIsVideoReady(false);
         (player as any).replaceAsync?.(null).catch?.(() => {});
+        // CRITICAL: clear the dedupe ref now that the player's source is null.
+        // Without this, the next time this slot becomes active, the source-
+        // loading effect would see lastReplacedSourceRef === displayUri (the
+        // pre-cleanup URI) and SKIP replaceAsync — leaving the player with
+        // a null source and the thumbnail frozen forever. This was the
+        // "stuck on thumbnail after swipe" bug.
+        lastReplacedSourceRef.current = null;
       }
     } catch (e) {
       console.log('Player sync error:', e);
