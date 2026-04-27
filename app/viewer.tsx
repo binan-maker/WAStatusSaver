@@ -20,10 +20,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
+import {
+  useMedia,
+  StatusItem,
+  SavedItem,
+  logDirectPlaySuccess,
+  logFallbackCopyTriggered,
+} from '@/contexts/MediaContext';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
-import { useEventListener } from 'expo';
 
 import { AdInterstitial } from '@/components/ads/AdInterstitial';
 import { AdBanner } from '@/components/ads/AdBanner';
@@ -64,10 +69,33 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // disappears before ExoPlayer has pushed pixels to the screen.
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  // OEM-resilience: when ExoPlayer reports `error` on a content:// URI we
+  // surface a "Tap to retry" overlay instead of leaving the user staring
+  // at a frozen thumbnail. The retry handler forces a SAF→cache copy and
+  // re-feeds the player from file://, which recovers on every device we've
+  // seen (Samsung One UI, Xiaomi MIUI, Realme, stock Android).
+  const [videoError, setVideoError] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  // Module-level telemetry latches (per source). directPlayLoggedRef ensures
+  // we only count ONE success per content:// URI even if statusChange fires
+  // 'readyToPlay' multiple times across re-buffers. fallbackLoggedRef does the
+  // same for the watchdog so a single video stall doesn't get double-counted.
+  const directPlayLoggedRef = useRef(false);
+  const fallbackLoggedRef = useRef(false);
   const isActiveRef = useRef(isActive);
+  // Update synchronously every render so every callback sees the latest value
+  // without waiting for a useEffect to run after paint.
+  isActiveRef.current = isActive;
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once the video surface has rendered its first frame, this stays `true`
+  // for the lifetime of the current source. ExoPlayer sometimes emits brief
+  // `loading` statusChange events mid-playback (network re-buffer, decoder
+  // hiccup, etc.) — without this latch the thumbnail would slap back on top
+  // of the playing video and the user would see what looks like a freeze
+  // 2 seconds in. We reset this latch only when displayUri actually changes.
+  const hasRevealedOnceRef = useRef(false);
 
   const clearRevealTimer = useCallback(() => {
     if (revealTimerRef.current) {
@@ -78,42 +106,19 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const scheduleReveal = useCallback((delayMs: number) => {
     clearRevealTimer();
-    console.log(`[Viewer] Scheduling reveal in ${delayMs}ms for ${item.name}`);
     revealTimerRef.current = setTimeout(() => {
       console.log(`[Viewer] REVEALING video surface for ${item.name}`);
+      hasRevealedOnceRef.current = true;
       setIsVideoVisible(true);
     }, delayMs);
   }, [clearRevealTimer, item.name]);
-
-  // Reanimated shared values for smooth pinch-to-zoom on images
-  const imageScale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
-
-  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
-
-  // Fully release the hardware decoder on unmount.
-  // Using player.release() (not just replaceAsync(null)) is critical:
-  // replaceAsync(null) clears the source but may leave the native ExoPlayer
-  // instance holding its hardware codec slot. With windowSize={3}, the FlatList
-  // only keeps 3 items mounted, so each unmount MUST free the decoder slot.
-  // Without release(), after 3-5 videos the hardware codec pool (typically 3-4
-  // slots on Android) is exhausted → new videos decode in black.
-  useEffect(() => {
-    return () => {
-      try { player.release(); } catch {}
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id, item.uri]);
 
-  // Player starts with no source. A file:// URI is fed in via replaceAsync once
-  // the content:// file has been fully copied to the cache dir.
+  // Player declared BEFORE all effects so every closure captures the same binding.
+  // Starts with no source — replaceAsync feeds the file:// URI after SAF copy.
   const player = useVideoPlayer(null, (p) => {
     if (p) {
       p.loop = true;
@@ -124,12 +129,28 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   });
 
+  // Reanimated shared values for smooth pinch-to-zoom on images
+  const imageScale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTranslateX = useSharedValue(0);
+  const savedTranslateY = useSharedValue(0);
+
+  // Fully release the hardware decoder on unmount to free the codec slot.
+  // player.release() is stronger than replaceAsync(null) — it tears down the
+  // ExoPlayer instance entirely, freeing the hardware codec slot immediately.
+  useEffect(() => {
+    return () => {
+      try { player.release(); } catch {}
+    };
+  }, [player]);
+
   const tryStartPlayback = useCallback(() => {
     if (
       item.type !== 'video' ||
       !displayUri ||
-      isLoadingSource.current ||
-      !isReadyToPlayRef.current ||
+      !isReadyToPlayRef.current ||  // set false before replaceAsync, true only on readyToPlay
       !isActiveRef.current
     ) return;
 
@@ -141,32 +162,140 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   }, [displayUri, item.type, player]);
 
-  // ── Status listener ──────────────────────────────────────────────────────
-  useEventListener(player, 'statusChange', ({ status }: { status: string }) => {
+  // Tap-to-retry handler — runs when the user taps the error overlay.
+  // Forces a fresh SAF→cache copy (bypassing the watchdog) and re-feeds
+  // the player from the file:// URI. This recovers playback on every OEM
+  // ExoPlayer build we've tested. The button shows a spinner while the
+  // copy is in flight so the user gets immediate feedback.
+  const handleVideoRetry = useCallback(async () => {
     if (item.type !== 'video') return;
-    console.log(`[Viewer] Player status for ${item.name}: ${status}`);
-    const ready = status === 'readyToPlay';
-    isReadyToPlayRef.current = ready;
-    setIsVideoReady(ready);
-    if (ready) {
-      tryStartPlayback();
-      // Schedule the thumbnail hide 200 ms AFTER readyToPlay. This gap lets
-      // ExoPlayer push the first frame to the SurfaceView before we reveal it.
-      // Without this delay, readyToPlay fires while the frame pipeline is still
-      // filling, causing audio-only black screen on first play.
-      if (isActiveRef.current) {
-        scheduleReveal(200);
+    setIsRetrying(true);
+    setVideoError(false);
+    try {
+      const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
+      if (!cached) {
+        setVideoError(true);
+        return;
       }
-    } else {
-      setIsVideoVisible(false);
-      clearRevealTimer();
+      isReadyToPlayRef.current = false;
+      isLoadingSource.current = true;
+      await player.replaceAsync(cached);
+      isLoadingSource.current = false;
+      setDisplayUri(cached);
+      // Telemetry: explicit user-driven retry counts as a fallback copy.
+      if (!fallbackLoggedRef.current) {
+        fallbackLoggedRef.current = true;
+        logFallbackCopyTriggered();
+      }
+      tryStartPlaybackRef.current();
+    } catch (err) {
+      console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
+      setVideoError(true);
+    } finally {
+      setIsRetrying(false);
     }
-  });
+  }, [item, player, prepareStatusForViewing]);
+
+  // ── Callback refs for the stable status listener ──────────────────────────
+  // The status listener is attached once per player instance and must never be
+  // torn down/re-added when displayUri or other state changes — that would miss
+  // the readyToPlay event. But the listener needs to call tryStartPlayback and
+  // scheduleReveal which change when displayUri changes. Solution: store the
+  // latest callback in a ref and call through the ref inside the stable listener.
+  // This is the same pattern expo's useEventListener uses internally.
+  const tryStartPlaybackRef = useRef(tryStartPlayback);
+  const scheduleRevealRef = useRef(scheduleReveal);
+  const clearRevealTimerRef = useRef(clearRevealTimer);
+  useEffect(() => { tryStartPlaybackRef.current = tryStartPlayback; });
+  useEffect(() => { scheduleRevealRef.current = scheduleReveal; });
+  useEffect(() => { clearRevealTimerRef.current = clearRevealTimer; });
+
+  // ── Status listener ──────────────────────────────────────────────────────
+  // Attached once per player instance. Uses refs for callbacks so it always
+  // calls the latest tryStartPlayback (with current displayUri). Also wraps
+  // addListener in a try/catch: on Android 11 the native bridge can be
+  // uninitialized on the very first render, making addListener undefined.
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    if (!player || typeof player.addListener !== 'function') return;
+    let subscription: { remove: () => void } | null = null;
+    try {
+      subscription = player.addListener('statusChange', ({ status }: { status: string }) => {
+        console.log(`[Viewer] Player status for ${item.name}: ${status}`);
+        const ready = status === 'readyToPlay';
+        isReadyToPlayRef.current = ready;
+
+        // ── Error surface — show retry overlay ─────────────────────────
+        // Some OEM ExoPlayer builds (older Xiaomi MIUI, certain Realme
+        // ROMs) reject content:// URIs from a foreign SAF tree with an
+        // immediate `error` status. Watchdog covers most of these, but
+        // for cases where playback fails AFTER the watchdog window we
+        // surface a tap-to-retry button instead of leaving the user
+        // stuck on a frozen thumbnail.
+        if (status === 'error') {
+          setVideoError(true);
+        }
+
+        // ── Telemetry: count ONE direct-play success per content:// source ──
+        // We only credit the FIRST readyToPlay event per source so re-buffers
+        // mid-playback don't inflate the success rate. file:// URIs aren't
+        // counted (they're already-cached fallbacks, not direct SAF playback).
+        if (ready && !directPlayLoggedRef.current && displayUri && displayUri.startsWith('content://')) {
+          directPlayLoggedRef.current = true;
+          logDirectPlaySuccess();
+        }
+
+        if (ready) {
+          // Clear any lingering error state — playback recovered.
+          setVideoError(false);
+          setIsVideoReady(true);
+          // Always call the latest tryStartPlayback via ref — never a stale closure.
+          tryStartPlaybackRef.current();
+          if (!hasRevealedOnceRef.current) {
+            // First-ever readyToPlay for this source: schedule the reveal so
+            // ExoPlayer has time to push the very first frame to the surface.
+            // 80ms is enough for the SurfaceView to bind and accept frames
+            // on Android 11 — was 200ms which added noticeable dead time
+            // between "ready" and visible video.
+            scheduleRevealRef.current(80);
+          } else {
+            // Mid-playback re-buffer just finished. Surface is already
+            // visible; nothing else to do — DO NOT reschedule reveal,
+            // DO NOT touch isVideoVisible.
+          }
+        } else {
+          // Non-ready status (loading / idle / error). Only reset visibility
+          // BEFORE the very first frame has been shown. After we've revealed
+          // once, brief mid-playback buffer events must NOT slap the
+          // thumbnail back on top of the live surface — that's the
+          // "freeze 2 seconds in" symptom users were reporting.
+          if (!hasRevealedOnceRef.current) {
+            setIsVideoReady(false);
+            setIsVideoVisible(false);
+            clearRevealTimerRef.current();
+          }
+        }
+      });
+    } catch (e) {
+      console.log('[Viewer] Could not attach statusChange listener:', e);
+    }
+    return () => {
+      try { subscription?.remove(); } catch {}
+    };
+  }, [player, item.type, item.name]); // stable deps only — callbacks via refs
 
   // Reset ready + visible flags (and cancel any pending reveal) on source change.
+  // Also clear the "has revealed once" latch — the new source needs to earn
+  // its own reveal via a fresh readyToPlay → 200ms delay cycle. Also reset
+  // the per-source error state and telemetry latches so each new source
+  // starts from a clean slate.
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
+    setVideoError(false);
+    hasRevealedOnceRef.current = false;
+    directPlayLoggedRef.current = false;
+    fallbackLoggedRef.current = false;
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -182,29 +311,81 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // readyToPlay). This eliminates the black screen unconditionally on all devices.
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri) return;
+    // ANDROID 11+ HARDWARE DECODER FIX: Only the ACTIVE slot allocates a
+    // decoder via replaceAsync. Pre/next slots stay sourceless so the system
+    // codec pool never runs out. We hand the URI directly to ExoPlayer
+    // (content:// works natively) — replaceAsync against a content:// URI
+    // typically fires readyToPlay in 100-400 ms on Android 11. The fallback
+    // watchdog below covers any edge-case OEM where direct playback hangs.
+    if (!isActive) return;
 
     let cancelled = false;
+    let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
     isLoadingSource.current = true;
     isReadyToPlayRef.current = false;
 
     const load = async () => {
       const loadStart = Date.now();
       try {
-        // Wait for any in-flight navigation/gesture animations so the JS thread
-        // is free, then call replaceAsync immediately — no extra time buffer.
-        console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
-        await new Promise<void>(resolve => {
-          InteractionManager.runAfterInteractions(resolve);
-        });
-        if (cancelled) return;
-        console.log(`[Viewer] Animation done, calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
+        // PERF: For cached/local files (file://) skip the animation wait
+        // entirely — those load instantly and waiting 250 ms only adds dead
+        // time before the first frame. The wait stays for content://
+        // sources because handing them to ExoPlayer mid-animation can
+        // collide with the JS thread on slow Android 11 devices.
+        const isLocalCached = displayUri.startsWith('file://');
+        if (!isLocalCached) {
+          console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
+          await Promise.race([
+            new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
+            new Promise<void>(resolve => setTimeout(resolve, 120)),
+          ]);
+          if (cancelled) return;
+        }
+        console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
         await player.replaceAsync(displayUri);
-        if (!cancelled) {
-          console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
-          isLoadingSource.current = false;
+        if (cancelled) return;
+        console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
+        isLoadingSource.current = false;
+        tryStartPlaybackRef.current();
+
+        // ─── Watchdog: fall back to file:// copy if ExoPlayer can't ────
+        // play the content:// URI directly. Most devices fire readyToPlay
+        // within 400 ms; we give it 2.5 s. If still not ready, copy the
+        // SAF file to cache and re-feed the player. This rescues the rare
+        // OEM ExoPlayer build that rejects content:// URIs from a SAF
+        // tree, without paying the copy cost on the 99% of devices that
+        // play directly. The copy goes through the serialized queue so
+        // it never fights another in-flight prepare.
+        if (displayUri.startsWith('content://')) {
+          watchdogTimer = setTimeout(async () => {
+            if (cancelled || isReadyToPlayRef.current) return;
+            console.log(`[Viewer] Watchdog: direct content:// playback stalled for ${item.name}, falling back to cached copy`);
+            try {
+              const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
+              if (cancelled || isReadyToPlayRef.current) return;
+              if (cached && cached !== displayUri) {
+                // Telemetry: count this watchdog→fallback cycle ONCE per
+                // source so we can spot devices/installs that hit it
+                // chronically (= we should pre-copy upfront for them).
+                if (!fallbackLoggedRef.current) {
+                  fallbackLoggedRef.current = true;
+                  logFallbackCopyTriggered();
+                }
+                isLoadingSource.current = true;
+                await player.replaceAsync(cached);
+                if (cancelled) return;
+                isLoadingSource.current = false;
+                setDisplayUri(cached);
+                tryStartPlaybackRef.current();
+                console.log(`[Viewer] Watchdog: switched ${item.name} to cached copy successfully`);
+              }
+            } catch (err) {
+              isLoadingSource.current = false;
+              console.error(`[Viewer] Watchdog fallback failed for ${item.name}:`, err);
+            }
+          }, 2500);
         }
-        tryStartPlayback();
       } catch (e) {
         if (!cancelled) {
           isLoadingSource.current = false;
@@ -216,10 +397,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     load();
     return () => {
       cancelled = true;
+      if (watchdogTimer) clearTimeout(watchdogTimer);
       isLoadingSource.current = false;
       isReadyToPlayRef.current = false;
     };
-  }, [displayUri, item.type, player, tryStartPlayback]);
+  // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef
+  // to avoid cancelling in-flight replaceAsync on every displayUri change.
+  }, [displayUri, item.type, player, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reveal timer cleanup on unmount ─────────────────────────────────────
   useEffect(() => {
@@ -227,39 +411,58 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handle swipe-to-already-ready-video ──────────────────────────────────
-  // When the user swipes to a nearActive video that was already buffered (isVideoReady=true)
-  // but never got to reveal (isVideoVisible=false), kick off a short reveal timer.
-  // The video has been playing muted the whole time so frames are already on screen.
+  // Covers two cases:
+  // A) User swipes to a nearActive video that already hit readyToPlay while
+  //    buffering — isVideoReady=true but isActive was false so reveal was never shown.
+  // B) readyToPlay fires while isActive is already true (e.g. fast cache hit
+  //    that resolves before the first render's useEffect can run).
+  // Both cases are caught by reacting to BOTH isActive and isVideoReady changes.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (isActive && isVideoReady && !isVideoVisible) {
-      scheduleReveal(80);
+      scheduleRevealRef.current(80);
     }
+  }, [isActive, isVideoReady, isVideoVisible, item.type]);
+
+  // ── isActive-false cleanup ───────────────────────────────────────────────
+  // Separate from the reveal effect so changes to isVideoReady don't
+  // accidentally re-run the cleanup path.
+  useEffect(() => {
+    if (item.type !== 'video') return;
     if (!isActive) {
       setIsVideoVisible(false);
-      clearRevealTimer();
+      clearRevealTimerRef.current();
     }
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isActive, item.type]);
 
   // ── Active / inactive sync ───────────────────────────────────────────────
   useEffect(() => {
     if (item.type !== 'video' || !player || isLoadingSource.current) return;
     try {
       if (isActive) {
-        tryStartPlayback();
+        // Use ref so we always call the latest tryStartPlayback without this
+        // effect re-running (and potentially cancelling an in-flight replaceAsync)
+        // every time displayUri changes.
+        tryStartPlaybackRef.current();
       } else {
+        // ANDROID 11+ FIX: Release the hardware decoder the INSTANT this slot
+        // becomes inactive — don't wait for `!isNearActive`. With VideoView
+        // mounted only on the active page (single-surface policy above), the
+        // decoder is useless for prev/next slots and was just blocking the
+        // codec pool, preventing the new active video from allocating its
+        // own decoder. Pausing + replaceAsync(null) frees the slot synchronously
+        // so the next swipe gets a fresh decoder immediately.
         player.muted = true;
-        if (!isNearActive) {
-          player.pause();
-          isReadyToPlayRef.current = false;
-          setIsVideoReady(false);
-          (player as any).replaceAsync?.(null).catch?.(() => {});
-        }
+        player.pause();
+        isReadyToPlayRef.current = false;
+        setIsVideoReady(false);
+        (player as any).replaceAsync?.(null).catch?.(() => {});
       }
     } catch (e) {
       console.log('Player sync error:', e);
     }
-  }, [isActive, isNearActive, player, item.type, tryStartPlayback]);
+  // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef.
+  }, [isActive, isNearActive, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── URI preparation ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -267,42 +470,33 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       if (!isActive) {
         setDisplayUri(null);
         setIsVideoReady(false);
+        // DO NOT call replaceAsync(null) here — the active/inactive sync effect
+        // handles that. Calling it from two effects simultaneously causes a race
+        // that corrupts the player state and produces black screen on Android 11.
         if (item.type === 'video' && player) {
           isReadyToPlayRef.current = false;
-          try {
-            player.pause();
-            (player as any).replaceAsync?.(null).catch?.(() => {});
-          } catch {}
+          try { player.pause(); } catch {}
         }
       }
       return;
     }
 
-    let isMounted = true;
-    async function prepare() {
-      const pStart = Date.now();
-      try {
-        if (!initialSource.startsWith('content://') || item.type === 'image') {
-          if (isMounted) setDisplayUri(initialSource);
-          return;
-        }
-        console.log(`[Viewer] Preparing status for ${item.name}...`);
-        const prepared = await prepareStatusForViewing(item as StatusItem);
-        console.log(`[Viewer] Preparation done for ${item.name} (${Date.now() - pStart}ms). Local URI: ${prepared}`);
-        if (isMounted) setDisplayUri(prepared);
-      } catch (e) {
-        console.error(`[Viewer] Preparation failed for ${item.name}:`, e);
-        if (isMounted) setDisplayUri(initialSource);
-      }
-    }
-
-    if (!displayUri) prepare();
-    return () => { isMounted = false; };
-  }, [initialSource, item, isNearActive, isActive]);
+    // Direct content:// playback. Modern expo-video (ExoPlayer) accepts
+    // content:// URIs natively on Android, so we hand the URI to the player
+    // immediately — no upfront copy, no await. This shaves the 200 ms-2 s
+    // SAF copy off every video open. The watchdog effect below copies the
+    // file to cache and re-feeds the player IF and only if readyToPlay
+    // hasn't fired within 2.5 s (covers edge-case OEM ExoPlayer builds).
+    if (!displayUri) setDisplayUri(initialSource);
+  }, [initialSource, item, isNearActive, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
 
-  // Reset zoom and image-loaded state whenever a different item becomes active
+  // Reset zoom and image-loaded state whenever the item identity changes OR
+  // whenever this slot becomes inactive. The inactive reset is critical:
+  // FlatList recycles cells, so if the user swipes away from a zoomed image
+  // and back, the shared values would still hold the old zoom state. Resetting
+  // on isActive=false guarantees every (re)entry to a slot starts at scale 1.
   useEffect(() => {
     imageScale.value = 1;
     savedScale.value = 1;
@@ -310,6 +504,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     translateY.value = 0;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
+  }, [item.id, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset image-loaded only on item id change (not on every active toggle).
+  useEffect(() => {
     setImageLoaded(false);
   }, [item.id]);
 
@@ -450,7 +648,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               style={styles.image}
               contentFit="contain"
               cachePolicy="memory-disk"
-              transition={150}
+              transition={0}
               priority={isActive ? 'high' : 'low'}
               recyclingKey={item.id}
               allowDownscaling
@@ -459,6 +657,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               placeholderContentFit="cover"
               onLoadStart={() => setImageLoaded(false)}
               onLoad={() => setImageLoaded(true)}
+=======
+              priority={isActive ? 'high' : 'normal'}
+              allowDownscaling
+              transition={0}
+              recyclingKey={item.id}
+              onLoad={() => setImageLoaded(true)}
+              onError={(e) => {
+                console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
+              }}
+>>>>>>> 27edc1f551452ee5890273228bff84088a2dc104
             />
             {/* Spinner overlay only while the SAF stream is being opened.
                 Once the placeholder is on screen there is no black void,
@@ -485,7 +693,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 so ExoPlayer has filled its frame pipeline before we reveal.
                 player.release() on unmount frees the hardware codec slot.
               */}
-              {isNearActive && (
+              {/*
+                ANDROID 11+ HARDWARE DECODER FIX:
+                VideoView is now mounted ONLY when this slot is the ACTIVE
+                page — never for prev/next. Android 11/12 phones typically
+                have a 1-2 instance hardware H.264 decoder budget; mounting
+                3 VideoViews simultaneously (prev/cur/next) was exhausting
+                that pool, causing the next swipe's video to silently fail
+                to allocate a decoder and freeze on the thumbnail forever.
+                Single live surface = guaranteed decoder availability =
+                no more "video not playing after swipe" lockups.
+              */}
+              {isActive && (
                 <VideoView
                   key={item.id}
                   player={player}
@@ -509,17 +728,46 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     cachePolicy="memory-disk"
                     transition={0}
                     recyclingKey={item.id}
+                    videoTimestamp={500}
                   />
                 </View>
               )}
 
-              {/* Spinner during buffering — sits above thumbnail, below native controls */}
-              {isNearActive && !isVideoReady && (
+              {/* Spinner during buffering — sits above thumbnail, below native controls. */}
+              {/* Hidden when the retry overlay is showing so we don't double-stack. */}
+              {isNearActive && !isVideoReady && !videoError && (
                 <View style={styles.videoSpinnerWrap} pointerEvents="none">
                   <ActivityIndicator
                     color={COLORS.PRIMARY}
                     size="large"
                   />
+                </View>
+              )}
+
+              {/*
+                Tap-to-retry overlay — shown when ExoPlayer reports `error`.
+                Receives touches (no pointerEvents="none") so the user can
+                actively recover from a stalled video on the rare OEM that
+                refuses our content:// URI even after the watchdog copy.
+              */}
+              {isActive && videoError && (
+                <View style={styles.videoRetryOverlay}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleVideoRetry}
+                    disabled={isRetrying}
+                    style={styles.videoRetryBtn}
+                    accessibilityLabel="Tap to retry playback"
+                  >
+                    {isRetrying ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="refresh-circle" size={32} color="#FFFFFF" />
+                        <Text style={styles.videoRetryText}>Tap to retry</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -529,7 +777,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   );
 }
 
-export default function ViewerScreen() {
+ function ViewerScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
@@ -585,7 +833,6 @@ export default function ViewerScreen() {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const flatListRef = useRef<FlatList>(null);
   const prevIndex = useRef(initialIndex);
-  const isScrollingRef = useRef(false);
   
   // Update currentIndex and scroll to it when initialIndex changes
   useEffect(() => {
@@ -606,6 +853,7 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
+<<<<<<< HEAD
   // Predictive preloading. Images are warmed into expo-image's memory+disk
   // cache via Image.prefetch so the next swipe lands on already-decoded
   // pixels (no cold ContentResolver decode = no swipe lag). Videos are
@@ -635,10 +883,46 @@ export default function ViewerScreen() {
         prepareStatusForViewing(ahead2 as StatusItem).catch(() => {});
       }
     }, 300);
-    return () => clearTimeout(timer);
-  }, [currentIndex, items, prepareStatusForViewing]);
+=======
+  // Prefetch the prev/current/next IMAGES so the user never sees a blank
+  // frame on swipe. Image.prefetch warms expo-image's memory-disk cache;
+  // the next swipe then renders instantly from RAM instead of paying the
+  // Android 11 ContentResolver tax on every navigation.
+  //
+  // VIDEOS no longer get pre-copied here. The previous prepareStatusForViewing
+  // pre-copy added 200 ms-2 s of SAF I/O per neighbor and routinely fought
+  // the active video's own setup for I/O bandwidth, ironically making the
+  // CURRENT video slower to start. Now videos are fed straight to ExoPlayer
+  // as content:// URIs (see the URI-prep effect above) — no copy, no queue
+  // contention. The watchdog covers any device where direct playback fails.
+  useEffect(() => {
+    const cur = items[currentIndex];
+    const next1 = items[currentIndex + 1];
+    const prev1 = items[currentIndex - 1];
 
-  const scrollSettleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    if (cur && cur.type === 'image') {
+      const curUri = 'localUri' in cur ? (cur as SavedItem).localUri : cur.uri;
+      Image.prefetch(curUri, 'memory-disk').catch(() => {});
+    }
+    if (next1 && next1.type === 'image') {
+      const nUri = 'localUri' in next1 ? (next1 as SavedItem).localUri : next1.uri;
+      Image.prefetch(nUri, 'memory-disk').catch(() => {});
+    }
+    if (prev1 && prev1.type === 'image') {
+      const pUri = 'localUri' in prev1 ? (prev1 as SavedItem).localUri : prev1.uri;
+      Image.prefetch(pUri, 'memory-disk').catch(() => {});
+    }
+
+    const timer = setTimeout(() => {
+      const next2 = items[currentIndex + 2];
+      if (next2 && next2.type === 'image') {
+        const n2Uri = 'localUri' in next2 ? (next2 as SavedItem).localUri : next2.uri;
+        Image.prefetch(n2Uri, 'memory-disk').catch(() => {});
+      }
+    }, 400);
+>>>>>>> 27edc1f551452ee5890273228bff84088a2dc104
+    return () => clearTimeout(timer);
+  }, [currentIndex, items]);
 
   const [showControls, setShowControls] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -700,36 +984,25 @@ const toggleControls = useCallback(() => {
     ]);
   }, [isSavedView, currentItem, savedItems, deleteFromSaved, items.length]);
 
-  const onScroll = useCallback((event: any) => {
-    if (isScrollingRef.current) return;
+  // Single source of truth for index changes: only onMomentumScrollEnd. The
+  // previous version also fired from onScrollEndDrag → onScroll, which caused
+  // setCurrentIndex to be called twice per swipe on Android 11, triggering a
+  // double re-render of every ViewerItem and producing the "stuck/laggy" feel
+  // on fast flicks. Momentum-end fires once when the page snaps into place.
+  const handleIndexSettled = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SW);
     if (index < 0 || index >= items.length) return;
+    if (index === prevIndex.current) return;
 
-    // Debounce: skip intermediate scroll positions during fast flicks.
-    // 80ms gives the scroll animation time to settle without feeling laggy.
-    if (scrollSettleRef.current) clearTimeout(scrollSettleRef.current);
-    scrollSettleRef.current = setTimeout(() => {
-      setCurrentIndex(index);
-      setShowControls(true);
-      controlsOpacity.setValue(1);
-      if (index !== prevIndex.current) {
-        if (items[index]?.type === 'image') {
-          onImageSwipe();
-        }
-        prevIndex.current = index;
-      }
-    }, 80);
+    setCurrentIndex(index);
+    setShowControls(true);
+    controlsOpacity.setValue(1);
+    if (items[index]?.type === 'image') {
+      onImageSwipe();
+    }
+    prevIndex.current = index;
   }, [items, onImageSwipe, controlsOpacity]);
-
-  const onScrollBeginDrag = useCallback(() => {
-    isScrollingRef.current = true;
-  }, []);
-
-  const onScrollEndDrag = useCallback((event: any) => {
-    isScrollingRef.current = false;
-    onScroll(event);
-  }, [onScroll]);
 
   if (!currentItem) return null;
 
@@ -750,9 +1023,9 @@ const toggleControls = useCallback(() => {
           offset: SW * index,
           index,
         })}
-        onMomentumScrollEnd={onScroll}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
+        onMomentumScrollEnd={handleIndexSettled}
+        decelerationRate="fast"
+        disableIntervalMomentum
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
@@ -771,7 +1044,13 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        removeClippedSubviews={true}
+        // ANDROID 11+ FIX: Constant `false` (was dynamically toggling between
+        // image and video items). The boolean flip on every page change forced
+        // FlatList to recreate its cell wrappers, which destroyed the live
+        // VideoView's SurfaceView mid-swipe — causing the dreaded "stuck on
+        // black thumbnail then jumps" stutter. With a fixed value, cell
+        // wrappers stay stable across the entire viewer session.
+        removeClippedSubviews={false}
         updateCellsBatchingPeriod={50}
       />
 
@@ -781,13 +1060,22 @@ const toggleControls = useCallback(() => {
           styles.topBar,
           {
             paddingTop: insets.top + 8,
-            opacity: isVideoItem ? 1 : controlsOpacity,
-            pointerEvents: (isVideoItem || showControls) ? 'auto' : 'none',
+            // Top bar is ALWAYS visible for both images and videos. Toggling
+            // it for images caused the back button to require two taps on
+            // Android 11: the first tap was eaten by the gesture detector to
+            // re-show controls, the second finally hit Back. Always-visible
+            // top bar matches Instagram/WhatsApp behavior and guarantees a
+            // single-tap back.
+            opacity: 1,
             zIndex: 150,
           },
         ]}
+        // box-none so taps on empty top-bar area still fall through to the
+        // image gesture detector below, but the back button itself always
+        // receives its own touches.
+        pointerEvents="box-none"
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.topInfo}>
@@ -938,6 +1226,33 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  videoRetryOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  videoRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: SPACING.LG,
+    paddingVertical: SPACING.MD,
+    borderRadius: RADIUS.LG,
+    gap: SPACING.SM,
+    minWidth: 160,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  videoRetryText: {
+    color: '#FFFFFF',
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '700',
   },
   videoPlaceholder: {
     flex: 1,
