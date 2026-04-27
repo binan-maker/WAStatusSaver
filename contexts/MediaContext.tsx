@@ -1275,6 +1275,13 @@ const crawlStart = Date.now();
   const saveStatus = useCallback(async (item: StatusItem): Promise<boolean> => {
     console.log(`[Media] saveStatus started for: ${item.name}`);
     try {
+      // SAVE DELAY FIX — Step 1: Immediate haptic so the user knows the tap
+      // registered before any I/O starts. Previously the first user-visible
+      // feedback was the isSaving spinner, which only appeared after
+      // the async save kicked off — on slow devices that gap felt like
+      // the button hadn't responded at all.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
       const savedDir = `${FileSystem.documentDirectory}saved/`;
       const dirInfo = await FileSystem.getInfoAsync(savedDir);
       if (!dirInfo.exists) {
@@ -1301,27 +1308,18 @@ const crawlStart = Date.now();
       const filename = `status_${Date.now()}.${ext}`;
       const destUri = `${savedDir}${filename}`;
 
+      // SAVE DELAY FIX — Step 2: Run the SAF copy through the serialized
+      // queue so concurrent saves never fight each other for I/O bandwidth.
+      // On Android 11+ ContentResolver copies are throttled; running two
+      // simultaneously makes BOTH slower than back-to-back.
       console.log(`[Media] Copying file from ${item.uri} to ${destUri}`);
-      await FileSystem.copyAsync({ from: item.uri, to: destUri });
+      await enqueueCopy(() => FileSystem.copyAsync({ from: item.uri, to: destUri }));
 
-      const isModernAndroid = Platform.OS === 'android' && androidVersionRef.current >= 29;
-      if (hasPermissionRef.current || isModernAndroid) {
-        try {
-          console.log('[Media] Exporting to system gallery (MediaLibrary)');
-          const asset = await MediaLibrary.createAssetAsync(destUri);
-          await MediaLibrary.createAlbumAsync('StatusVault', asset, false);
-          console.log('[Media] Gallery export successful');
-        } catch (err) {
-          console.error('[Media] MediaLibrary save error:', err);
-          if (!isModernAndroid) {
-            Alert.alert(
-              'Gallery Access Needed',
-              'Status saved in the app, but could not be added to your device gallery. Please allow "Add photos" permission in settings.',
-            );
-          }
-        }
-      }
-
+      // SAVE DELAY FIX — Step 3: Update app state IMMEDIATELY after the
+      // file copy completes so the "Saved ✓" checkmark appears at once.
+      // Gallery export (MediaLibrary) is deferred until after interactions
+      // settle — it's slow (100-800 ms), blocks the UI thread on Android 11,
+      // and is non-essential for the user's immediate feedback.
       const newSaved: SavedItem = {
         ...item,
         id: item.id,
@@ -1332,6 +1330,29 @@ const crawlStart = Date.now();
       const updated = [newSaved, ...savedItemsRef.current.filter(s => s.id !== item.id)];
       setSavedItems(updated);
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
+
+      // SAVE DELAY FIX — Step 4: Defer gallery export so it never competes
+      // with navigation animations or the user's next tap. MediaLibrary
+      // createAssetAsync + createAlbumAsync together can take 100-800 ms
+      // on Android 11+ — running them synchronously was the dominant cause
+      // of the "Save freezes the app" complaint.
+      const isModernAndroid = Platform.OS === 'android' && androidVersionRef.current >= 29;
+      if (hasPermissionRef.current || isModernAndroid) {
+        InteractionManager.runAfterInteractions(() => {
+          MediaLibrary.createAssetAsync(destUri)
+            .then(asset => MediaLibrary.createAlbumAsync('StatusVault', asset, false))
+            .then(() => console.log('[Media] Gallery export successful'))
+            .catch((err) => {
+              console.error('[Media] MediaLibrary save error:', err);
+              if (!isModernAndroid) {
+                Alert.alert(
+                  'Gallery Access Needed',
+                  'Status saved in the app, but could not be added to your device gallery. Please allow "Add photos" permission in settings.',
+                );
+              }
+            });
+        });
+      }
 
       console.log('[Media] Save operation completed successfully');
       maybeShowRatingPrompt();
@@ -1354,6 +1375,12 @@ const crawlStart = Date.now();
 
   const shareStatus = useCallback(async (item: StatusItem | SavedItem) => {
     try {
+      // SHARE DELAY FIX: Immediate haptic so the user knows their tap
+      // registered before the SAF copy (which can take 200-2500 ms on
+      // Android 11+) begins. This eliminates the perceived freeze between
+      // tap and the OS share sheet appearing.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
       let shareUri: string;
 
       if ('localUri' in item) {

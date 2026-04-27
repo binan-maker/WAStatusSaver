@@ -382,31 +382,29 @@ export default function StatusesScreen() {
       }
     }
 
-    if (item.type === 'video') {
-      onVideoOpen(item.uri);
-    } else {
-      onImageSwipe();
-    }
-
-    // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
-    // Previously onImageSwipe/onVideoOpen ran first and mutated MediaContext
-    // state. That caused the FlashList to re-render mid-touch on Android 11,
-    // which dropped the in-flight touch event and forced the user to tap a
-    // second time. router.push must be the first thing this handler does
-    // (after the synchronous prefetch kickoff above, which doesn't await).
+    // ANDROID 11 FIX: Navigate FIRST, synchronously, before ANY state updates.
+    // Calling onImageSwipe/onVideoOpen before router.push mutates MediaContext
+    // state mid-touch on Android 11, which causes the FlashList to re-render
+    // and drop the in-flight touch event — forcing the user to tap 2-3 times.
+    // router.push must be the first action (after the synchronous prefetch
+    // kickoff above, which doesn't await or mutate state).
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
     });
 
-    // Defer side effects (counters, interstitial scheduling) until after the
-    // navigation transaction is queued and the touch event is fully consumed.
-    // onImageSwipe is intentionally NOT called for image taps — it is meant
-    // for SWIPING inside the viewer, not for tapping a thumbnail to open.
-    if (item.type === 'video') {
-      setTimeout(() => onVideoOpen(item.uri), 0);
-    }
-  }, [onVideoOpen]);
+    // Defer ALL side effects (counters, ad scheduling) until after the
+    // navigation transaction is fully queued and the touch event is consumed.
+    // Using setTimeout(0) puts this in the next JS tick — after the router
+    // has started the screen transition and Android has cleared the touch.
+    setTimeout(() => {
+      if (item.type === 'video') {
+        onVideoOpen(item.uri);
+      } else {
+        onImageSwipe();
+      }
+    }, 0);
+  }, [onVideoOpen, onImageSwipe]);
 
   // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
   // signature. handlePress is already an (item: StatusItem) => void closure

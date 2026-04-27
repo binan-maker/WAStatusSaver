@@ -82,6 +82,12 @@ function MediaCardInner({
         activeOpacity={0.82}
         onPress={handlePress}
         style={styles.touchable}
+        // ANDROID 11+ TOUCH-DROP FIX: pressRetentionOffset keeps the touch
+        // "hot" even if the finger drifts slightly while the JS thread is busy
+        // decoding the first thumbnail batch. Without this, Android cancels
+        // the touch the moment the finger moves >10px — which on a vibrating
+        // or moving phone is the leading cause of "I had to tap twice".
+        pressRetentionOffset={{ top: 10, right: 10, bottom: 10, left: 10 }}
       >
         {isVideo ? (
           <View style={styles.image}>
