@@ -1,0 +1,17 @@
+
+> expo-app@1.0.0 server:dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+[1G[0KServing static Expo files with dynamic manifest routing
+Expo routing: Checking expo-platform header on / and /manifest
+express server serving on port 5000
+baseUrl http://localhost:5000
+expsUrl localhost:5000
+baseUrl https://d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+expsUrl d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+baseUrl https://d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+expsUrl d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+baseUrl https://d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+expsUrl d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+baseUrl https://d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev
+expsUrl d14be325-bffa-4cb2-98a2-9548643814fc-00-3iffngtqexutu.kirk.replit.dev

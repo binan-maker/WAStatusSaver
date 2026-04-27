@@ -1,0 +1,84 @@
+<<<<<<< HEAD
+You've accurately diagnosed the root cause: Scoped Storage (SAF) on Android 11+ replaces direct POSIX file access with an IPC-heavy ContentResolver/DocumentProvider bridge. This is an OS-level constraint, not a bug in your code. However, the "stuck" feeling is largely caused by synchronous blocking, full-file copying, and arbitrary retry delays that can be optimized or masked.
+Below are actionable, production-ready solutions tailored to your React Native/Expo stack, ordered by impact.
+🔹 1. Stop Full "Deep Copy" → Play Directly from SAF URI
+Most modern media players (Expo AV, React Native Video, Media3) can play directly from content:// URIs if permissions are correctly passed.
+Fix: Instead of copyAsync() to cache, pass the SAF URI straight to the player.
+tsx
+1234567
+Caveats:
+If your player throws java.io.FileNotFoundException or Permission denied, add FLAG_GRANT_READ_URI_PERMISSION when building the URI intent.
+In Expo, expo-av supports SAF URIs natively on Android 11+ if you request READ_EXTERNAL_STORAGE + tree URI permission correctly.
+Fallback: If direct playback fails, switch to chunked streaming instead of full copy (see #4).
+🔹 2. Optimize the "Crawler" & Metadata Fetching
+Your bfsFindStatuses calls listFiles()/getName()/length() per file via IPC. This multiplies latency.
+Fix A: Use a Persistent Tree URI + Batch Metadata
+tsx
+1234567
+Fix B: Cache File Metadata Locally
+SAF metadata reads are slow. Cache [{uri, name, size, dateModified}] in MMKV or SQLite. Only re-scan if dateModified changes or on cold boot.
+tsx
+1234
+🔹 3. Remove Hardcoded Retries → Use Event-Driven State
+The 1000-1300ms retry delay in loadStatuses is a band-aid for Android's delayed URI mounting. It guarantees a 1s+ perceived freeze.
+Fix: Replace setTimeout with a Promise-based watcher or state listener.
+tsx
+123456789101112
+Also, wrap heavy SAF calls in InteractionManager.runAfterInteractions() or requestAnimationFrame to keep the UI thread responsive.
+🔹 4. Pre-fetch & Background Copy Queue (If Copying is Unavoidable)
+If your player must have a local file, never block on copy during swipe. Implement a LIFO/FIFO cache queue.
+tsx
+123456789101112131415161718
+Pro Tips:
+Limit concurrent copies to 1 on Android 11+. SAF throttles parallel I/O.
+Use expo-file-system v15+ (drop /legacy). The modern version uses optimized FileDescriptor bridges and handles SAF cancellation better.
+🔹 5. Mask Latency with Proper UI States
+Users perceive "stuck" when the UI gives no feedback during SAF operations.
+Replace: White/black screen → Replace with:
+Skeleton loaders + "Scanning statuses..." text
+Circular progress on video player during initial buffer
+Swipe gestures disabled until prepareStatusForViewing resolves (or allow swipe but show spinner)
+tsx
+=======
+You've accurately diagnosed the root cause: Scoped Storage (SAF) on Android 11+ replaces direct POSIX file access with an IPC-heavy ContentResolver/DocumentProvider bridge. This is an OS-level constraint, not a bug in your code. However, the "stuck" feeling is largely caused by synchronous blocking, full-file copying, and arbitrary retry delays that can be optimized or masked.
+Below are actionable, production-ready solutions tailored to your React Native/Expo stack, ordered by impact.
+🔹 1. Stop Full "Deep Copy" → Play Directly from SAF URI
+Most modern media players (Expo AV, React Native Video, Media3) can play directly from content:// URIs if permissions are correctly passed.
+Fix: Instead of copyAsync() to cache, pass the SAF URI straight to the player.
+tsx
+1234567
+Caveats:
+If your player throws java.io.FileNotFoundException or Permission denied, add FLAG_GRANT_READ_URI_PERMISSION when building the URI intent.
+In Expo, expo-av supports SAF URIs natively on Android 11+ if you request READ_EXTERNAL_STORAGE + tree URI permission correctly.
+Fallback: If direct playback fails, switch to chunked streaming instead of full copy (see #4).
+🔹 2. Optimize the "Crawler" & Metadata Fetching
+Your bfsFindStatuses calls listFiles()/getName()/length() per file via IPC. This multiplies latency.
+Fix A: Use a Persistent Tree URI + Batch Metadata
+tsx
+1234567
+Fix B: Cache File Metadata Locally
+SAF metadata reads are slow. Cache [{uri, name, size, dateModified}] in MMKV or SQLite. Only re-scan if dateModified changes or on cold boot.
+tsx
+1234
+🔹 3. Remove Hardcoded Retries → Use Event-Driven State
+The 1000-1300ms retry delay in loadStatuses is a band-aid for Android's delayed URI mounting. It guarantees a 1s+ perceived freeze.
+Fix: Replace setTimeout with a Promise-based watcher or state listener.
+tsx
+123456789101112
+Also, wrap heavy SAF calls in InteractionManager.runAfterInteractions() or requestAnimationFrame to keep the UI thread responsive.
+🔹 4. Pre-fetch & Background Copy Queue (If Copying is Unavoidable)
+If your player must have a local file, never block on copy during swipe. Implement a LIFO/FIFO cache queue.
+tsx
+123456789101112131415161718
+Pro Tips:
+Limit concurrent copies to 1 on Android 11+. SAF throttles parallel I/O.
+Use expo-file-system v15+ (drop /legacy). The modern version uses optimized FileDescriptor bridges and handles SAF cancellation better.
+🔹 5. Mask Latency with Proper UI States
+Users perceive "stuck" when the UI gives no feedback during SAF operations.
+Replace: White/black screen → Replace with:
+Skeleton loaders + "Scanning statuses..." text
+Circular progress on video player during initial buffer
+Swipe gestures disabled until prepareStatusForViewing resolves (or allow swipe but show spinner)
+tsx
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+123
