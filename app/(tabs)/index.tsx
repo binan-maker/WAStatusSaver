@@ -11,6 +11,11 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+<<<<<<< HEAD
+=======
+  AppState,
+  InteractionManager,
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +38,15 @@ import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/co
 
 const { width: SW } = Dimensions.get('window');
 const ROW_HEIGHT = CARD_SIZE + 2;
+// Module-level prefetch dedupe set. This is a plain Set (NOT a ref) because
+// it lives outside any component — refs only exist inside React render trees.
+// The previous code declared `useRef` here at module scope, which would
+// throw "Hooks can only be called inside a function component" the moment
+// this file was imported. Using a plain Set is functionally identical for
+// dedupe purposes and works at any call site.
+const prefetchedTapUris = new Set<string>();
+let lastPrefetchTime = 0;
+const PREFETCH_THROTTLE_MS = 200; // Min gap between prefetches
 
 type TabType = 'images' | 'videos';
 
@@ -230,12 +244,19 @@ export default function StatusesScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [activeTab, setActiveTab] = useState<TabType>('images');
+  // Track which tabs have been visited at least once. Once a tab is opened,
+  // its FlashList stays mounted forever — switching back is instant with no
+  // re-decode of thumbnails. Only the very first paint is single-grid (the
+  // launch heat fix); after one swipe both grids stay alive.
+  const [visitedTabs, setVisitedTabs] = useState<Record<TabType, boolean>>({
+    images: true,
+    videos: false,
+  });
   const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
   const saveRating = useMilestoneRating('save');
   const shareRating = useMilestoneRating('share');
   const {
     statuses,
-    onImageSwipe,
     isLoading,
     isRefreshing,
     isInitializing,
@@ -254,7 +275,6 @@ export default function StatusesScreen() {
     onVideoOpen,
     showInterstitial,
     dismissInterstitial,
-    prepareStatusForViewing,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -275,6 +295,38 @@ export default function StatusesScreen() {
     }
   }, [hasPermission, safGranted, isGrantingAccess, androidVersion]);
 
+<<<<<<< HEAD
+=======
+  // Keep a ref to refresh so the AppState listener is never torn down/re-added
+  // when refresh changes identity (happens whenever loadStatuses re-creates due to
+  // safUris/hasPermission changes). Re-adding mid-session causes brief listener gaps.
+  const refreshRef = useRef(refresh);
+  useEffect(() => { refreshRef.current = refresh; });
+
+  // Auto-refresh when the user returns to the app — but ONLY if it has been
+  // at least 30 minutes since the last refresh. Statuses don't change often
+  // enough to justify a full SAF folder walk every time the app blinks
+  // active. The user can always pull-to-refresh for an explicit refresh.
+  // The initial load on app open is handled by the mount effect above; this
+  // only catches "user came back after a long time".
+  const APP_STATE_REFRESH_THROTTLE_MS = 30 * 60 * 1000; // 30 minutes
+  useEffect(() => {
+    // Seed the timestamp so the very first AppState→active right after
+    // launch never re-triggers a refresh on top of the initial load.
+    lastRefreshTime.current = Date.now();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        const now = Date.now();
+        if (now - lastRefreshTime.current > APP_STATE_REFRESH_THROTTLE_MS) {
+          lastRefreshTime.current = now;
+          refreshRef.current(true); // silent — no shimmer while watching
+        }
+      }
+    });
+    return () => sub.remove();
+  }, []); // stable — uses ref for refresh
+
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
   const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
   const selectedStatuses = useMemo(
     () => statuses.filter(s => s.source === selectedSource),
@@ -301,6 +353,7 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
+<<<<<<< HEAD
     // Pre-navigation prefetch — start decoding the full-res image into the
     // memory+disk cache the instant the tap registers, so by the time the
     // viewer's slide-in animation completes (~250 ms) the bitmap is already
@@ -314,14 +367,65 @@ export default function StatusesScreen() {
       onVideoOpen(item.uri);
     } else {
       onImageSwipe();
+=======
+    // PERF: Fire-and-forget prefetch on tap.
+    // - For VIDEOS: NO upfront copy — the viewer feeds the content:// URI
+    //   straight to ExoPlayer (the watchdog rescues the rare device where
+    //   that doesn't work). Eliminates the 200 ms-2 s SAF copy that used
+    //   to run synchronously before the viewer could even start loading.
+    // - For IMAGE URIs (incl. SAF content://): prefetch into expo-image's
+    //   memory-disk cache. On Android 11 the first decode of a content://
+    //   image goes through ContentResolver and can take 800 ms-2 s; doing
+    //   it here in parallel with the navigation animation means the
+    //   viewer's <Image> resolves nearly instantly from cache instead of
+    //   staring at the skeleton shimmer for 1-2 seconds. Throttled +
+    //   deduped so repeated taps never queue a flood of decodes.
+    if (item.type === 'image') {
+      const uri = item.uri;
+      const t = Date.now();
+      if (
+        !prefetchedTapUris.has(uri) &&
+        t - lastPrefetchTime >= PREFETCH_THROTTLE_MS
+      ) {
+        prefetchedTapUris.add(uri);
+        lastPrefetchTime = t;
+        ExpoImage.prefetch(uri, 'memory-disk')
+          .catch(() => {})
+          .finally(() => {
+            // Free the slot after a short window so a re-tap can re-queue
+            // if the cache was evicted in the meantime.
+            setTimeout(() => prefetchedTapUris.delete(uri), 30000);
+          });
+      }
+>>>>>>> 27912619b79cbba2126444cc878158ac6b8639a5
     }
 
+    // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
+    // Previously onImageSwipe/onVideoOpen ran first and mutated MediaContext
+    // state. That caused the FlashList to re-render mid-touch on Android 11,
+    // which dropped the in-flight touch event and forced the user to tap a
+    // second time. router.push must be the first thing this handler does
+    // (after the synchronous prefetch kickoff above, which doesn't await).
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
     });
-  }, [onVideoOpen, onImageSwipe]);
 
+    // Defer side effects (counters, interstitial scheduling) until after the
+    // navigation transaction is queued and the touch event is fully consumed.
+    // onImageSwipe is intentionally NOT called for image taps — it is meant
+    // for SWIPING inside the viewer, not for tapping a thumbnail to open.
+    if (item.type === 'video') {
+      setTimeout(() => onVideoOpen(item.uri), 0);
+    }
+  }, [onVideoOpen]);
+
+  // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
+  // signature. handlePress is already an (item: StatusItem) => void closure
+  // memoised by useCallback above — passing it directly lets React.memo on
+  // MediaCard skip re-renders, so the in-flight touch event isn't dropped on
+  // Android 11. (Inline `() => handlePress(item)` was the root cause of
+  // "I have to tap 3-4 times to open the image".)
   const handleSave = useCallback((item: StatusItem) => {
     saveStatus(item);
     saveRating.increment();
@@ -331,6 +435,44 @@ export default function StatusesScreen() {
     shareStatus(item);
     shareRating.increment();
   }, [shareStatus, shareRating.increment]);
+
+  const handlePressAny = useCallback((item: any) => handlePress(item as StatusItem), [handlePress]);
+  const handleSaveAny = useCallback((item: any) => handleSave(item as StatusItem), [handleSave]);
+  const handleShareAny = useCallback((item: any) => handleShare(item as StatusItem), [handleShare]);
+
+  // Stable per-cell renderers. Defining these as arrow functions inline on
+  // the FlashList's `renderItem` prop creates a new function identity on
+  // every parent render, which forces FlashList to re-mount every visible
+  // cell — the dominant cause of "stuck while scrolling" on Android 11+.
+  // Pulling them up here behind useCallback keeps the identity stable so
+  // FlashList only re-renders the specific cells whose data actually
+  // changed (handled by React.memo on MediaCard).
+  const renderImageItem = useCallback(
+    ({ item }: { item: StatusItem }) => (
+      <MediaCard
+        item={item}
+        isSaved={isStatusSaved(item.id)}
+        onPress={handlePressAny}
+        onSave={handleSaveAny}
+        onShare={handleShareAny}
+        showSaveButton
+      />
+    ),
+    [isStatusSaved, handlePressAny, handleSaveAny, handleShareAny],
+  );
+  const renderVideoItem = useCallback(
+    ({ item }: { item: StatusItem }) => (
+      <MediaCard
+        item={item}
+        isSaved={isStatusSaved(item.id)}
+        onPress={handlePressAny}
+        onSave={handleSaveAny}
+        onShare={handleShareAny}
+        showSaveButton
+      />
+    ),
+    [isStatusSaved, handlePressAny, handleSaveAny, handleShareAny],
+  );
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
@@ -360,23 +502,89 @@ export default function StatusesScreen() {
     }
   }, [requestSAF, selectedSource, androidVersion]);
 
+  const markVisited = useCallback((tab: TabType) => {
+    setVisitedTabs(prev => (prev[tab] ? prev : { ...prev, [tab]: true }));
+  }, []);
+
+  // PRE-WARM the videos tab AFTER first paint of images settles.
+  // Without this, the videos FlashList only mounts when the user finishes
+  // swiping — causing a CPU spike right at the end of the swipe (jank)
+  // and a black flash because thumbnails haven't decoded yet.
+  // We wait for: (a) interactions to settle, (b) data is loaded, then
+  // (c) a small idle gap so first paint is buttery smooth, then silently
+  // mount the videos grid offscreen. By the time the user swipes there,
+  // it's fully rendered — instant, zero jank.
+  useEffect(() => {
+  if (visitedTabs.videos) return;
+  if (filteredVideos.length === 0) return;
+  if (isLoading || isInitializing) return;
+  
+  // Use requestIdleCallback if available (web + modern Android)
+  const idleCallback = (callback: IdleRequestCallback) => {
+    if ('requestIdleCallback' in global) {
+      return (global as any).requestIdleCallback(callback, { timeout: 2000 });
+    }
+    // Fallback: setTimeout with longer delay
+    return setTimeout(callback, 2000);
+  };
+  
+  const handle = InteractionManager.runAfterInteractions(() => {
+    idleCallback(() => {
+      // Only mount if still unvisited
+      setVisitedTabs(prev => (prev.videos ? prev : { ...prev, videos: true }));
+    });
+  });
+  
+  return () => {
+    if (typeof handle === 'number') {
+      clearTimeout(handle);
+    } else {
+      handle?.cancel?.();
+    }
+  };
+}, [filteredVideos.length, isLoading, isInitializing, visitedTabs.videos]);
+
+  // The instant the user STARTS dragging the horizontal pager, mount BOTH
+  // grids. This way the destination grid renders DURING the swipe
+  // animation rather than at the end — eliminating the jank spike and
+  // black flash users see today.
+  const onScrollBeginDrag = useCallback(() => {
+    setVisitedTabs(prev => {
+      if (prev.images && prev.videos) return prev;
+      return { images: true, videos: true };
+    });
+  }, []);
+
+  // Pull-to-refresh handler. We pass `silent=true` so the global isLoading
+  // flag doesn't flip — that flag would unmount the FlashList and blank the
+  // entire grid. The RefreshControl's own pull spinner already gives the
+  // user clear visual feedback that a refresh is in flight, so the screen
+  // can stay populated with existing thumbnails (Instagram-style "selective
+  // patching"): unchanged items stay mounted, new ones slide in, removed
+  // ones slide out — no flicker, no scroll-position loss.
+  const handlePullRefresh = useCallback(() => {
+    refresh(true);
+  }, [refresh]);
+
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
+    markVisited(tab);
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
         x: tab === 'images' ? 0 : SW,
         animated: true,
       });
     }
-  }, []);
+  }, [markVisited]);
 
   const onScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
     if (newTab !== activeTab) {
       setActiveTab(newTab);
+      markVisited(newTab);
     }
-  }, [activeTab]);
+  }, [activeTab, markVisited]);
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
@@ -454,13 +662,35 @@ export default function StatusesScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScrollBeginDrag={onScrollBeginDrag}
         onMomentumScrollEnd={onScroll}
         scrollEventThrottle={16}
         style={styles.listArea}
       >
-        <View style={{ width: SW }}>
-          {isLoading || isGrantingAccess ? (
-            <LoadingShimmer count={GRID_COLUMNS * 4} />
+        {/*
+          ANDROID 11 HEAT FIX: Only the ACTIVE tab's FlashList is mounted.
+          Previously both image AND video grids were mounted simultaneously
+          inside the horizontal ScrollView, so on first paint the OS had to
+          decode 50+ image thumbnails AND 50+ video thumbnails at the same
+          time — a massive CPU spike that made the device hot and slowed the
+          first frame after splash. The inactive tab is now a placeholder
+          shimmer; it mounts its real grid only when the user swipes to it.
+        */}
+        <View style={{ width: SW, flex: 1 }}>
+          {/*
+            SELECTIVE PATCHING: Only show the shimmer when we have NOTHING
+            to display (first load, no items yet). Once any thumbnails are
+            on screen, never blank them out again — even during a refresh
+            the grid stays mounted and identical-id items keep their cells
+            (FlashList recycles by keyExtractor). Pull-to-refresh runs
+            silently; the RefreshControl spinner is the only loading
+            indicator the user sees.
+          */}
+          {(isLoading || isGrantingAccess) && filteredImages.length === 0 ? (
+            <LoadingShimmer
+              count={GRID_COLUMNS * 8}
+              label={isGrantingAccess ? 'Scanning statuses…' : undefined}
+            />
           ) : filteredImages.length === 0 ? (
             <EmptyState
               icon="images-outline"
@@ -469,43 +699,50 @@ export default function StatusesScreen() {
               actionLabel="Refresh"
               onAction={refresh}
             />
-          ) : (
+          ) : visitedTabs.images ? (
             <FlashList
               data={filteredImages}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
+              // Stable layout hint so FlashList never has to measure cells
+              // — it just walks the list assigning fixed sizes, which is
+              // an order of magnitude cheaper than the default heuristic
+              // on slow Android 11+ devices.
+              overrideItemLayout={(layout) => {
+                layout.size = CARD_SIZE;
+                layout.span = 1;
+              }}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
-                  onRefresh={refresh}
+                  onRefresh={handlePullRefresh}
                   tintColor={COLORS.PRIMARY}
                   colors={[COLORS.PRIMARY]}
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item, index }) => {
-                return (
-                  <MediaCard
-                    item={item}
-                    isSaved={isStatusSaved(item.id)}
-                    onPress={() => handlePress(item)}
-                    onSave={() => handleSave(item)}
-                    onShare={() => handleShare(item)}
-                    showSaveButton
-                  />
-                );
-              }}
+              renderItem={renderImageItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
+<<<<<<< HEAD
               drawDistance={1500}
+=======
+              removeClippedSubviews={false}
+              drawDistance={250}
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
             />
+          ) : (
+            <LoadingShimmer count={GRID_COLUMNS * 8} />
           )}
         </View>
 
-        <View style={{ width: SW }}>
-          {isLoading || isGrantingAccess ? (
-            <LoadingShimmer count={GRID_COLUMNS * 4} />
+        <View style={{ width: SW, flex: 1 }}>
+          {(isLoading || isGrantingAccess) && filteredVideos.length === 0 ? (
+            <LoadingShimmer
+              count={GRID_COLUMNS * 8}
+              label={isGrantingAccess ? 'Scanning statuses…' : undefined}
+            />
           ) : filteredVideos.length === 0 ? (
             <EmptyState
               icon="videocam-outline"
@@ -514,37 +751,37 @@ export default function StatusesScreen() {
               actionLabel="Refresh"
               onAction={refresh}
             />
-          ) : (
+          ) : visitedTabs.videos ? (
             <FlashList
               data={filteredVideos}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
+              overrideItemLayout={(layout) => {
+                layout.size = CARD_SIZE;
+                layout.span = 1;
+              }}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
-                  onRefresh={refresh}
+                  onRefresh={handlePullRefresh}
                   tintColor={COLORS.PRIMARY}
                   colors={[COLORS.PRIMARY]}
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item, index }) => {
-                return (
-                  <MediaCard
-                    item={item}
-                    isSaved={isStatusSaved(item.id)}
-                    onPress={() => handlePress(item)}
-                    onSave={() => handleSave(item)}
-                    onShare={() => handleShare(item)}
-                    showSaveButton
-                  />
-                );
-              }}
+              renderItem={renderVideoItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
+<<<<<<< HEAD
               drawDistance={1500}
+=======
+              removeClippedSubviews={false}
+              drawDistance={250}
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
             />
+          ) : (
+            <LoadingShimmer count={GRID_COLUMNS * 8} />
           )}
         </View>
       </ScrollView>

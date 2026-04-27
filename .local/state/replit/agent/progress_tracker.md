@@ -74,9 +74,88 @@
 [x] 2. Restart the workflow to see if the project is working
 [x] 3. Verify the project is working using the feedback tool
 [x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+[x] RE-IMPORT MIGRATION 2026-04-23 - Installed cross-env, tsx, @expo/cli (were missing from node_modules). Both Start Backend (port 5000) and Start Frontend (Metro bundler) running cleanly.
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+>>>>>>> 27edc1f551452ee5890273228bff84088a2dc104
+>>>>>>> 27912619b79cbba2126444cc878158ac6b8639a5
+>>>>>>> 739100cdd3f1b60e3c88daef725eb4a454b8c415
 [x] SAF FIRST-GRANT BUG FIX - Fixed the "dead home page after granting folder permission" bug with 4 layered fixes:
   - Graceful Delay: 700ms settling wait after user taps "Use this folder" before reading SAF folder (Android SAF mount lag fix)
   - Auto-Retry: If 0 items found after settling delay, automatically retries once after 1.3s (Android hidden folder indexer delay fix)
   - isGrantingAccess state: New state flag keeps UI in shimmer/loading mode during entire grant+read cycle, so empty state NEVER flashes (race condition fix)
   - BFS Cache Clear: resolvedUriCache is invalidated on each new grant so fresh path resolution always runs (stale path trap fix)
   - Also resolved remaining git merge conflicts in MediaContext.tsx and index.tsx
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+[x] RE-IMPORT MIGRATION - npm install completed; both Start Backend (port 5000) and Start Frontend (Metro bundler) running cleanly.
+[x] 1. Install the required packages
+[x] 2. Restart the workflow to see if the project is working
+[x] 3. Verify the project is working using the feedback tool
+[x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
+[x] VIDEO STUCK/LAG FIX (Android 11+) - 4 root causes identified and fixed in app/viewer.tsx:
+  - FIX 1 (CRITICAL): removeClippedSubviews=false in viewer FlatList. On Android, true destroys the native VideoView SurfaceView and hardware decoder on every swipe, causing black screen and stutter.
+  - FIX 2: InteractionManager.runAfterInteractions now races against a 250ms timeout. On slow Android 11 devices scroll animation kept the queue blocked, delaying replaceAsync by 500ms+.
+  - FIX 3: Removed duplicate replaceAsync(null) from URI preparation effect. Both effects were calling it simultaneously causing player state corruption.
+  - FIX 4: Added videoTimestamp={500} to viewer thumbnail overlay. Raw content:// video URI without videoTimestamp was decoded as image (blank/black). Now shows actual video frame while buffering.
+[x] IMAGE + VIDEO VIEWER FULL FIX (Android 11+) - Fixed 4 more bugs in app/viewer.tsx:
+  - FIX 1 (CRASH): Replaced useEventListener (expo) with manual useEffect + null guard + try/catch. On Android 11, native VideoPlayer bridge can be uninitialized on first render making player.addListener undefined → crash on every tap.
+  - FIX 2 (IMAGE SLOW): removeClippedSubviews is now dynamic — false for video viewer (keeps VideoView alive), true for image viewer (clips off-screen native views to free memory). All 20+ images were kept mounted simultaneously before.
+  - FIX 3 (IMAGE SLOW): cachePolicy changed from "disk" to "memory-disk" for viewer images. Disk-only cache caused blocking disk I/O on every swipe; memory-disk serves recently-viewed images instantly from RAM.
+  - FIX 4 (IMAGE SLOW): windowSize/maxToRenderPerBatch/updateCellsBatchingPeriod now dynamic — images use windowSize=5, batch=2, period=20ms for faster rendering; videos use windowSize=3, batch=1, period=50ms for decoder safety.
+[x] VIDEO STALE CLOSURE FIX (Android 11+) - Root cause of "video not starting after open":
+  - The status listener was attached once (on player mount) capturing tryStartPlayback from that render. At mount, displayUri=null so tryStartPlayback always returned early.
+  - When displayUri was later set (after SAF copy), tryStartPlayback changed BUT the listener never re-attached, so readyToPlay event always called the stale no-op version.
+  - Fix: Added tryStartPlaybackRef/scheduleRevealRef/clearRevealTimerRef pattern — refs updated after every render (no deps), stable listener calls through refs so it always uses the latest callbacks with current displayUri.
+  - Also moved player declaration BEFORE all effects to ensure proper closure binding.
+  - Also added player to release effect deps for correctness.
+[x] VIDEO FREEZE COMPREHENSIVE FIX (viewer.tsx + index.tsx) - 6 root causes fixed:
+  1. isActiveRef STALE: Removed useEffect for isActiveRef update; now updated synchronously during render (isActiveRef.current = isActive inline) so all callbacks see the latest isActive instantly, not after paint.
+  2. scheduleReveal GUARDED BY STALE REF: Removed `if (isActiveRef.current)` guard around scheduleRevealRef.current(200) in status listener. Reveal is now always scheduled when readyToPlay fires; isActive-false cleanup effect cancels it if user is on a different video.
+  3. isLoadingSource BLOCKING tryStartPlayback: Removed isLoadingSource.current check from tryStartPlayback. readyToPlay can only fire when the player IS ready, making isReadyToPlayRef.current sufficient. isLoadingSource was blocking fast-cache-hit cases.
+  4. tryStartPlayback IN DEPS CAUSING EXTRA EFFECT RUNS: Removed tryStartPlayback from source loading and active/inactive sync effect deps. Both now call tryStartPlaybackRef.current() via ref, preventing in-flight replaceAsync cancellation on every displayUri change.
+  5. SWIPE-TO-READY EFFECT MISSING isVideoReady IN DEPS: Split the swipe-to-ready effect into two — reveal trigger (reacts to isActive + isVideoReady + isVideoVisible) and isActive-false cleanup (reacts only to isActive). This catches case B where readyToPlay fires when isActive is already true.
+  6. AppState LISTENER RE-ATTACHMENT (index.tsx): Added refreshRef pattern — AppState listener deps changed from [refresh] to [] (stable), refresh called via refreshRef.current. Prevents listener gap when refresh identity changes due to safUris/hasPermission changes.
+[x] RE-IMPORT MIGRATION 2026-04-23b - npm install completed; both Start Backend (port 5000) and Start Frontend (Metro bundler) running cleanly.
+[x] 1. Install the required packages
+[x] 2. Restart the workflow to see if the project is working
+[x] 3. Verify the project is working
+[x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
+[x] RE-IMPORT MIGRATION 2026-04-23c - Cleared corrupt react-native install, ran npm install successfully; both Start Backend (port 5000) and Start Frontend (Metro bundler) running cleanly.
+[x] ANDROID 11+ VIDEO LAG/FREEZE FULL FIX - Targeted the swipe freeze + grid stutter:
+  - GRID THUMB FIX (components/media/MediaCard.tsx): videoTimestamp 500 → 0 (first key-frame, no MediaMetadataRetriever seek), priority="low", allowDownscaling, transition=0. Removes the per-thumbnail 200-800ms SAF/decoder freeze on grid scroll.
+  - HARDWARE DECODER POOL FIX (app/viewer.tsx): VideoView mounted ONLY when isActive (was isNearActive → 3 surfaces). Android 11/12 codec budget is 1-2; mounting 3 was exhausting the pool and silently failing the next swipe.
+  - DECODER LOAD-GATE FIX: replaceAsync only fires on isActive (was on any nearActive). Prevents prev/next from claiming a decoder slot the active video needs.
+  - INSTANT DECODER RELEASE: On isActive→false, immediately pause + replaceAsync(null) instead of waiting for !isNearActive. Frees the codec slot the moment the user starts swiping away, so the new active video allocates its decoder without waiting.
+  - REMOVECLIPPEDSUBVIEWS LOCK: Was dynamically toggling between image (true) and video (false) items, forcing FlatList to recreate cell wrappers on every page change and destroying the live SurfaceView mid-swipe. Now constant `false` — wrappers stay stable across the entire viewer session.
+[x] RE-IMPORT MIGRATION 2026-04-27 - npm install completed; both Start Backend (port 5000) and Start Frontend (Metro bundler) running cleanly.
+[x] BACKGROUND THUMBNAIL CACHE - Near-zero CPU during scroll on Android 11+:
+  - Added expo-video-thumbnails ~10.0.8 (background-only use; never called inline during render).
+  - lib/thumbnail-cache.ts: module-level singleton with AsyncStorage-persisted Map<id, file://path>, per-id pub/sub, serialized queue with 80ms idle gap, atomic tmp+rename writes to ${cacheDirectory}status-thumbs/. Videos → tiny JPG via VideoThumbnails.getThumbnailAsync({time:0, quality:0.5}). Images → expo-image's disk cache warmed via Image.prefetch (no separate file). Android-only, no-ops elsewhere.
+  - hooks/media/useThumbnail.ts: per-card subscriber so only the affected cell re-renders when its thumb becomes ready. No global re-renders.
+  - components/media/MediaCard.tsx: rewritten. Uses useThumbnail(item.id). When cached file:// thumb exists, drops the heavy videoTimestamp prop entirely — Glide treats it as a static JPG (no SAF round-trip, no MediaMetadataRetriever, no decoder). Falls back to videoTimestamp={0} only briefly until the queue lands.
+  - contexts/MediaContext.tsx: ThumbnailCache.init() added to mount-time hydration, ThumbnailCache.prune+enqueue triggered after every loadStatuses success behind InteractionManager + 600ms idle gap so it never competes with first paint or scrolling. Also collapsed the duplicated SAF-read code in loadStatuses into a single readAllSequential helper.
+  - app/(tabs)/index.tsx: fixed module-level useRef calls (would crash bundle), replaced with plain Set + counter. Removed undefined visibleItemsRef/onViewableItemsChanged references and broken isFocused/extraData props. Removed duplicate drawDistance prop. Hoisted renderImageItem and renderVideoItem behind useCallback so FlashList stops re-mounting cells on every parent render. Throttled+deduped tap-prefetch.
+  - Fixed pre-existing brace imbalance in MediaContext.tsx init effect (rescanTimer block had three nested arrow opens but only two closes — was blocking the entire bundle).
+  - Bundle now compiles 200 OK at 14.6 MB on Android.
+[x] 1. Install the required packages
+[x] 2. Restart the workflow to see if the project is working
+[x] 3. Verify the project is working
+[x] 4. Inform user the import is completed and they can start building, mark the import as completed using the complete_project_import tool
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+>>>>>>> 27edc1f551452ee5890273228bff84088a2dc104
+>>>>>>> 27912619b79cbba2126444cc878158ac6b8639a5
+>>>>>>> 739100cdd3f1b60e3c88daef725eb4a454b8c415

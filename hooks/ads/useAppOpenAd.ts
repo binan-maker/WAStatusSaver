@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { AppOpenAd, AdEventType } from 'react-native-google-mobile-ads';
-import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
+import { AD_UNIT_IDS, ADS_ENABLED, APP_OPEN_AD_COOLDOWN_MS } from '@/constants/admob';
 import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 
 const adUnitId = AD_UNIT_IDS.APP_OPEN;
@@ -10,6 +10,7 @@ let globalAppOpenAd: AppOpenAd | null = null;
 let isShowingAd = false;
 let isLoaded = false;
 let loadRetries = 0;
+let lastShownAt = 0; // epoch ms — used for the cooldown gate
 const MAX_RETRIES = 3;
 
 function destroyGlobalAd() {
@@ -42,6 +43,13 @@ export function useAppOpenAd() {
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        // Cooldown gate — never show an App-Open ad more than once every
+        // APP_OPEN_AD_COOLDOWN_MS so quick context-switches don't get an ad.
+        const sinceLast = Date.now() - lastShownAt;
+        if (sinceLast < APP_OPEN_AD_COOLDOWN_MS) {
+          appState.current = nextState;
+          return;
+        }
         if (isLoaded && !isShowingAd && !isFreeAds && !adsLoading) {
           showAppOpenAd();
         }
@@ -119,6 +127,7 @@ export function useAppOpenAd() {
 
     try {
       isShowingAd = true;
+      lastShownAt = Date.now();
       await globalAppOpenAd.show();
     } catch (error) {
       console.error('App open ad show error:', error);

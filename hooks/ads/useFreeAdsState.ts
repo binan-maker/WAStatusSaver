@@ -30,7 +30,11 @@ export function useFreeAdsState() {
 
   useEffect(() => {
     checkFreeAdsStatus(uidRef.current);
-    const interval = setInterval(() => checkFreeAdsStatus(uidRef.current), 1000);
+    // PERF: was polling AsyncStorage every 1s — that woke up consumers
+    // (root layout, ads hooks) every second forever. The reward-ad timers
+    // are measured in hours/days, so 30s precision is fine and cuts JS
+    // wakeups + disk reads by 30x.
+    const interval = setInterval(() => checkFreeAdsStatus(uidRef.current), 30000);
     return () => clearInterval(interval);
   }, []);
 
