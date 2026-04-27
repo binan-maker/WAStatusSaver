@@ -64,6 +64,7 @@
   - Root cause: `app/viewer.tsx` was missing `export default` on `ViewerScreen`. Without a default export, expo-router couldn't resolve the `/viewer` route, fell back to `app/+not-found.tsx` ("Oops!" title + "Go to home screen!" link). Every tap on an image/video pushed the user to the not-found screen.
   - Fix: Changed `function ViewerScreen()` → `export default function ViewerScreen()` (single-line). Verified all other route files (permissions/signin/onboarding/contact) use the same `export default function` pattern.
   - User decision (option 3): skip the full Zustand rewrite (massive risk, the roadmap code is illustrative). Most touch/perf hardening from the roadmap is already in the codebase (stable useCallback handlers, pressRetentionOffset/hitSlop on MediaCard, enqueueCopy SAF queue, immediate haptics, deferred gallery export). The remaining "small zustand-style slice for save/share UI flags" was deferred — current save state is held locally in viewer.tsx and there's no per-card overlay UX driving the need. Will revisit if/when we add per-card save overlays.
+<<<<<<< HEAD
 
 [x] FIX H — DUPLICATE replaceAsync + HARDWARE BACK BUTTON (2026-04-27, video-player roadmap)
   - User sent a second roadmap diagnosing video-player issues. The roadmap proposed (a) ripping out expo-video and switching back to deprecated expo-av, (b) deleting the swipe-pager FlatList, (c) using undocumented `nativeProps: { useContentResolver, grantUriPermission }` (not real expo-av props). Rejected (a)(b)(c) — would erase ~1200 lines of working code, regress to deprecated lib, and silently fail.
@@ -76,3 +77,5 @@
     2. **Android hardware back button** — added `BackHandler.addEventListener('hardwareBackPress', …)` inside `ViewerScreen` that calls `router.back()` and returns `true`. Some OEMs (older MIUI/OneUI) had the gesture handler / FlatList swallow the press, requiring multiple taps. Owning the handler guarantees one press = one pop.
   - DID NOT apply: expo-av rewrite, single-video viewer, `nativeProps` SAF flags, removal of pager. Existing 120 ms `runAfterInteractions` wait is already skipped for `file://` (added in earlier round) — the only remaining wait is for `content://` which is needed for slow-Android-11 mid-animation collisions.
   - Verified: Metro bundler restarted clean, no syntax errors, no LSP issues.
+=======
+>>>>>>> 87cdbcffdc488a474af0806c05ff080d7bf1cab9
