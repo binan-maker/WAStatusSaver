@@ -87,6 +87,15 @@ export default function SavedScreen() {
     shareRating.increment();
   }, [shareStatus, shareRating.increment]);
 
+  // Stable (item) => void wrappers passed straight to React.memo'd MediaCard.
+  // Inline `() => handlePress(item)` arrows would create a new function each
+  // parent render, breaking memoisation and causing every thumbnail to
+  // re-render mid-touch on Android 11 — which dropped the in-flight tap
+  // and forced 3-4 taps before navigation fired.
+  const handlePressAny = useCallback((item: any) => handlePress(item as SavedItem), [handlePress]);
+  const handleShareAny = useCallback((item: any) => handleShare(item as SavedItem), [handleShare]);
+  const handleDeleteAny = useCallback((item: any) => handleDelete(item as SavedItem), [handleDelete]);
+
   const getItemLayout = useCallback(
     (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
       length: ROW_HEIGHT,
@@ -183,9 +192,9 @@ export default function SavedScreen() {
               <MediaCard
                 item={item}
                 isSaved
-                onPress={() => handlePress(item)}
-                onShare={() => handleShare(item)}
-                onDelete={() => handleDelete(item)}
+                onPress={handlePressAny}
+                onShare={handleShareAny}
+                onDelete={handleDeleteAny}
                 showSaveButton={false}
                 showDeleteButton
               />
@@ -194,7 +203,12 @@ export default function SavedScreen() {
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled
+<<<<<<< HEAD
           drawDistance={1500}
+=======
+          removeClippedSubviews={false}
+          drawDistance={500}
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
         />
         </>
       )}

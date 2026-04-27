@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Based on the console logs you provided, the infinite repetition of the [Loader] AppState active, but throttled message reveals a "Focus Feedback Loop."
 Here is the technical explanation of what is happening inside your app and device right now, explained strictly through the log data:
 1. The "AppState" Flicker
@@ -20,4 +21,28 @@ The Permission Error: [loadSavedItems] album rescan skipped: [Missing MEDIA_LIBR
 The Video Preparation Bottleneck: We see replaceAsync complete for ... (436ms). Even though this is a "Cache Hit" (fast), the app is still performing heavy hardware operations while the system focus is unstable.
 Summary
 The infinite log isn't a bug in the refresh logic—it is a warning buzzer. Your app is in a "Tug-of-War" with the Android OS. The OS is taking focus away (likely due to the permission error or an ad-related focus shift), and the app is trying to take it back.
+=======
+Based on the console logs you provided, the infinite repetition of the [Loader] AppState active, but throttled message reveals a "Focus Feedback Loop."
+Here is the technical explanation of what is happening inside your app and device right now, explained strictly through the log data:
+1. The "AppState" Flicker
+The message AppState active, but throttled only triggers when the Android OS tells the app: "The user is looking at you now."
+The fact that this message is appearing dozens of times in a few seconds means the Android system is rapidly switching the app's status between Background and Active.
+Your app is "pulsing." It gains focus for 10 milliseconds, loses it, and then gains it again. Each time it gains focus, the index.tsx file tries to refresh your WhatsApp statuses to make sure you see the latest media.
+2. Why it says "Throttled"
+Inside the code, there is a Safety Shield. It says: "If the app was refreshed less than 30 seconds ago, do not refresh again."
+The Good News: This "Throttled" logic is actually saving your phone. Without it, the app would try to load 30 videos from your WhatsApp folder every single time the flicker happens, which would cause your phone to overheat and crash instantly.
+The Bad News: The "Throttled" log is the app telling you: "I see you are active again, but I'm refusing to work because it's happening too fast."
+3. The "Touch System" is Broken
+Notice these specific warnings:
+WARN Cannot record touch end without a touch start.
+WARN Ended a touch event which was not counted in trackedTouchCount.
+This is the "Smoking Gun." When a phone flickers between background and foreground this fast, the Android touch system gets confused. It records you touching the screen (start), but before you lift your finger (end), the app blinks into the background. The system then "drops" your touch.
+This is why you feel the app is "stuck" or the back button isn't working—the OS is literally deleting your clicks because of the flicker.
+4. The Potential Culprits (Based on Logs)
+There are two things fighting for focus in your logs:
+The Permission Error: [loadSavedItems] album rescan skipped: [Missing MEDIA_LIBRARY permissions]. Every time the app wakes up, it tries to scan your gallery. The error happens immediately. This failure can sometimes trigger a UI "jerk" that makes the app lose focus.
+The Video Preparation Bottleneck: We see replaceAsync complete for ... (436ms). Even though this is a "Cache Hit" (fast), the app is still performing heavy hardware operations while the system focus is unstable.
+Summary
+The infinite log isn't a bug in the refresh logic—it is a warning buzzer. Your app is in a "Tug-of-War" with the Android OS. The OS is taking focus away (likely due to the permission error or an ad-related focus shift), and the app is trying to take it back.
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
 The fix isn't in the "Throttled" code; it's in stopping the thing that makes the app blink (The Permission Error and the Ad-Engine focus shifts).

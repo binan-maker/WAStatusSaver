@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { Platform, AppState, AppStateStatus, InteractionManager } from 'react-native';
 import {
   useFonts,
   Nunito_400Regular,
@@ -32,13 +32,25 @@ import { usePendingReferralAttribution } from '@/hooks/referral/usePendingReferr
 
 SplashScreen.preventAutoHideAsync();
 
-if (Platform.OS !== 'web') {
-  mobileAds()
-    .initialize()
-    .then((adapterStatuses) => {
-      console.log('Ads initialized:', adapterStatuses);
-    })
-    .catch((e) => console.log('Google Mobile Ads initialization error:', e));
+// PERF: AdMob's native initialize() does heavy work on the JS+native bridge
+// (mediation adapter discovery, consent state, etc). Running it at module
+// load — before React even mounts — was contributing to the cold-launch
+// freeze on Android 11+. We schedule it AFTER first paint and a short
+// idle window so the user never waits on it.
+let __adsInitStarted = false;
+function initMobileAdsDeferred() {
+  if (__adsInitStarted || Platform.OS === 'web') return;
+  __adsInitStarted = true;
+  InteractionManager.runAfterInteractions(() => {
+    setTimeout(() => {
+      mobileAds()
+        .initialize()
+        .then((adapterStatuses) => {
+          console.log('Ads initialized:', adapterStatuses);
+        })
+        .catch((e) => console.log('Google Mobile Ads initialization error:', e));
+    }, 1500);
+  });
 }
 
 async function applyImmersiveMode(bg: string, isDark: boolean) {
@@ -136,14 +148,59 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
         name="contact"
         options={{ headerShown: false }}
       />
+      <Stack.Screen
+        name="terms"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="languages"
+        options={{ headerShown: false }}
+      />
     </Stack>
   );
 }
 
 function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
+  // PERF: Defer all non-critical mount-time work until AFTER first paint and
+  // user-interaction settle. AdMob init, AppOpen-ad load, notification setup,
+  // and referral attribution were ALL kicking off in the same render tick on
+  // Android 11+, saturating the JS+native bridges and causing the device to
+  // feel frozen for 2-4 seconds during cold launch. We gate them behind a
+  // small "ready" flag that flips on after the first interactive frame.
+  const [deferredReady, setDeferredReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    initMobileAdsDeferred();
+    const handle = InteractionManager.runAfterInteractions(() => {
+      const t = setTimeout(() => {
+        if (!cancelled) setDeferredReady(true);
+      }, 800);
+      return () => clearTimeout(t);
+    });
+    return () => {
+      cancelled = true;
+      // @ts-ignore Cancellable
+      handle?.cancel?.();
+    };
+  }, []);
+
+  return (
+    <>
+      <AppContentBody showOnboarding={showOnboarding} />
+      {deferredReady && <DeferredStartupTasks />}
+    </>
+  );
+}
+
+// All non-critical hooks live here, mounted only AFTER first paint.
+function DeferredStartupTasks() {
   useAppOpenAd();
   useStatusReminder();
   usePendingReferralAttribution();
+  return null;
+}
+
+function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
   const { colors, resolved } = useTheme();
   const { showAd: showInterstitial } = useInterstitialAd();
 
@@ -183,17 +240,15 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
     }
   }, [user]);
 
+  // Neutralized: we no longer auto-show an interstitial right after sign-in
+  // or on app entry. Interstitials are now driven only by deep usage triggers
+  // (video opens / image swipes) and respect a 3-minute cooldown.
   useEffect(() => {
-    if (!loading && !adsLoading && user && !interstitialShown && !isFreeAds) {
-      if (justSignedInRef.current) {
-        justSignedInRef.current = false;
-        setInterstitialShown(true);
-        return;
-      }
-      setTimeout(() => {
-        showInterstitial();
-      }, 500);
-      setInterstitialShown(true);
+    if (justSignedInRef.current) {
+      justSignedInRef.current = false;
+    }
+    if (!user) {
+      setInterstitialShown(false);
     }
   }, [loading, adsLoading, user, interstitialShown, isFreeAds]);
 
@@ -249,8 +304,10 @@ const RootLayout = () => {
   if (!loadingDone) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" translucent backgroundColor="transparent" />
-        <AppLoadingScreen onDone={() => setLoadingDone(true)} />
+        <ThemeProvider>
+          <StatusBar style="auto" translucent backgroundColor="transparent" />
+          <AppLoadingScreen onDone={() => setLoadingDone(true)} />
+        </ThemeProvider>
       </GestureHandlerRootView>
     );
   }

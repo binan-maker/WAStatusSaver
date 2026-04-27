@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,20 +9,31 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
+import { useThumbnail } from '@/hooks/media/useThumbnail';
+
+type AnyItem = StatusItem | SavedItem;
 
 // 32x32 neutral grey blurhash — shown while a recycled cell is decoding the
 // new image so users never see a "black grid" when scrolling back up.
 const THUMB_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
 
 interface MediaCardProps {
-  item: StatusItem | SavedItem;
+  item: AnyItem;
   isSaved: boolean;
-  onPress: () => void;
-  onSave?: () => void;
-  onShare: () => void;
+  // ANDROID 11+ TAP-RELIABILITY FIX:
+  // These callbacks now take the item as an argument so parents can pass
+  // STABLE useCallback'd handlers (e.g. `onPress={handlePress}`) instead of
+  // inline arrows like `onPress={() => handlePress(item)}`. Inline arrows
+  // create a new function identity every parent render, defeating React.memo
+  // here and causing every thumbnail to re-render mid-touch on cold launch
+  // — which dropped the in-flight touch event and forced the user to tap
+  // 3-4 times before navigation actually fired.
+  onPress: (item: AnyItem) => void;
+  onSave?: (item: AnyItem) => void;
+  onShare: (item: AnyItem) => void;
+  onDelete?: (item: AnyItem) => void;
   showSaveButton?: boolean;
   showDeleteButton?: boolean;
-  onDelete?: () => void;
 }
 
 function MediaCardInner({
@@ -37,24 +48,44 @@ function MediaCardInner({
 }: MediaCardProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const uri = 'localUri' in item ? item.localUri : item.uri;
+  const originalUri = 'localUri' in item ? item.localUri : item.uri;
+
+  // Subscribe to the per-item thumbnail cache. The hook returns:
+  //   - file://...vid_xxx.jpg → background queue produced a real thumb
+  //   - null                  → no cached thumb yet, fall back to current
+  //                             expo-image videoTimestamp path
+  // Only THIS card re-renders when its own thumb becomes ready, so the
+  // background generator never disturbs scrolling.
+  const cachedThumb = useThumbnail(item.id);
+  const isVideo = item.type === 'video';
+  // Decide what URI to feed the <Image>:
+  //   - cached thumb if available (always wins — pure file://, instant)
+  //   - else original URI (content:// or file://)
+  // We also gate the heavy `videoTimestamp` prop on whether we already have
+  // a real cached frame: when we have one, we pass a normal image source
+  // and Glide treats it as a static JPG — no MediaMetadataRetriever, no
+  // SAF round-trip, no decoder spin-up. THIS is what kills the scroll lag.
+  const displayUri = cachedThumb || originalUri;
+  const useVideoFallback = isVideo && !cachedThumb;
+
+  // Stable internal handlers. They only change when the upstream callback
+  // identity OR the item identity changes — both of which are stable across
+  // a normal render cycle.
+  const handlePress = useCallback(() => onPress(item), [onPress, item]);
+  const handleSave = useCallback(() => onSave?.(item), [onSave, item]);
+  const handleShare = useCallback(() => onShare(item), [onShare, item]);
+  const handleDelete = useCallback(() => onDelete?.(item), [onDelete, item]);
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
         activeOpacity={0.82}
-        onPress={onPress}
+        onPress={handlePress}
         style={styles.touchable}
       >
-        {item.type === 'video' ? (
-          /*
-            expo-image on Android uses Glide which can natively extract a video
-            frame from file:// URIs (and many content:// URIs) without any extra
-            native library. The videoTimestamp prop (expo-image ≥ 1.11) requests
-            the frame at 500 ms for a representative thumbnail.
-            A dark play-button overlay is always shown on top.
-          */
+        {isVideo ? (
           <View style={styles.image}>
+<<<<<<< HEAD
             <Image
               source={{ uri }}
               style={styles.image}
@@ -65,6 +96,39 @@ function MediaCardInner({
               placeholderContentFit="cover"
               placeholder={THUMB_PLACEHOLDER}
             />
+=======
+            {useVideoFallback ? (
+              // Fallback path — used only briefly until the background queue
+              // generates a real cached frame for this video. videoTimestamp
+              // 0 picks the first key-frame (no expensive seek). Once the
+              // cache populates, this branch is replaced by the file-path
+              // branch below and we never touch the decoder again.
+              <Image
+                source={{ uri: displayUri }}
+                style={styles.image}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={item.id}
+                videoTimestamp={0}
+                priority="low"
+                allowDownscaling
+                transition={0}
+              />
+            ) : (
+              // Hot path — pure file:// JPG. No native decoder, no SAF,
+              // no metadata retriever. Just memory-mapped JPEG decode.
+              <Image
+                source={{ uri: displayUri }}
+                style={styles.image}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={item.id}
+                priority="normal"
+                allowDownscaling
+                transition={0}
+              />
+            )}
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
                 <Ionicons name="play" size={16} color="#fff" />
@@ -73,13 +137,20 @@ function MediaCardInner({
           </View>
         ) : (
           <Image
-            source={{ uri }}
+            source={{ uri: displayUri }}
             style={styles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
+<<<<<<< HEAD
             recyclingKey={uri}
             placeholderContentFit="cover"
             placeholder={THUMB_PLACEHOLDER}
+=======
+            transition={0}
+            priority="normal"
+            allowDownscaling
+            recyclingKey={item.id}
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
           />
         )}
 
@@ -93,7 +164,7 @@ function MediaCardInner({
           {showDeleteButton && onDelete && (
             <TouchableOpacity
               style={styles.actionBtn}
-              onPress={onDelete}
+              onPress={handleDelete}
               hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
             >
               <Ionicons name="trash-outline" size={13} color="#fff" />
@@ -101,7 +172,7 @@ function MediaCardInner({
           )}
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={onShare}
+            onPress={handleShare}
             hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
           >
             <Ionicons name="share-outline" size={13} color="#fff" />
@@ -109,7 +180,7 @@ function MediaCardInner({
           {showSaveButton && onSave && (
             <TouchableOpacity
               style={[styles.actionBtn, isSaved && styles.savedBtn]}
-              onPress={onSave}
+              onPress={handleSave}
               hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
             >
               <Ionicons

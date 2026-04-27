@@ -30,7 +30,9 @@ export function useFreeAdsState() {
 
   useEffect(() => {
     checkFreeAdsStatus(uidRef.current);
-    const interval = setInterval(() => checkFreeAdsStatus(uidRef.current), 1000);
+    // PERF: 1s → 30s polling. Reward timers run in hours/days; 30s precision
+    // is plenty and avoids continuously waking the JS thread + disk on launch.
+    const interval = setInterval(() => checkFreeAdsStatus(uidRef.current), 30000);
     return () => clearInterval(interval);
   }, []);
 

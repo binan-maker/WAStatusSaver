@@ -22,5 +22,11 @@ export const AD_UNIT_IDS = {
     : 'ca-app-pub-2087467559495393/1974572625',
 };
 
-export const VIDEO_AD_FREQUENCY = 10;
-export const ADS_ENABLED = true;
+// Neutralized ad pacing — generous to avoid "this app is full of ads" reviews.
+// Show an interstitial only every Nth video open / image swipe AND only after
+// a global cooldown (see INTERSTITIAL_COOLDOWN_MS). Tune here, not in code.
+export const VIDEO_AD_FREQUENCY = 25;
+export const IMAGE_SWIPE_AD_FREQUENCY = 30;
+export const INTERSTITIAL_COOLDOWN_MS = 3 * 60 * 1000; // min 3 min between ads
+export const APP_OPEN_AD_COOLDOWN_MS = 30 * 60 * 1000; // min 30 min between app-open ads
+export const ADS_ENABLED = false;
