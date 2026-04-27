@@ -692,11 +692,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     }
   }, [hasPermission, androidVersion, safGranted, safUri, safUris]);
 
-  const refresh = useCallback(async (silent: boolean = false) => {
-    console.log(`[Loader] refresh called (silent: ${silent})`);
+  const refresh = useCallback(async () => {
+    // Always silent: pull-to-refresh must NEVER blank the grid out to a
+    // shimmer. The RefreshControl spinner is the only feedback the user
+    // needs. Existing thumbnails stay visible while the file system is
+    // re-scanned in the background; FlashList + expo-image diff the keyed
+    // items so removed files vanish, new files appear, and unchanged tiles
+    // never repaint.
     resolvedUriCache.current.clear();
     setIsRefreshing(true);
-    await loadStatuses(silent);
+    await loadStatuses(true);
     await loadSavedItems();
     setIsRefreshing(false);
   }, [loadStatuses]);

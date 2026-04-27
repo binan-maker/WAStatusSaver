@@ -11,7 +11,6 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
-  AppState,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -261,7 +260,6 @@ export default function StatusesScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
   const navigationRef = useRef<Map<string, number>>(new Map());
-  const lastRefreshTime = useRef<number>(0);
 
   // Consolidated Load Effect:
   // Triggers on mount, or whenever permissions are granted.
@@ -275,24 +273,6 @@ export default function StatusesScreen() {
       loadStatuses();
     }
   }, [hasPermission, safGranted, isGrantingAccess, androidVersion]);
-
-  // Auto-refresh when the user returns to the app from WhatsApp
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        const now = Date.now();
-        // Throttle: Don't refresh more than once every 30 seconds via AppState
-        // This prevents infinite loops from AdMob focus shifts.
-        if (now - lastRefreshTime.current > 30000) {
-          lastRefreshTime.current = now;
-          refresh(true); // Silent refresh to avoid shimmering
-        } else {
-          console.log('[Loader] AppState active, but throttled. Skipping refresh.');
-        }
-      }
-    });
-    return () => sub.remove();
-  }, [refresh]);
 
   const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
   const selectedStatuses = useMemo(
