@@ -474,21 +474,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               source={{ uri: mediaUri }}
               style={styles.image}
               contentFit="contain"
-              cachePolicy="disk"
+              cachePolicy="memory-disk"
               transition={0}
-              priority="high"
+              priority={isActive ? 'high' : 'low'}
               recyclingKey={item.id}
-              onLoadStart={() => {
-                console.log(`[Viewer] Image LOAD START: ${item.name}`);
-                setImageLoaded(false);
-              }}
-              onLoad={() => {
-                console.log(`[Viewer] Image LOAD SUCCESS: ${item.name}`);
-                setImageLoaded(true);
-              }}
-              onError={(e) => {
-                console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
-              }}
+              allowDownscaling
+              decodeFormat="rgb"
+              onLoadStart={() => setImageLoaded(false)}
+              onLoad={() => setImageLoaded(true)}
             />
             {/* Branded skeleton shimmer while the full-res image decodes */}
             {!imageLoaded && <ImageSkeleton />}
@@ -630,20 +623,35 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
-  // Pre-copy the next 2 videos in the background so they are ready before swipe.
-  // Images are skipped because expo-image handles content:// URIs efficiently,
-  // avoiding the slow 3-second disk I/O copy bottleneck.
+  // Predictive preloading. Images are warmed into expo-image's memory+disk
+  // cache via Image.prefetch so the next swipe lands on already-decoded
+  // pixels (no cold ContentResolver decode = no swipe lag). Videos are
+  // pre-copied to file:// cache so ExoPlayer can start playback the moment
+  // the user lands on them.
   useEffect(() => {
-    const next1 = items[currentIndex + 1];
-    if (next1 && next1.type === 'video' && next1.uri.startsWith('content://')) {
-      prepareStatusForViewing(next1 as StatusItem).catch(() => {});
-    }
-    const timer = setTimeout(() => {
-      const next2 = items[currentIndex + 2];
-      if (next2 && next2.type === 'video' && next2.uri.startsWith('content://')) {
-        prepareStatusForViewing(next2 as StatusItem).catch(() => {});
+    // Look ahead AND behind one slot — covers both forward swipe and back swipe.
+    const candidates = [
+      items[currentIndex + 1],
+      items[currentIndex - 1],
+    ];
+    candidates.forEach((nextItem) => {
+      if (!nextItem) return;
+      if (nextItem.type === 'image') {
+        Image.prefetch(nextItem.uri, 'memory-disk').catch(() => {});
+      } else if (nextItem.type === 'video' && nextItem.uri.startsWith('content://')) {
+        prepareStatusForViewing(nextItem as StatusItem).catch(() => {});
       }
-    }, 400); // Increased stagger to 400ms to further reduce disk I/O pressure
+    });
+    // Stagger the second-ahead item so we don't hammer the JS thread / disk.
+    const timer = setTimeout(() => {
+      const ahead2 = items[currentIndex + 2];
+      if (!ahead2) return;
+      if (ahead2.type === 'image') {
+        Image.prefetch(ahead2.uri, 'memory-disk').catch(() => {});
+      } else if (ahead2.type === 'video' && ahead2.uri.startsWith('content://')) {
+        prepareStatusForViewing(ahead2 as StatusItem).catch(() => {});
+      }
+    }, 300);
     return () => clearTimeout(timer);
   }, [currentIndex, items, prepareStatusForViewing]);
 

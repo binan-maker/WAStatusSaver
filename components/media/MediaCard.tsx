@@ -62,6 +62,9 @@ function MediaCardInner({
               cachePolicy="memory-disk"
               recyclingKey={uri}
               videoTimestamp={500}
+              allowDownscaling
+              decodeFormat="rgb"
+              priority="low"
               placeholderContentFit="cover"
               placeholder={THUMB_PLACEHOLDER}
             />
@@ -78,6 +81,9 @@ function MediaCardInner({
             contentFit="cover"
             cachePolicy="memory-disk"
             recyclingKey={uri}
+            allowDownscaling
+            decodeFormat="rgb"
+            priority="low"
             placeholderContentFit="cover"
             placeholder={THUMB_PLACEHOLDER}
           />
