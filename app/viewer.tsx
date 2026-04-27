@@ -351,12 +351,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
         // ─── Watchdog: fall back to file:// copy if ExoPlayer can't ────
         // play the content:// URI directly. Most devices fire readyToPlay
-        // within 400 ms; we give it 2.5 s. If still not ready, copy the
-        // SAF file to cache and re-feed the player. This rescues the rare
-        // OEM ExoPlayer build that rejects content:// URIs from a SAF
-        // tree, without paying the copy cost on the 99% of devices that
-        // play directly. The copy goes through the serialized queue so
-        // it never fights another in-flight prepare.
+        // within 400 ms; we give it 1 s (was 2.5 s — halved so users
+        // never stare at a frozen thumbnail for more than a second before
+        // the file:// fallback kicks in). The copy goes through the
+        // serialized queue so it never fights another in-flight prepare.
         if (displayUri.startsWith('content://')) {
           watchdogTimer = setTimeout(async () => {
             if (cancelled || isReadyToPlayRef.current) return;
@@ -384,7 +382,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               isLoadingSource.current = false;
               console.error(`[Viewer] Watchdog fallback failed for ${item.name}:`, err);
             }
-          }, 2500);
+          }, 1000);
         }
       } catch (e) {
         if (!cancelled) {
@@ -708,9 +706,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               )}
 
               {/*
-                pointerEvents="none" on the wrapper: thumbnail never blocks touches.
-                Native ExoPlayer controls receive all taps even while loading.
-                Stays visible until isVideoVisible (200 ms post-readyToPlay).
+                Thumbnail overlay: stays visible until isVideoVisible.
+                pointerEvents="none" so all taps fall through to native VideoView controls.
+                Shows a play button badge so users can always see it's a playable video
+                and have a visible affordance even while ExoPlayer is warming up.
               */}
               {(!isActive || !isVideoVisible) && (
                 <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -723,6 +722,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     recyclingKey={item.id}
                     videoTimestamp={500}
                   />
+                  {/* Play badge — always visible while thumbnail is up so
+                      users know this is a video and see a control target */}
+                  {isActive && !isVideoReady && !videoError && (
+                    <View style={styles.videoPlayBadge} pointerEvents="none">
+                      <View style={styles.videoPlayBadgeInner}>
+                        <Ionicons name="play" size={28} color="#fff" />
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -1190,6 +1198,23 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  videoPlayBadge: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoPlayBadgeInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.8)',
+    // Slight left padding to visually center the play triangle
+    paddingLeft: 4,
   },
   videoRetryOverlay: {
     position: 'absolute',

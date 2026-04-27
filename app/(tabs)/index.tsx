@@ -393,18 +393,14 @@ export default function StatusesScreen() {
       params: { id: item.id },
     });
 
-    // Defer ALL side effects (counters, ad scheduling) until after the
-    // navigation transaction is fully queued and the touch event is consumed.
-    // Using setTimeout(0) puts this in the next JS tick — after the router
-    // has started the screen transition and Android has cleared the touch.
-    setTimeout(() => {
-      if (item.type === 'video') {
-        onVideoOpen(item.uri);
-      } else {
-        onImageSwipe();
-      }
-    }, 0);
-  }, [onVideoOpen, onImageSwipe]);
+    // Defer video side effects (ad scheduling) until after navigation
+    // transaction is queued and the touch event is fully consumed.
+    // onImageSwipe is intentionally NOT called here — it tracks swipes
+    // inside the viewer pager, not thumbnail taps on the home grid.
+    if (item.type === 'video') {
+      setTimeout(() => onVideoOpen(item.uri), 0);
+    }
+  }, [onVideoOpen]);
 
   // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
   // signature. handlePress is already an (item: StatusItem) => void closure
