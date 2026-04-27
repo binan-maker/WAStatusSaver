@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
+import { Image as ExpoImage } from 'expo-image';
 import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
 import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
@@ -299,6 +300,15 @@ export default function StatusesScreen() {
     // Prevent double-tap navigation within 300ms
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
+
+    // Pre-navigation prefetch — start decoding the full-res image into the
+    // memory+disk cache the instant the tap registers, so by the time the
+    // viewer's slide-in animation completes (~250 ms) the bitmap is already
+    // warm. Eliminates the cold ContentResolver IPC + decode wait that
+    // causes "delay on tap" on Android 11+.
+    if (item.type === 'image') {
+      ExpoImage.prefetch(item.uri, 'memory-disk').catch(() => {});
+    }
 
     if (item.type === 'video') {
       onVideoOpen(item.uri);

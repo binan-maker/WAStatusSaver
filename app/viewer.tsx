@@ -47,36 +47,11 @@ function formatTime(millis: number) {
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
-// ── Branded skeleton shimmer for image loading ────────────────────────────────
-const shimmerAnim = new Animated.Value(0);
-let shimmerRunning = false;
-function ensureShimmer() {
-  if (shimmerRunning) return;
-  shimmerRunning = true;
-  Animated.loop(
-    Animated.sequence([
-      Animated.timing(shimmerAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(shimmerAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
-    ])
-  ).start();
-}
-
-function ImageSkeleton() {
-  const COLORS = useThemeColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  useEffect(() => { ensureShimmer(); }, []);
-  const opacity = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.08, 0.22] });
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.PRIMARY, opacity }]} />
-      <ActivityIndicator
-        color={COLORS.PRIMARY}
-        size="large"
-        style={{ position: 'absolute', alignSelf: 'center', top: '50%', marginTop: -20 }}
-      />
-    </View>
-  );
-}
+// Soft neutral blurhash shown the instant the viewer mounts. Eliminates
+// the black void during the ~50-150 ms SAF stream open + decode window.
+// expo-image crossfades automatically (transition={150}) once the real
+// bitmap is ready, so the user never sees a flash of black.
+const VIEWER_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
 
 function ViewerItem({ item, isActive, isNearActive, onToggleControls, showControls, controlsOpacity }: ViewerItemProps) {
   const COLORS = useThemeColors();
@@ -475,16 +450,24 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               style={styles.image}
               contentFit="contain"
               cachePolicy="memory-disk"
-              transition={0}
+              transition={150}
               priority={isActive ? 'high' : 'low'}
               recyclingKey={item.id}
               allowDownscaling
               decodeFormat="rgb"
+              placeholder={VIEWER_PLACEHOLDER}
+              placeholderContentFit="cover"
               onLoadStart={() => setImageLoaded(false)}
               onLoad={() => setImageLoaded(true)}
             />
-            {/* Branded skeleton shimmer while the full-res image decodes */}
-            {!imageLoaded && <ImageSkeleton />}
+            {/* Spinner overlay only while the SAF stream is being opened.
+                Once the placeholder is on screen there is no black void,
+                so we skip the heavy shimmer and just show a soft indicator. */}
+            {!imageLoaded && (
+              <View style={styles.imageSpinnerOverlay} pointerEvents="none">
+                <ActivityIndicator color={COLORS.PRIMARY} size="large" />
+              </View>
+            )}
           </Reanimated.View>
         </GestureDetector>
       ) : (
@@ -930,6 +913,11 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   image: {
     width: SW,
     height: SH,
+  },
+  imageSpinnerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   videoWrap: {
     width: SW,
