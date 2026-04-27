@@ -8,7 +8,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { Platform, Alert, Share, Linking, InteractionManager } from 'react-native';
+import { Platform, Alert, Share, Linking, InteractionManager, AppState } from 'react-native';
 // expo-file-system /legacy is intentionally retained:
 // the modern File/Directory/Paths API in expo-file-system@19 does NOT yet
 // expose StorageAccessFramework. Mixing the two entrypoints just to pull
@@ -430,7 +430,12 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     // Defer the gallery album rescan ~4s after launch so it never competes
     // with first-paint, font-load, hydration, or the user's first taps.
     const rescanTimer = setTimeout(() => {
-      InteractionManager.runAfterInteractions(() => {
+    // NEW: Defer further + check if app is idle
+InteractionManager.runAfterInteractions(() => {
+  // Wait for navigation animations + initial renders to settle
+  setTimeout(async () => {
+    // Only validate if app is in foreground and not actively being used
+    if (AppState.currentState !== 'active') return;
         if (!mounted) return;
         rescanGalleryAlbum(savedItemsRef.current).then(rescanned => {
           if (!mounted || !rescanned) return;
@@ -438,7 +443,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(rescanned)).catch(() => {});
         }).catch(() => {});
       });
-    }, 4000);
+    }, 3000);
     return () => {
       mounted = false;
       clearTimeout(rescanTimer);
@@ -897,11 +902,19 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // BFS that only descends into folders on the known path to .Statuses.
   // Uses SAF_KNOWN_INTERMEDIATE set and SAF_BFS_MAX_DEPTH to avoid scanning
   // unrelated directories (DCIM, Downloads, etc.).
+  const BFS_TIMEOUT_MS = 3000; // Max 3 seconds total for entire crawl
+const crawlStart = Date.now();
   async function bfsFindStatuses(uri: string, depth: number): Promise<string | null> {
-    if (depth > SAF_BFS_MAX_DEPTH) {
-      console.log(`[Crawler] Max depth ${depth} reached. Stopping crawl.`);
-      return null;
-    }
+  // Timeout guard
+  if (Date.now() - crawlStart > BFS_TIMEOUT_MS) {
+    console.log('[Crawler] Timeout reached, aborting crawl');
+    return null;
+  }
+  
+  if (depth > SAF_BFS_MAX_DEPTH) {
+    console.log(`[Crawler] Max depth ${depth} reached. Stopping crawl.`);
+    return null;
+  }
     let entries: string[];
     try {
       entries = await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
@@ -1061,10 +1074,46 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           // where the OS hasn't yet exposed the hidden folder. As soon
           // as items appear we exit, so warm runs cost almost zero extra.
           const mountStart = Date.now();
-          const firstAttempt = await Promise.all(
-            safEntries.map(([source, uri]) => readFromSAF(uri, source)),
-          );
-          items = firstAttempt.flat();
+          // NEW: Serialized reads with 50ms gap to respect Android SAF throttling
+async function readSAFEntriesSequential(
+  entries: [StatusSource, string][],
+): Promise<StatusItem[]> {
+  const results: StatusItem[] = [];
+  for (const [source, uri] of entries) {
+    try {
+      const items = await readFromSAF(uri, source);
+      results.push(...items);
+      // Small gap prevents SAF bridge congestion on low-end devices
+      if (entries.length > 1) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+    } catch (e) {
+      console.warn(`[SAF] Failed to read ${source}:`, e);
+    }
+  }
+  return results;
+}
+
+// Usage in loadStatuses:
+if (safEntries.length > 0) {
+  const mountStart = Date.now();
+  
+  // First attempt: sequential read
+  items = await readSAFEntriesSequential(safEntries);
+  
+  if (items.length === 0) {
+    console.log('[Loader] First SAF read empty, polling with backoff...');
+    resolvedUriCache.current.clear();
+    
+    // Polling: also sequential to avoid overwhelming SAF
+    items = await pollUntil(
+      async () => readSAFEntriesSequential(safEntries),
+      (list) => list.length > 0,
+      { maxMs: 2500, initialDelay: 300, backoff: 1.5, maxDelay: 800 },
+    );
+  }
+  logSafMountTime(Date.now() - mountStart);
+}
           if (items.length === 0) {
             console.log('[Loader] First SAF read empty, polling with backoff...');
             resolvedUriCache.current.clear();
@@ -1354,12 +1403,22 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     setPendingVideoUri(null);
   }, []);
 
+  // ─── ADD THIS helper function ──────────────────────────────────────────────
+async function canPlaySafUri(uri: string): Promise<boolean> {
+  try {
+    // Quick read test: if we can get file info, URI is accessible
+    const info = await FileSystem.getInfoAsync(uri);
+    return info.exists && (info as any).size > 0;
+  } catch {
+    return false;
+  }
+}
+
   const prepareStatusForViewing = useCallback(async (
-    item: StatusItem,
-    opts?: { forShare?: boolean },
-  ): Promise<string> => {
-    // Local file (saved items, file:// URIs, etc.) — return as-is.
-    if (!item.uri.startsWith('content://')) return item.uri;
+  item: StatusItem,
+  opts?: { forShare?: boolean; forPlayback?: boolean },
+): Promise<string> => {
+  if (!item.uri.startsWith('content://')) return item.uri;
 
     // ─── Direct content:// playback (the fast path) ──────────────────
     // Modern expo-video (ExoPlayer) and expo-image both consume
@@ -1373,9 +1432,23 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     // file:// copy — Sharing.shareAsync requires a real file URI to hand
     // off to other apps. That copy is now serialized through copyQueue
     // so it never fights the active video for SAF I/O bandwidth.
-    if (!opts?.forShare) {
-      return item.uri;
+   // Direct playback path (default)
+  if (!opts?.forShare) {
+    // If caller explicitly wants playback, verify URI is accessible
+    if (opts?.forPlayback) {
+      const accessible = await canPlaySafUri(item.uri);
+      if (!accessible) {
+        // Fallback to copy if URI isn't playable
+        logFallbackCopyTriggered();
+        // ... fall through to copy logic below
+      } else {
+        logDirectPlaySuccess();
+        return item.uri;
+      }
     }
+     // Otherwise trust direct playback (lazy fallback on error)
+    return item.uri;
+  }
 
     const start = Date.now();
     const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');

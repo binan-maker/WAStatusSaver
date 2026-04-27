@@ -35,6 +35,9 @@ import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/co
 
 const { width: SW } = Dimensions.get('window');
 const ROW_HEIGHT = CARD_SIZE + 2;
+const prefetchQueueRef = useRef<Set<string>>(new Set());
+const lastPrefetchTimeRef = useRef<number>(0);
+const PREFETCH_THROTTLE_MS = 200; // Min gap between prefetches
 
 type TabType = 'images' | 'videos';
 
@@ -339,6 +342,29 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
+    // Throttled prefetch for images only
+  if (item.type === 'image') {
+    const now = Date.now();
+    const uri = item.uri;
+    
+    // Skip if already queued or too soon
+    if (
+      prefetchQueueRef.current.has(uri) ||
+      now - lastPrefetchTimeRef.current < PREFETCH_THROTTLE_MS
+    ) {
+      // Still navigate, just skip prefetch
+    } else {
+      prefetchQueueRef.current.add(uri);
+      lastPrefetchTimeRef.current = now;
+      
+      ExpoImage.prefetch(uri, 'memory-disk')
+        .catch(() => {})
+        .finally(() => {
+          prefetchQueueRef.current.delete(uri);
+        });
+    }
+  }
+
     // PERF: Fire-and-forget prefetch on tap.
     // - For VIDEOS: NO upfront copy — the viewer feeds the content:// URI
     //   straight to ExoPlayer (the watchdog rescues the rare device where
@@ -435,21 +461,34 @@ export default function StatusesScreen() {
   // mount the videos grid offscreen. By the time the user swipes there,
   // it's fully rendered — instant, zero jank.
   useEffect(() => {
-    if (visitedTabs.videos) return;
-    if (filteredVideos.length === 0) return;
-    if (isLoading || isInitializing) return;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      // Extra 1.2s gives the active images grid time to fully decode its
-      // visible thumbnails before we start the videos grid in the
-      // background — keeps the first user-visible second buttery on
-      // low-end Android 11 devices.
-      const t = setTimeout(() => {
-        setVisitedTabs(prev => (prev.videos ? prev : { ...prev, videos: true }));
-      }, 1200);
-      return () => clearTimeout(t);
+  if (visitedTabs.videos) return;
+  if (filteredVideos.length === 0) return;
+  if (isLoading || isInitializing) return;
+  
+  // Use requestIdleCallback if available (web + modern Android)
+  const idleCallback = (callback: IdleRequestCallback) => {
+    if ('requestIdleCallback' in global) {
+      return (global as any).requestIdleCallback(callback, { timeout: 2000 });
+    }
+    // Fallback: setTimeout with longer delay
+    return setTimeout(callback, 2000);
+  };
+  
+  const handle = InteractionManager.runAfterInteractions(() => {
+    idleCallback(() => {
+      // Only mount if still unvisited
+      setVisitedTabs(prev => (prev.videos ? prev : { ...prev, videos: true }));
     });
-    return () => handle.cancel?.();
-  }, [filteredVideos.length, isLoading, isInitializing, visitedTabs.videos]);
+  });
+  
+  return () => {
+    if (typeof handle === 'number') {
+      clearTimeout(handle);
+    } else {
+      handle?.cancel?.();
+    }
+  };
+}, [filteredVideos.length, isLoading, isInitializing, visitedTabs.videos]);
 
   // The instant the user STARTS dragging the horizontal pager, mount BOTH
   // grids. This way the destination grid renders DURING the swipe
@@ -612,6 +651,14 @@ export default function StatusesScreen() {
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
+               windowSize={5} // Limit offscreen rendering (default is 21 - too aggressive)
+  drawDistance={100} // Reduce from 250 to 100 for low-end devices
+  overrideItemLayout={(layout, item, index, columnSpan) => {
+    layout.size = CARD_SIZE;
+    layout.span = 1;
+    
+  }}
+
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -622,19 +669,27 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={({ item }) => (
-                <MediaCard
-                  item={item}
-                  isSaved={isStatusSaved(item.id)}
-                  onPress={handlePressAny}
-                  onSave={handleSaveAny}
-                  onShare={handleShareAny}
-                  showSaveButton
-                />
-              )}
+  <MediaCard
+    item={item}
+    isSaved={isStatusSaved(item.id)}
+    isFocused={visibleItemsRef.current.has(item.id)} // ADD THIS
+    onPress={handlePressAny}
+    onSave={handleSaveAny}
+    onShare={handleShareAny}
+    showSaveButton
+  />
+)}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={false}
               drawDistance={250}
+              onViewableItemsChanged={onViewableItemsChanged}
+  viewabilityConfig={{
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 100,
+  }}
+  // Pass visible set as extraData to trigger re-renders only when visibility changes
+  extraData={Array.from(visibleItemsRef.current).join(',')}
             />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
@@ -661,6 +716,7 @@ export default function StatusesScreen() {
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
+              
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -668,6 +724,7 @@ export default function StatusesScreen() {
                   tintColor={COLORS.PRIMARY}
                   colors={[COLORS.PRIMARY]}
                   progressBackgroundColor={COLORS.SURFACE}
+                  
                 />
               }
               renderItem={({ item }) => (
@@ -679,12 +736,21 @@ export default function StatusesScreen() {
                   onShare={handleShareAny}
                   showSaveButton
                 />
+                
               )}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={false}
               drawDistance={250}
-            />
+              onViewableItemsChanged={onViewableItemsChanged}
+  viewabilityConfig={{
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 100,
+  }}
+  // Pass visible set as extraData to trigger re-renders only when visibility changes
+  extraData={Array.from(visibleItemsRef.current).join(',')}
+/>
+            
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
           )}

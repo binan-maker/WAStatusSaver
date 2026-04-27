@@ -29,6 +29,7 @@ interface MediaCardProps {
   onDelete?: (item: AnyItem) => void;
   showSaveButton?: boolean;
   showDeleteButton?: boolean;
+  isFocused?: boolean; // True if card is in/near viewport
 }
 
 function MediaCardInner({
@@ -75,16 +76,17 @@ function MediaCardInner({
               - transition={0} → instant placeholder swap, no fade.
             */}
             <Image
-              source={{ uri }}
-              style={styles.image}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              recyclingKey={uri}
-              videoTimestamp={0}
-              priority="normal"
-              allowDownscaling
-              transition={0}
-            />
+  source={{ uri }}
+  style={styles.image}
+  contentFit="cover"
+  cachePolicy="memory-disk"
+  recyclingKey={uri}
+  videoTimestamp={0}
+  // DYNAMIC PRIORITY:
+  priority={isFocused ? 'normal' : 'low'}
+  allowDownscaling
+  transition={0}
+/>
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
                 <Ionicons name="play" size={16} color="#fff" />
