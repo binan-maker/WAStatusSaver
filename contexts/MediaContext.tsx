@@ -22,6 +22,7 @@ import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY, IMAGE_SWIPE_AD_FREQUENCY, INTERSTITIAL_COOLDOWN_MS } from '@/constants/admob';
 import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
+import { ThumbnailCache } from '@/lib/thumbnail-cache';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SAF latency mitigation primitives — used throughout this file to replace
@@ -414,6 +415,10 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           // window survives across cold launches (counts accumulate over the
           // user's lifetime install, not per-session).
           hydrateTelemetryOnce(),
+          // Hydrate the thumbnail cache map so cards mounted from the
+          // cached statuses snapshot above can already display their
+          // file:// thumbs on the very first paint of the grid.
+          ThumbnailCache.init(),
           AsyncStorage.getItem('swipeCountForAds').then(saved => {
             if (saved) {
               const count = parseInt(saved, 10);
@@ -427,16 +432,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       }
     };
     init();
-    // Defer the gallery album rescan ~4s after launch so it never competes
+    // Defer the gallery album rescan ~3s after launch so it never competes
     // with first-paint, font-load, hydration, or the user's first taps.
+    // Wrapped in InteractionManager + a small idle gap so a slow device
+    // mid-animation doesn't get punished by a synchronous album scan.
     const rescanTimer = setTimeout(() => {
-    // NEW: Defer further + check if app is idle
-InteractionManager.runAfterInteractions(() => {
-  // Wait for navigation animations + initial renders to settle
-  setTimeout(async () => {
-    // Only validate if app is in foreground and not actively being used
-    if (AppState.currentState !== 'active') return;
+      InteractionManager.runAfterInteractions(() => {
         if (!mounted) return;
+        if (AppState.currentState !== 'active') return;
         rescanGalleryAlbum(savedItemsRef.current).then(rescanned => {
           if (!mounted || !rescanned) return;
           setSavedItems(rescanned);
@@ -1066,69 +1069,41 @@ const crawlStart = Date.now();
         const safEntries = Object.entries(safUrisRef.current) as [StatusSource, string][];
         if (safEntries.length > 0) {
           console.log(`[Loader] Processing ${safEntries.length} granted SAF URIs`);
-          // Polling supersedes the old "fixed setTimeout(1000) + retry"
-          // pattern. We try the read immediately; if it returns at least
-          // one item we're done (the common path on warm runs). If the
-          // first attempt returns 0 items we clear the resolved-URI cache
-          // and re-poll with backoff for up to 2.5 s — covers the case
-          // where the OS hasn't yet exposed the hidden folder. As soon
-          // as items appear we exit, so warm runs cost almost zero extra.
+          // Sequential reads with a small inter-entry gap so the SAF bridge
+          // never gets congested on low-end devices. The previous code ran
+          // both folders in parallel via Promise.all AND a duplicate
+          // sequential pass — wasted work and made the cold launch slower.
+          // Now: one ordered pass; if it returns 0 items we clear the
+          // resolved-URI cache and poll with backoff for up to 2.5 s
+          // (covers the case where the OS hasn't yet exposed the hidden
+          // folder after a fresh install).
           const mountStart = Date.now();
-          // NEW: Serialized reads with 50ms gap to respect Android SAF throttling
-async function readSAFEntriesSequential(
-  entries: [StatusSource, string][],
-): Promise<StatusItem[]> {
-  const results: StatusItem[] = [];
-  for (const [source, uri] of entries) {
-    try {
-      const items = await readFromSAF(uri, source);
-      results.push(...items);
-      // Small gap prevents SAF bridge congestion on low-end devices
-      if (entries.length > 1) {
-        await new Promise(r => setTimeout(r, 50));
-      }
-    } catch (e) {
-      console.warn(`[SAF] Failed to read ${source}:`, e);
-    }
-  }
-  return results;
-}
+          const readAllSequential = async (): Promise<StatusItem[]> => {
+            const results: StatusItem[] = [];
+            for (const [source, uri] of safEntries) {
+              try {
+                const list = await readFromSAF(uri, source);
+                results.push(...list);
+                if (safEntries.length > 1) {
+                  await new Promise(r => setTimeout(r, 50));
+                }
+              } catch (e) {
+                console.warn(`[SAF] Failed to read ${source}:`, e);
+              }
+            }
+            return results;
+          };
 
-// Usage in loadStatuses:
-if (safEntries.length > 0) {
-  const mountStart = Date.now();
-  
-  // First attempt: sequential read
-  items = await readSAFEntriesSequential(safEntries);
-  
-  if (items.length === 0) {
-    console.log('[Loader] First SAF read empty, polling with backoff...');
-    resolvedUriCache.current.clear();
-    
-    // Polling: also sequential to avoid overwhelming SAF
-    items = await pollUntil(
-      async () => readSAFEntriesSequential(safEntries),
-      (list) => list.length > 0,
-      { maxMs: 2500, initialDelay: 300, backoff: 1.5, maxDelay: 800 },
-    );
-  }
-  logSafMountTime(Date.now() - mountStart);
-}
+          items = await readAllSequential();
           if (items.length === 0) {
             console.log('[Loader] First SAF read empty, polling with backoff...');
             resolvedUriCache.current.clear();
             items = await pollUntil(
-              async () => {
-                const r = await Promise.all(
-                  safEntries.map(([source, uri]) => readFromSAF(uri, source)),
-                );
-                return r.flat();
-              },
+              readAllSequential,
               (list) => list.length > 0,
-              { maxMs: 2500, initialDelay: 250, backoff: 1.6, maxDelay: 1000 },
+              { maxMs: 2500, initialDelay: 300, backoff: 1.5, maxDelay: 800 },
             );
           }
-          // Telemetry — total time spent inside the SAF read for this load.
           logSafMountTime(Date.now() - mountStart);
         } else if (safUriRef.current) {
           console.log('[Loader] Falling back to legacy single safUri');
@@ -1177,6 +1152,33 @@ if (safEntries.length > 0) {
       // Skipped on empty lists so a transient SAF blip doesn't wipe the
       // cached snapshot (the user keeps seeing real thumbnails).
       if (items.length > 0) persistStatusesCache(items);
+
+      // ── Background thumbnail generation ─────────────────────────────
+      // Kick off the low-priority queue that turns each video's
+      // content:// URI into a tiny file:// JPG once. From the moment a
+      // thumb lands in the cache, the grid renders that card from a
+      // pure local file — Glide does no SAF round-trip and no video
+      // decoder work, which is what makes scrolling feel native-smooth
+      // on Android 11+.
+      //
+      // Deferred behind InteractionManager + a small idle gap so it
+      // never competes with the user's first scroll/tap after launch.
+      // Pruning runs first so deleted/expired statuses' thumb files are
+      // cleaned up before we generate any new ones.
+      if (items.length > 0) {
+        const queueItems = items.map(it => ({
+          id: it.id,
+          uri: it.uri,
+          type: it.type,
+        }));
+        const currentIds = new Set(items.map(it => it.id));
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            ThumbnailCache.prune(currentIds).catch(() => {});
+            ThumbnailCache.enqueue(queueItems);
+          }, 600);
+        });
+      }
     } catch (e) {
       console.error('[Loader] Error loading statuses:', e);
     } finally {

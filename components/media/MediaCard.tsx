@@ -9,6 +9,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
+import { useThumbnail } from '@/hooks/media/useThumbnail';
 
 type AnyItem = StatusItem | SavedItem;
 
@@ -29,7 +30,6 @@ interface MediaCardProps {
   onDelete?: (item: AnyItem) => void;
   showSaveButton?: boolean;
   showDeleteButton?: boolean;
-  isFocused?: boolean; // True if card is in/near viewport
 }
 
 function MediaCardInner({
@@ -44,7 +44,25 @@ function MediaCardInner({
 }: MediaCardProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const uri = 'localUri' in item ? item.localUri : item.uri;
+  const originalUri = 'localUri' in item ? item.localUri : item.uri;
+
+  // Subscribe to the per-item thumbnail cache. The hook returns:
+  //   - file://...vid_xxx.jpg → background queue produced a real thumb
+  //   - null                  → no cached thumb yet, fall back to current
+  //                             expo-image videoTimestamp path
+  // Only THIS card re-renders when its own thumb becomes ready, so the
+  // background generator never disturbs scrolling.
+  const cachedThumb = useThumbnail(item.id);
+  const isVideo = item.type === 'video';
+  // Decide what URI to feed the <Image>:
+  //   - cached thumb if available (always wins — pure file://, instant)
+  //   - else original URI (content:// or file://)
+  // We also gate the heavy `videoTimestamp` prop on whether we already have
+  // a real cached frame: when we have one, we pass a normal image source
+  // and Glide treats it as a static JPG — no MediaMetadataRetriever, no
+  // SAF round-trip, no decoder spin-up. THIS is what kills the scroll lag.
+  const displayUri = cachedThumb || originalUri;
+  const useVideoFallback = isVideo && !cachedThumb;
 
   // Stable internal handlers. They only change when the upstream callback
   // identity OR the item identity changes — both of which are stable across
@@ -61,32 +79,39 @@ function MediaCardInner({
         onPress={handlePress}
         style={styles.touchable}
       >
-        {item.type === 'video' ? (
+        {isVideo ? (
           <View style={styles.image}>
-            {/*
-              ANDROID 11+ THUMBNAIL PERF:
-              - videoTimestamp={0} → first key-frame, no MediaMetadataRetriever
-                seek (a 500ms seek on a content:// URI takes 200-800ms each).
-              - priority="normal" (was "low") → on cold launch the JS thread
-                is busy and "low" priority decodes were waiting hundreds of
-                milliseconds before Glide picked them up. "normal" gets the
-                visible thumbnails decoded ASAP without fighting any other
-                priority request (there are none — the viewer uses "high").
-              - allowDownscaling → Glide samples down to grid cell size.
-              - transition={0} → instant placeholder swap, no fade.
-            */}
-            <Image
-  source={{ uri }}
-  style={styles.image}
-  contentFit="cover"
-  cachePolicy="memory-disk"
-  recyclingKey={uri}
-  videoTimestamp={0}
-  // DYNAMIC PRIORITY:
-  priority={isFocused ? 'normal' : 'low'}
-  allowDownscaling
-  transition={0}
-/>
+            {useVideoFallback ? (
+              // Fallback path — used only briefly until the background queue
+              // generates a real cached frame for this video. videoTimestamp
+              // 0 picks the first key-frame (no expensive seek). Once the
+              // cache populates, this branch is replaced by the file-path
+              // branch below and we never touch the decoder again.
+              <Image
+                source={{ uri: displayUri }}
+                style={styles.image}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={item.id}
+                videoTimestamp={0}
+                priority="low"
+                allowDownscaling
+                transition={0}
+              />
+            ) : (
+              // Hot path — pure file:// JPG. No native decoder, no SAF,
+              // no metadata retriever. Just memory-mapped JPEG decode.
+              <Image
+                source={{ uri: displayUri }}
+                style={styles.image}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                recyclingKey={item.id}
+                priority="normal"
+                allowDownscaling
+                transition={0}
+              />
+            )}
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
                 <Ionicons name="play" size={16} color="#fff" />
@@ -95,14 +120,14 @@ function MediaCardInner({
           </View>
         ) : (
           <Image
-            source={{ uri }}
+            source={{ uri: displayUri }}
             style={styles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
             transition={0}
             priority="normal"
             allowDownscaling
-            recyclingKey={uri}
+            recyclingKey={item.id}
           />
         )}
 

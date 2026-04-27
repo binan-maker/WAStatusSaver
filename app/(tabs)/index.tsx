@@ -35,8 +35,14 @@ import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/co
 
 const { width: SW } = Dimensions.get('window');
 const ROW_HEIGHT = CARD_SIZE + 2;
-const prefetchQueueRef = useRef<Set<string>>(new Set());
-const lastPrefetchTimeRef = useRef<number>(0);
+// Module-level prefetch dedupe set. This is a plain Set (NOT a ref) because
+// it lives outside any component — refs only exist inside React render trees.
+// The previous code declared `useRef` here at module scope, which would
+// throw "Hooks can only be called inside a function component" the moment
+// this file was imported. Using a plain Set is functionally identical for
+// dedupe purposes and works at any call site.
+const prefetchedTapUris = new Set<string>();
+let lastPrefetchTime = 0;
 const PREFETCH_THROTTLE_MS = 200; // Min gap between prefetches
 
 type TabType = 'images' | 'videos';
@@ -342,29 +348,6 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-    // Throttled prefetch for images only
-  if (item.type === 'image') {
-    const now = Date.now();
-    const uri = item.uri;
-    
-    // Skip if already queued or too soon
-    if (
-      prefetchQueueRef.current.has(uri) ||
-      now - lastPrefetchTimeRef.current < PREFETCH_THROTTLE_MS
-    ) {
-      // Still navigate, just skip prefetch
-    } else {
-      prefetchQueueRef.current.add(uri);
-      lastPrefetchTimeRef.current = now;
-      
-      ExpoImage.prefetch(uri, 'memory-disk')
-        .catch(() => {})
-        .finally(() => {
-          prefetchQueueRef.current.delete(uri);
-        });
-    }
-  }
-
     // PERF: Fire-and-forget prefetch on tap.
     // - For VIDEOS: NO upfront copy — the viewer feeds the content:// URI
     //   straight to ExoPlayer (the watchdog rescues the rare device where
@@ -375,9 +358,25 @@ export default function StatusesScreen() {
     //   image goes through ContentResolver and can take 800 ms-2 s; doing
     //   it here in parallel with the navigation animation means the
     //   viewer's <Image> resolves nearly instantly from cache instead of
-    //   staring at the skeleton shimmer for 1-2 seconds.
+    //   staring at the skeleton shimmer for 1-2 seconds. Throttled +
+    //   deduped so repeated taps never queue a flood of decodes.
     if (item.type === 'image') {
-      ExpoImage.prefetch(item.uri, 'memory-disk').catch(() => {});
+      const uri = item.uri;
+      const t = Date.now();
+      if (
+        !prefetchedTapUris.has(uri) &&
+        t - lastPrefetchTime >= PREFETCH_THROTTLE_MS
+      ) {
+        prefetchedTapUris.add(uri);
+        lastPrefetchTime = t;
+        ExpoImage.prefetch(uri, 'memory-disk')
+          .catch(() => {})
+          .finally(() => {
+            // Free the slot after a short window so a re-tap can re-queue
+            // if the cache was evicted in the meantime.
+            setTimeout(() => prefetchedTapUris.delete(uri), 30000);
+          });
+      }
     }
 
     // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
@@ -419,6 +418,40 @@ export default function StatusesScreen() {
   const handlePressAny = useCallback((item: any) => handlePress(item as StatusItem), [handlePress]);
   const handleSaveAny = useCallback((item: any) => handleSave(item as StatusItem), [handleSave]);
   const handleShareAny = useCallback((item: any) => handleShare(item as StatusItem), [handleShare]);
+
+  // Stable per-cell renderers. Defining these as arrow functions inline on
+  // the FlashList's `renderItem` prop creates a new function identity on
+  // every parent render, which forces FlashList to re-mount every visible
+  // cell — the dominant cause of "stuck while scrolling" on Android 11+.
+  // Pulling them up here behind useCallback keeps the identity stable so
+  // FlashList only re-renders the specific cells whose data actually
+  // changed (handled by React.memo on MediaCard).
+  const renderImageItem = useCallback(
+    ({ item }: { item: StatusItem }) => (
+      <MediaCard
+        item={item}
+        isSaved={isStatusSaved(item.id)}
+        onPress={handlePressAny}
+        onSave={handleSaveAny}
+        onShare={handleShareAny}
+        showSaveButton
+      />
+    ),
+    [isStatusSaved, handlePressAny, handleSaveAny, handleShareAny],
+  );
+  const renderVideoItem = useCallback(
+    ({ item }: { item: StatusItem }) => (
+      <MediaCard
+        item={item}
+        isSaved={isStatusSaved(item.id)}
+        onPress={handlePressAny}
+        onSave={handleSaveAny}
+        onShare={handleShareAny}
+        showSaveButton
+      />
+    ),
+    [isStatusSaved, handlePressAny, handleSaveAny, handleShareAny],
+  );
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
@@ -651,14 +684,14 @@ export default function StatusesScreen() {
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
-               windowSize={5} // Limit offscreen rendering (default is 21 - too aggressive)
-  drawDistance={100} // Reduce from 250 to 100 for low-end devices
-  overrideItemLayout={(layout, item, index, columnSpan) => {
-    layout.size = CARD_SIZE;
-    layout.span = 1;
-    
-  }}
-
+              // Stable layout hint so FlashList never has to measure cells
+              // — it just walks the list assigning fixed sizes, which is
+              // an order of magnitude cheaper than the default heuristic
+              // on slow Android 11+ devices.
+              overrideItemLayout={(layout) => {
+                layout.size = CARD_SIZE;
+                layout.span = 1;
+              }}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -668,28 +701,11 @@ export default function StatusesScreen() {
                   progressBackgroundColor={COLORS.SURFACE}
                 />
               }
-              renderItem={({ item }) => (
-  <MediaCard
-    item={item}
-    isSaved={isStatusSaved(item.id)}
-    isFocused={visibleItemsRef.current.has(item.id)} // ADD THIS
-    onPress={handlePressAny}
-    onSave={handleSaveAny}
-    onShare={handleShareAny}
-    showSaveButton
-  />
-)}
+              renderItem={renderImageItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={false}
               drawDistance={250}
-              onViewableItemsChanged={onViewableItemsChanged}
-  viewabilityConfig={{
-    itemVisiblePercentThreshold: 50,
-    minimumViewTime: 100,
-  }}
-  // Pass visible set as extraData to trigger re-renders only when visibility changes
-  extraData={Array.from(visibleItemsRef.current).join(',')}
             />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
@@ -716,7 +732,10 @@ export default function StatusesScreen() {
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
-              
+              overrideItemLayout={(layout) => {
+                layout.size = CARD_SIZE;
+                layout.span = 1;
+              }}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -724,33 +743,14 @@ export default function StatusesScreen() {
                   tintColor={COLORS.PRIMARY}
                   colors={[COLORS.PRIMARY]}
                   progressBackgroundColor={COLORS.SURFACE}
-                  
                 />
               }
-              renderItem={({ item }) => (
-                <MediaCard
-                  item={item}
-                  isSaved={isStatusSaved(item.id)}
-                  onPress={handlePressAny}
-                  onSave={handleSaveAny}
-                  onShare={handleShareAny}
-                  showSaveButton
-                />
-                
-              )}
+              renderItem={renderVideoItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews={false}
               drawDistance={250}
-              onViewableItemsChanged={onViewableItemsChanged}
-  viewabilityConfig={{
-    itemVisiblePercentThreshold: 50,
-    minimumViewTime: 100,
-  }}
-  // Pass visible set as extraData to trigger re-renders only when visibility changes
-  extraData={Array.from(visibleItemsRef.current).join(',')}
-/>
-            
+            />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
           )}
