@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, Text } from 'react-native';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
-import { CARD_SIZE, GRID_COLUMNS } from '@/constants/theme';
+import { CARD_SIZE, GRID_COLUMNS, FONT_SIZE, SPACING } from '@/constants/theme';
 
 // Module-level shimmer driver shared across every mounted LoadingShimmer.
 // Refcounted so the loop only stops when the LAST consumer unmounts. The
@@ -49,9 +49,15 @@ function ShimmerCard({ delay }: { delay: number }) {
 
 interface LoadingShimmerProps {
   count?: number;
+  /**
+   * Optional caption rendered above the shimmer grid. Use this to make
+   * unavoidable SAF latency feel intentional ("Scanning statuses…") so the
+   * user never wonders whether the app has frozen.
+   */
+  label?: string;
 }
 
-export function LoadingShimmer({ count = GRID_COLUMNS * 4 }: LoadingShimmerProps) {
+export function LoadingShimmer({ count = GRID_COLUMNS * 4, label }: LoadingShimmerProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
 
@@ -61,15 +67,30 @@ export function LoadingShimmer({ count = GRID_COLUMNS * 4 }: LoadingShimmerProps
   }, []);
 
   return (
-    <View style={styles.grid}>
-      {Array.from({ length: count }).map((_, i) => (
-        <ShimmerCard key={i} delay={i} />
-      ))}
+    <View style={styles.wrapper}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <View style={styles.grid}>
+        {Array.from({ length: count }).map((_, i) => (
+          <ShimmerCard key={i} delay={i} />
+        ))}
+      </View>
     </View>
   );
 }
 
 const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
+  wrapper: {
+    flex: 1,
+  },
+  label: {
+    fontSize: FONT_SIZE.SM,
+    color: COLORS.TEXT_MUTED,
+    fontFamily: 'Nunito_600SemiBold',
+    textAlign: 'center',
+    paddingHorizontal: SPACING.LG,
+    paddingTop: SPACING.MD,
+    paddingBottom: SPACING.SM,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

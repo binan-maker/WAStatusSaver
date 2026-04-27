@@ -263,7 +263,6 @@ export default function StatusesScreen() {
     onVideoOpen,
     showInterstitial,
     dismissInterstitial,
-    prepareStatusForViewing,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -340,18 +339,18 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-    // PERF: Kick off SAF prep IMMEDIATELY on tap (fire-and-forget).
-    // - For VIDEO content:// URIs: copy to cache so the viewer's replaceAsync
-    //   hits a warm file:// URI (50-150ms readyToPlay vs 1-2s cold).
+    // PERF: Fire-and-forget prefetch on tap.
+    // - For VIDEOS: NO upfront copy — the viewer feeds the content:// URI
+    //   straight to ExoPlayer (the watchdog rescues the rare device where
+    //   that doesn't work). Eliminates the 200 ms-2 s SAF copy that used
+    //   to run synchronously before the viewer could even start loading.
     // - For IMAGE URIs (incl. SAF content://): prefetch into expo-image's
     //   memory-disk cache. On Android 11 the first decode of a content://
-    //   image goes through ContentResolver and can take 800ms-2s; doing it
-    //   here in parallel with the navigation animation means the viewer's
-    //   <Image> resolves nearly instantly from cache instead of staring at
-    //   the skeleton shimmer for 1-2 seconds.
-    if (item.type === 'video' && item.uri.startsWith('content://')) {
-      prepareStatusForViewing(item).catch(() => {});
-    } else if (item.type === 'image') {
+    //   image goes through ContentResolver and can take 800 ms-2 s; doing
+    //   it here in parallel with the navigation animation means the
+    //   viewer's <Image> resolves nearly instantly from cache instead of
+    //   staring at the skeleton shimmer for 1-2 seconds.
+    if (item.type === 'image') {
       ExpoImage.prefetch(item.uri, 'memory-disk').catch(() => {});
     }
 
@@ -373,7 +372,7 @@ export default function StatusesScreen() {
     if (item.type === 'video') {
       setTimeout(() => onVideoOpen(item.uri), 0);
     }
-  }, [onVideoOpen, prepareStatusForViewing]);
+  }, [onVideoOpen]);
 
   // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
   // signature. handlePress is already an (item: StatusItem) => void closure
@@ -595,7 +594,10 @@ export default function StatusesScreen() {
             indicator the user sees.
           */}
           {(isLoading || isGrantingAccess) && filteredImages.length === 0 ? (
-            <LoadingShimmer count={GRID_COLUMNS * 8} />
+            <LoadingShimmer
+              count={GRID_COLUMNS * 8}
+              label={isGrantingAccess ? 'Scanning statuses…' : undefined}
+            />
           ) : filteredImages.length === 0 ? (
             <EmptyState
               icon="images-outline"
@@ -641,7 +643,10 @@ export default function StatusesScreen() {
 
         <View style={{ width: SW, flex: 1 }}>
           {(isLoading || isGrantingAccess) && filteredVideos.length === 0 ? (
-            <LoadingShimmer count={GRID_COLUMNS * 8} />
+            <LoadingShimmer
+              count={GRID_COLUMNS * 8}
+              label={isGrantingAccess ? 'Scanning statuses…' : undefined}
+            />
           ) : filteredVideos.length === 0 ? (
             <EmptyState
               icon="videocam-outline"

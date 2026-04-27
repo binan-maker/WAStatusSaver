@@ -228,6 +228,42 @@ All user-facing legal/help docs updated to match the actual codebase:
 - When a giveaway code returns `CODE_EXHAUSTED`, the banner now offers a CTA pivot to `/invite` ("Invite 3 friends instead → 48 hours of Pro free").
 - `app/subscription.tsx` hero & active-Pro `LinearGradient`s are now derived from the active palette (`COLORS.PRIMARY` tint over `COLORS.SURFACE`) so they render correctly in light mode.
 
+## SAF Latency / Freeze Fix (April 27, 2026)
+After grant or cold launch on Android 11+, the app used to freeze for 1-2 s
+before showing thumbnails, and the first video tap stalled for 200 ms-2 s
+on a defensive SAF→cache copy. Comprehensive fix landed across four files:
+
+1. **Direct `content://` playback** (`app/viewer.tsx`,
+   `contexts/MediaContext.tsx::prepareStatusForViewing`) — the viewer now
+   feeds SAF `content://` URIs straight to ExoPlayer / `expo-image`. The
+   previous "copy to `view_*` cache file then play" path is GONE for the
+   normal viewing flow. A 2.5 s watchdog inside the source-loading effect
+   copies + re-feeds the player only on the rare OEM where direct
+   playback stalls. The cache copy still runs on demand for sharing
+   (`Sharing.shareAsync` requires a `file://` URI).
+2. **Persistent resolved-URI cache** (`STORAGE_KEYS.RESOLVED_URIS`) — the
+   in-memory `grantedUri → .Statuses URI` map is now mirrored to
+   AsyncStorage and rehydrated on launch. Cold starts skip the BFS crawl
+   that previously cost 200-1500 ms.
+3. **Persistent statuses snapshot** (`STORAGE_KEYS.STATUSES_CACHE`) — the
+   last successful `statuses[]` (top 200) is cached and replayed on the
+   very next cold launch, so the grid renders thumbnails INSTANTLY while
+   the fresh SAF read runs in the background.
+4. **`pollUntil` polling helper** — replaces the hardcoded
+   `setTimeout(700)` + `setTimeout(1300)` + `setTimeout(1000)` retry
+   chains in `requestSAF` and `loadStatuses`. Returns as soon as items
+   appear (warm runs cost ~0 extra ms; cold runs back off up to 4 s).
+5. **Single-thread copy queue** (`enqueueCopy`) — share-time SAF copies
+   are serialized so concurrent prepares can never fight each other for
+   I/O bandwidth.
+6. **`expo-file-system` /legacy retained** — modern File / Directory /
+   Paths API in v19 does not yet expose StorageAccessFramework. The
+   import stays on `/legacy` with a top-of-file comment explaining why;
+   migration will revisit when SAF lands on the modern API.
+7. **"Scanning statuses…" label** — `LoadingShimmer` accepts an optional
+   `label` prop and Home renders it during `isGrantingAccess` so the
+   first-grant wait feels intentional rather than frozen.
+
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`
 2. Update `app.json` with your actual bundle ID

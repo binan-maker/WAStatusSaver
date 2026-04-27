@@ -257,13 +257,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     if (item.type !== 'video' || !player || !displayUri) return;
     // ANDROID 11+ HARDWARE DECODER FIX: Only the ACTIVE slot allocates a
     // decoder via replaceAsync. Pre/next slots stay sourceless so the system
-    // codec pool never runs out. The on-disk file copy (prepareStatusForViewing)
-    // already happened in the parent's prefetch effect, so when the user swipes
-    // here, replaceAsync runs against a warm file:// URI and fires readyToPlay
-    // in 50-150ms — fast enough to feel instant.
+    // codec pool never runs out. We hand the URI directly to ExoPlayer
+    // (content:// works natively) — replaceAsync against a content:// URI
+    // typically fires readyToPlay in 100-400 ms on Android 11. The fallback
+    // watchdog below covers any edge-case OEM where direct playback hangs.
     if (!isActive) return;
 
     let cancelled = false;
+    let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
     isLoadingSource.current = true;
     isReadyToPlayRef.current = false;
 
@@ -271,17 +272,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       const loadStart = Date.now();
       try {
         // PERF: For cached/local files (file://) skip the animation wait
-        // entirely — those load instantly and waiting 250ms only adds dead
-        // time before the first frame. The wait was originally needed for
-        // SAF-copy URIs that arrive late and risk colliding with the
-        // navigation animation on slow Android 11 devices.
+        // entirely — those load instantly and waiting 250 ms only adds dead
+        // time before the first frame. The wait stays for content://
+        // sources because handing them to ExoPlayer mid-animation can
+        // collide with the JS thread on slow Android 11 devices.
         const isLocalCached = displayUri.startsWith('file://');
         if (!isLocalCached) {
           console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
-          // Race against a 120ms cap (was 250ms) — the typical navigation
-          // animation is ~300ms but the JS thread is usually free much
-          // sooner. Capping aggressively gets video loading started while
-          // the animation is still finishing.
           await Promise.race([
             new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
             new Promise<void>(resolve => setTimeout(resolve, 120)),
@@ -291,13 +288,40 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
         await player.replaceAsync(displayUri);
-        if (!cancelled) {
-          console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
-          isLoadingSource.current = false;
-          // Use ref so we always call the latest tryStartPlayback. Also re-check
-          // isReadyToPlayRef here because on fast cache hits the player fires
-          // readyToPlay synchronously inside replaceAsync before this line runs.
-          tryStartPlaybackRef.current();
+        if (cancelled) return;
+        console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
+        isLoadingSource.current = false;
+        tryStartPlaybackRef.current();
+
+        // ─── Watchdog: fall back to file:// copy if ExoPlayer can't ────
+        // play the content:// URI directly. Most devices fire readyToPlay
+        // within 400 ms; we give it 2.5 s. If still not ready, copy the
+        // SAF file to cache and re-feed the player. This rescues the rare
+        // OEM ExoPlayer build that rejects content:// URIs from a SAF
+        // tree, without paying the copy cost on the 99% of devices that
+        // play directly. The copy goes through the serialized queue so
+        // it never fights another in-flight prepare.
+        if (displayUri.startsWith('content://')) {
+          watchdogTimer = setTimeout(async () => {
+            if (cancelled || isReadyToPlayRef.current) return;
+            console.log(`[Viewer] Watchdog: direct content:// playback stalled for ${item.name}, falling back to cached copy`);
+            try {
+              const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
+              if (cancelled || isReadyToPlayRef.current) return;
+              if (cached && cached !== displayUri) {
+                isLoadingSource.current = true;
+                await player.replaceAsync(cached);
+                if (cancelled) return;
+                isLoadingSource.current = false;
+                setDisplayUri(cached);
+                tryStartPlaybackRef.current();
+                console.log(`[Viewer] Watchdog: switched ${item.name} to cached copy successfully`);
+              }
+            } catch (err) {
+              isLoadingSource.current = false;
+              console.error(`[Viewer] Watchdog fallback failed for ${item.name}:`, err);
+            }
+          }, 2500);
         }
       } catch (e) {
         if (!cancelled) {
@@ -310,6 +334,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     load();
     return () => {
       cancelled = true;
+      if (watchdogTimer) clearTimeout(watchdogTimer);
       isLoadingSource.current = false;
       isReadyToPlayRef.current = false;
     };
@@ -393,27 +418,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       return;
     }
 
-    let isMounted = true;
-    async function prepare() {
-      const pStart = Date.now();
-      try {
-        if (!initialSource.startsWith('content://') || item.type === 'image') {
-          if (isMounted) setDisplayUri(initialSource);
-          return;
-        }
-        console.log(`[Viewer] Preparing status for ${item.name}...`);
-        const prepared = await prepareStatusForViewing(item as StatusItem);
-        console.log(`[Viewer] Preparation done for ${item.name} (${Date.now() - pStart}ms). Local URI: ${prepared}`);
-        if (isMounted) setDisplayUri(prepared);
-      } catch (e) {
-        console.error(`[Viewer] Preparation failed for ${item.name}:`, e);
-        if (isMounted) setDisplayUri(initialSource);
-      }
-    }
-
-    if (!displayUri) prepare();
-    return () => { isMounted = false; };
-  }, [initialSource, item, isNearActive, isActive]);
+    // Direct content:// playback. Modern expo-video (ExoPlayer) accepts
+    // content:// URIs natively on Android, so we hand the URI to the player
+    // immediately — no upfront copy, no await. This shaves the 200 ms-2 s
+    // SAF copy off every video open. The watchdog effect below copies the
+    // file to cache and re-feeds the player IF and only if readyToPlay
+    // hasn't fired within 2.5 s (covers edge-case OEM ExoPlayer builds).
+    if (!displayUri) setDisplayUri(initialSource);
+  }, [initialSource, item, isNearActive, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
 
@@ -733,13 +745,17 @@ export default function ViewerScreen() {
 
   const currentItem = items[currentIndex];
 
-  // Pre-copy the next 2 videos AND prefetch the prev/current/next images so
-  // the user never sees a blank frame on swipe. Image.prefetch warms
-  // expo-image's memory-disk cache; the next swipe then renders instantly
-  // from RAM instead of paying the Android 11 ContentResolver tax on every
-  // navigation. The CURRENT item is also prefetched as a safety net for deep
-  // links / app reloads where the parent grid never had a chance to prefetch
-  // it on tap.
+  // Prefetch the prev/current/next IMAGES so the user never sees a blank
+  // frame on swipe. Image.prefetch warms expo-image's memory-disk cache;
+  // the next swipe then renders instantly from RAM instead of paying the
+  // Android 11 ContentResolver tax on every navigation.
+  //
+  // VIDEOS no longer get pre-copied here. The previous prepareStatusForViewing
+  // pre-copy added 200 ms-2 s of SAF I/O per neighbor and routinely fought
+  // the active video's own setup for I/O bandwidth, ironically making the
+  // CURRENT video slower to start. Now videos are fed straight to ExoPlayer
+  // as content:// URIs (see the URI-prep effect above) — no copy, no queue
+  // contention. The watchdog covers any device where direct playback fails.
   useEffect(() => {
     const cur = items[currentIndex];
     const next1 = items[currentIndex + 1];
@@ -749,14 +765,9 @@ export default function ViewerScreen() {
       const curUri = 'localUri' in cur ? (cur as SavedItem).localUri : cur.uri;
       Image.prefetch(curUri, 'memory-disk').catch(() => {});
     }
-
-    if (next1) {
-      if (next1.type === 'video' && next1.uri.startsWith('content://')) {
-        prepareStatusForViewing(next1 as StatusItem).catch(() => {});
-      } else if (next1.type === 'image') {
-        const nUri = 'localUri' in next1 ? (next1 as SavedItem).localUri : next1.uri;
-        Image.prefetch(nUri, 'memory-disk').catch(() => {});
-      }
+    if (next1 && next1.type === 'image') {
+      const nUri = 'localUri' in next1 ? (next1 as SavedItem).localUri : next1.uri;
+      Image.prefetch(nUri, 'memory-disk').catch(() => {});
     }
     if (prev1 && prev1.type === 'image') {
       const pUri = 'localUri' in prev1 ? (prev1 as SavedItem).localUri : prev1.uri;
@@ -765,16 +776,13 @@ export default function ViewerScreen() {
 
     const timer = setTimeout(() => {
       const next2 = items[currentIndex + 2];
-      if (next2) {
-        if (next2.type === 'video' && next2.uri.startsWith('content://')) {
-          prepareStatusForViewing(next2 as StatusItem).catch(() => {});
-        } else if (next2.type === 'image') {
-          Image.prefetch(next2.uri, 'memory-disk').catch(() => {});
-        }
+      if (next2 && next2.type === 'image') {
+        const n2Uri = 'localUri' in next2 ? (next2 as SavedItem).localUri : next2.uri;
+        Image.prefetch(n2Uri, 'memory-disk').catch(() => {});
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [currentIndex, items, prepareStatusForViewing]);
+  }, [currentIndex, items]);
 
   const [showControls, setShowControls] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
