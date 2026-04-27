@@ -1,0 +1,44 @@
+<<<<<<< HEAD
+The behavior you are seeing is a State Collision Loop. Your app is caught in a cycle where waking up triggers a series of crashes and background tasks that immediately put the app back to sleep.
+Here is the breakdown of why this is happening and how to stop the infinite logs:
+1. The "addListener" Crash (The immediate trigger)
+The logs show a major error: [TypeError: Cannot read property 'addListener' of undefined].
+What happened: When you click to open a video, the viewer.tsx page loads. I added useEventListener calls to track the video player. However, if the Video Player hasn't initialized fully or if the version of the library expects a different setup, it crashes because it can't find the "listener" function.
+The Loop: This crash triggers the app's Error Boundary. The Error Boundary likely resets the app to the Home page. Re-opening the home page triggers the "Active" state, which starts the loop all over again.
+2. AdMob Focus Thrashing
+The logs show Interstitial ad error: [googleMobileAds/no-fill] happening exactly when the app transitions from active to background.
+What was happening: Every time the app becomes "Active," the Ad system tries to "Resume" a failed ad. This failure triggers a brief UI shift (the system checking if it can show an overlay). Android counts this as the app losing focus.
+The Result: The app "flickers" into the background for 10ms, then comes back, which triggers the refresh logic again.
+3. The "Stuck" Video (Confirmed by Logs)
+Your logs finally revealed the truth about the video delay:
+LOG [Media] Deep copy complete for ... in 1888ms
+Reason: Every time you click a video on Android 11, the app has to spend nearly 2 full seconds just copying the file.
+Why it feels stuck: If the user gets impatient or if the app "flickers" (due to the ad error mentioned above) during those 2 seconds, the video player gets confused. It has been told to "Play," but the file isn't ready yet, so it sits on a black screen or a spinner forever.
+How to Fix it (Logic)
+Stop the Thrashing: Turn off the ADS_ENABLED switch in admob.ts. This will stop the Ad system from fighting for focus and should break the Active/Background infinite loop.
+Fix the Crash: The useEventListener calls in viewer.tsx need to be wrapped in a safety check or a useEffect so they don't try to "add a listener" to a player that is still null.
+Silence Permission Errors: The app is repeatedly yelling Missing MEDIA_LIBRARY permissions. You should modify the code to check hasPermission before calling getAlbumAsync. If you don't have permission, don't even try to scan; this saves CPU and prevents crash-loops.
+Handle the 2-Second Delay: Since we now know it takes ~1900ms to copy a video, the UI should show a "Preparing Video..." message instead of just a generic spinner, so the user knows the app is working and hasn't "frozen."
+=======
+The behavior you are seeing is a State Collision Loop. Your app is caught in a cycle where waking up triggers a series of crashes and background tasks that immediately put the app back to sleep.
+Here is the breakdown of why this is happening and how to stop the infinite logs:
+1. The "addListener" Crash (The immediate trigger)
+The logs show a major error: [TypeError: Cannot read property 'addListener' of undefined].
+What happened: When you click to open a video, the viewer.tsx page loads. I added useEventListener calls to track the video player. However, if the Video Player hasn't initialized fully or if the version of the library expects a different setup, it crashes because it can't find the "listener" function.
+The Loop: This crash triggers the app's Error Boundary. The Error Boundary likely resets the app to the Home page. Re-opening the home page triggers the "Active" state, which starts the loop all over again.
+2. AdMob Focus Thrashing
+The logs show Interstitial ad error: [googleMobileAds/no-fill] happening exactly when the app transitions from active to background.
+What was happening: Every time the app becomes "Active," the Ad system tries to "Resume" a failed ad. This failure triggers a brief UI shift (the system checking if it can show an overlay). Android counts this as the app losing focus.
+The Result: The app "flickers" into the background for 10ms, then comes back, which triggers the refresh logic again.
+3. The "Stuck" Video (Confirmed by Logs)
+Your logs finally revealed the truth about the video delay:
+LOG [Media] Deep copy complete for ... in 1888ms
+Reason: Every time you click a video on Android 11, the app has to spend nearly 2 full seconds just copying the file.
+Why it feels stuck: If the user gets impatient or if the app "flickers" (due to the ad error mentioned above) during those 2 seconds, the video player gets confused. It has been told to "Play," but the file isn't ready yet, so it sits on a black screen or a spinner forever.
+How to Fix it (Logic)
+Stop the Thrashing: Turn off the ADS_ENABLED switch in admob.ts. This will stop the Ad system from fighting for focus and should break the Active/Background infinite loop.
+Fix the Crash: The useEventListener calls in viewer.tsx need to be wrapped in a safety check or a useEffect so they don't try to "add a listener" to a player that is still null.
+Silence Permission Errors: The app is repeatedly yelling Missing MEDIA_LIBRARY permissions. You should modify the code to check hasPermission before calling getAlbumAsync. If you don't have permission, don't even try to scan; this saves CPU and prevents crash-loops.
+Handle the 2-Second Delay: Since we now know it takes ~1900ms to copy a video, the UI should show a "Preparing Video..." message instead of just a generic spinner, so the user knows the app is working and hasn't "frozen."
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+Current Status: The "Infinite Log" is a sign that the app's internal engine is "racing." Turning off ads is the #1 way to stabilize this immediately.
