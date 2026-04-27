@@ -1661,16 +1661,43 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
     // copies from blocking the JS thread for SAF callbacks at the same
     // time. Always awaits the full write before returning so the file
     // handed to Sharing.shareAsync is never half-written.
+    //
+    // FIX (2026-04-27): VERIFY + RETRY + THROW.
+    //   The previous code silently caught any copy failure and returned
+    //   `item.uri` (the original content:// URI). The viewer would then
+    //   hand that URI to ExoPlayer, which buffers ~1 s of SAF bytes
+    //   successfully, then stalls when it can't refill the buffer →
+    //   "video plays for 1 second then freezes" for users on certain
+    //   Android 11+ OEM SAF implementations. The fallback was masking a
+    //   real failure as a worse-looking bug.
+    //
+    //   Now: copy → verify the destination file exists with size > 0
+    //   → if not, delete the partial file and retry ONCE. If both
+    //   attempts fail, throw so the caller can show its retry UI
+    //   instead of letting the player silently freeze on a content://
+    //   URI we already know is unplayable.
     return enqueueCopy(async () => {
-      try {
-        console.log(`[Media] (queue) Copying ${item.name} to cache...`);
-        await FileSystem.copyAsync({ from: item.uri, to: tempUri });
-        console.log(`[Media] (queue) Copy complete for ${item.name} (${Date.now() - start}ms)`);
-        return tempUri;
-      } catch (e) {
-        console.error(`[Media] Prepare failed for ${item.name} after ${Date.now() - start}ms:`, e);
-        return item.uri;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log(`[Media] (queue) Copying ${item.name} to cache (attempt ${attempt})...`);
+          await FileSystem.copyAsync({ from: item.uri, to: tempUri });
+          const verify = await FileSystem.getInfoAsync(tempUri);
+          const size = (verify as any).size ?? 0;
+          if (verify.exists && size > 0) {
+            console.log(`[Media] (queue) Copy complete for ${item.name} (${Date.now() - start}ms, ${size} bytes)`);
+            return tempUri;
+          }
+          console.warn(`[Media] (queue) Copy verify failed for ${item.name} (attempt ${attempt}): exists=${verify.exists}, size=${size}`);
+          try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
+        } catch (e) {
+          console.warn(`[Media] (queue) Copy attempt ${attempt} threw for ${item.name}:`, e);
+          try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
+        }
       }
+      // Both attempts failed. Throw so the viewer's pre-copy effect can
+      // catch it and surface the "Tap to retry" overlay. Returning the
+      // original content:// URI here would let the player silently freeze.
+      throw new Error(`Cache copy failed after retries for ${item.name}`);
     });
   }, []);
 

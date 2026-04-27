@@ -77,6 +77,22 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // seen (Samsung One UI, Xiaomi MIUI, Realme, stock Android).
   const [videoError, setVideoError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  // CUSTOM VIDEO CONTROLS (FIX 2026-04-27):
+  //   ExoPlayer's nativeControls={true} overlay was unreliable on Android
+  //   11/12 OEM builds — it auto-hid after ~1 s and refused to come back
+  //   on tap. We now own the controls entirely in JS so show/hide is
+  //   deterministic. videoControlsVisible drives the overlay's render;
+  //   isPlaying mirrors player.playing for the play/pause icon;
+  //   currentTime / videoDuration drive the time text + progress bar;
+  //   userPausedRef tells the stuck-detector to NOT auto-resume after a
+  //   user-initiated pause.
+  const [videoControlsVisible, setVideoControlsVisible] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const userPausedRef = useRef(false);
+  const controlsHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stuckResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Module-level telemetry latches (per source). directPlayLoggedRef ensures
   // we only count ONE success per content:// URI even if statusChange fires
   // 'readyToPlay' multiple times across re-buffers. fallbackLoggedRef does the
@@ -148,6 +164,71 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       }
     }
   });
+
+  // ─── CUSTOM VIDEO CONTROLS HELPERS ────────────────────────────────────
+  // Defined AFTER useVideoPlayer so closures can reference `player` safely.
+  const clearControlsHideTimer = useCallback(() => {
+    if (controlsHideTimerRef.current) {
+      clearTimeout(controlsHideTimerRef.current);
+      controlsHideTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleControlsHide = useCallback(() => {
+    clearControlsHideTimer();
+    controlsHideTimerRef.current = setTimeout(() => {
+      setVideoControlsVisible(false);
+    }, 3500);
+  }, [clearControlsHideTimer]);
+
+  const showVideoControls = useCallback(() => {
+    setVideoControlsVisible(true);
+    scheduleControlsHide();
+  }, [scheduleControlsHide]);
+
+  const togglePlayPause = useCallback(() => {
+    if (!player) return;
+    try {
+      if (player.playing) {
+        // User-initiated pause. Mark the ref so the stuck-detector
+        // doesn't auto-resume on the next playingChange event.
+        userPausedRef.current = true;
+        player.pause();
+      } else {
+        userPausedRef.current = false;
+        player.muted = false;
+        player.play();
+      }
+      // Keep controls visible after the tap so the user sees the new icon.
+      showVideoControls();
+    } catch (e) {
+      console.log('[Viewer] togglePlayPause error:', e);
+    }
+  }, [player, showVideoControls]);
+
+  const handleVideoSurfaceTap = useCallback(() => {
+    if (videoControlsVisible) {
+      // Tap while controls are visible → hide them (standard player UX).
+      clearControlsHideTimer();
+      setVideoControlsVisible(false);
+    } else {
+      showVideoControls();
+    }
+  }, [videoControlsVisible, clearControlsHideTimer, showVideoControls]);
+
+  const seekToFraction = useCallback((fraction: number) => {
+    if (!player || !videoDuration || videoDuration <= 0) return;
+    try {
+      const clamped = Math.max(0, Math.min(1, fraction));
+      const targetSec = clamped * videoDuration;
+      (player as any).currentTime = targetSec;
+      setCurrentTime(targetSec);
+      showVideoControls();
+    } catch (e) {
+      console.log('[Viewer] seek error:', e);
+    }
+  }, [player, videoDuration, showVideoControls]);
+  // ──────────────────────────────────────────────────────────────────────
 
   // Reanimated shared values for smooth pinch-to-zoom on images
   const imageScale = useSharedValue(1);
@@ -339,6 +420,110 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   useEffect(() => {
     lastReplacedSourceRef.current = null;
   }, [item.id]);
+
+  // ─── CUSTOM VIDEO CONTROLS — listeners + lifecycle ────────────────────
+  // Reset all per-item controls state when the user swipes to a new video.
+  useEffect(() => {
+    userPausedRef.current = false;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setVideoDuration(0);
+    setVideoControlsVisible(false);
+  }, [item.id]);
+
+  // Subscribe to playingChange. Two jobs:
+  //   1. Mirror the live play/pause state into React so the icon updates.
+  //   2. STUCK DETECTOR — if the player flips to !playing AFTER having
+  //      reached readyToPlay AND the user did NOT initiate a pause, the
+  //      OEM ExoPlayer just stalled. Auto-call play() to wake it up.
+  //      This is the safety net for the "video freezes after 1 second"
+  //      symptom on devices where even a file:// source can stall.
+  useEffect(() => {
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
+    let sub: { remove: () => void } | null = null;
+    try {
+      sub = player.addListener('playingChange', (payload: any) => {
+        // Different expo-video versions name this `isPlaying` vs `playing`.
+        const nowPlaying = payload?.isPlaying ?? payload?.playing ?? false;
+        setIsPlaying(nowPlaying);
+
+        if (
+          !nowPlaying &&
+          !userPausedRef.current &&
+          hasEverReachedReadyRef.current &&
+          isActiveRef.current &&
+          item.type === 'video'
+        ) {
+          // Schedule the resume on a micro-delay so we don't fight the
+          // same state-change cycle that just flipped us to !playing.
+          if (stuckResumeTimerRef.current) clearTimeout(stuckResumeTimerRef.current);
+          stuckResumeTimerRef.current = setTimeout(() => {
+            stuckResumeTimerRef.current = null;
+            if (!isActiveRef.current || userPausedRef.current) return;
+            try {
+              if (!player.playing) {
+                console.log(`[Viewer] Stuck detector: resuming ${item.name} after unexpected pause`);
+                player.muted = false;
+                player.play();
+              }
+            } catch {}
+          }, 250);
+        }
+      });
+    } catch (e) {
+      console.log('[Viewer] playingChange listener attach failed:', e);
+    }
+    return () => { try { sub?.remove(); } catch {} };
+  }, [player, item.type, item.name]);
+
+  // Subscribe to timeUpdate. Throttled to 4 Hz — enough for a smooth
+  // progress bar without burning CPU on the JS thread.
+  useEffect(() => {
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
+    try { (player as any).timeUpdateEventInterval = 0.25; } catch {}
+    let sub: { remove: () => void } | null = null;
+    try {
+      sub = player.addListener('timeUpdate', (payload: any) => {
+        const ct = payload?.currentTime;
+        if (typeof ct === 'number') setCurrentTime(ct);
+      });
+    } catch {}
+    return () => { try { sub?.remove(); } catch {} };
+  }, [player, item.type]);
+
+  // Capture the duration once the video reaches readyToPlay. We re-read it
+  // each time isVideoReady flips so a re-buffer that bumps the duration
+  // (rare but possible for variable-bitrate clips) updates the progress bar.
+  useEffect(() => {
+    if (item.type !== 'video' || !player) return;
+    if (!isVideoReady) return;
+    try {
+      const d = (player as any).duration;
+      if (typeof d === 'number' && d > 0 && d !== videoDuration) {
+        setVideoDuration(d);
+      }
+    } catch {}
+  }, [player, item.type, isVideoReady, videoDuration]);
+
+  // Auto-show controls briefly the first time the video surface is revealed
+  // so the user immediately knows they CAN tap to interact. Hides on the
+  // standard 3.5 s timer afterwards.
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    if (isActive && isVideoVisible) {
+      showVideoControls();
+    }
+  }, [isActive, isVideoVisible, item.type, showVideoControls]);
+
+  // Tear down all controls timers on unmount so nothing fires against a
+  // released player.
+  useEffect(() => {
+    return () => {
+      if (controlsHideTimerRef.current) clearTimeout(controlsHideTimerRef.current);
+      if (stuckResumeTimerRef.current) clearTimeout(stuckResumeTimerRef.current);
+    };
+  }, []);
+  // ──────────────────────────────────────────────────────────────────────
 
   // ── Source loading ───────────────────────────────────────────────────────
   // Strategy: call replaceAsync as soon as animations finish (InteractionManager),
@@ -598,15 +783,20 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       try {
         const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
         if (cancelled) return;
-        // If prepareStatusForViewing failed and returned the original
-        // content:// URI, fall back to direct play — better than nothing.
-        // The watchdog will still try a cache fallback if even that stalls
-        // before readyToPlay (though that path is now extremely rare).
-        setDisplayUri(cached || initialSource);
+        if (cached && cached.startsWith('file://')) {
+          setDisplayUri(cached);
+        } else {
+          // prepareStatusForViewing now THROWS on copy failure rather than
+          // silently returning content://. If we got here with a non-file
+          // URI it's safer to surface the retry overlay than to feed
+          // ExoPlayer a SAF stream that will freeze ~1 s in.
+          console.error(`[Viewer] Pre-copy returned unexpected URI for ${item.name}: ${cached}`);
+          setVideoError(true);
+        }
       } catch (e) {
         if (!cancelled) {
-          console.log(`[Viewer] Pre-copy failed for ${item.name}, falling back to direct content:// play:`, e);
-          setDisplayUri(initialSource);
+          console.error(`[Viewer] Pre-copy failed for ${item.name}, surfacing retry:`, e);
+          setVideoError(true);
         }
       }
     })();
@@ -827,7 +1017,24 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
-                  nativeControls={true}
+                  nativeControls={false}
+                />
+              )}
+
+              {/*
+                CUSTOM CONTROLS TAP LAYER (FIX 2026-04-27):
+                Transparent full-surface tap target sitting directly above the
+                VideoView. Replaces ExoPlayer's flaky nativeControls. Tapping
+                here toggles our JS-owned overlay (play/pause + time + progress).
+                Only mounted while the video surface is actually visible and
+                playable — never over the thumbnail or the retry overlay.
+              */}
+              {isActive && isVideoVisible && !videoError && (
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFill}
+                  activeOpacity={1}
+                  onPress={handleVideoSurfaceTap}
+                  accessibilityLabel="Show video controls"
                 />
               )}
 
@@ -869,6 +1076,65 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     size="large"
                   />
                 </View>
+              )}
+
+              {/*
+                CUSTOM VIDEO CONTROLS OVERLAY (FIX 2026-04-27):
+                Owned entirely in JS — guaranteed responsive on every Android
+                OEM. Shows: large center play/pause button + time readout +
+                tap-to-seek progress bar. Auto-hides after 3.5 s of inactivity
+                but ALWAYS reappears on the next tap because we own the
+                videoControlsVisible state. Only mounted while the video is
+                ready, visible, active, and not showing an error overlay.
+              */}
+              {isActive && isVideoVisible && videoControlsVisible && !videoError && (
+                <>
+                  <View style={styles.videoCustomControlsCenter} pointerEvents="box-none">
+                    <TouchableOpacity
+                      style={styles.videoCustomPlayBtn}
+                      onPress={togglePlayPause}
+                      activeOpacity={0.85}
+                      hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+                      accessibilityLabel={isPlaying ? 'Pause video' : 'Play video'}
+                    >
+                      <Ionicons
+                        name={isPlaying ? 'pause' : 'play'}
+                        size={42}
+                        color="#fff"
+                        style={isPlaying ? undefined : { marginLeft: 4 }}
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.videoCustomBottomBar} pointerEvents="box-none">
+                    <Text style={styles.videoCustomTimeText}>
+                      {formatTime(currentTime * 1000)} / {formatTime(videoDuration * 1000)}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.videoCustomProgressTouch}
+                      activeOpacity={1}
+                      onPress={(e) => {
+                        const x = e.nativeEvent.locationX;
+                        const w = SW - SPACING.LG * 2;
+                        if (w > 0) seekToFraction(x / w);
+                      }}
+                      accessibilityLabel="Seek bar"
+                    >
+                      <View style={styles.videoCustomProgressBg}>
+                        <View
+                          style={[
+                            styles.videoCustomProgressFill,
+                            {
+                              width: videoDuration > 0
+                                ? `${Math.max(0, Math.min(100, (currentTime / videoDuration) * 100))}%`
+                                : '0%',
+                            },
+                          ]}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
 
               {/*
@@ -1383,6 +1649,51 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     color: '#FFFFFF',
     fontSize: FONT_SIZE.MD,
     fontWeight: '700',
+  },
+  // Custom video controls overlay (FIX 2026-04-27 — replaces nativeControls).
+  videoCustomControlsCenter: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoCustomPlayBtn: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+  },
+  videoCustomBottomBar: {
+    position: 'absolute',
+    left: SPACING.LG,
+    right: SPACING.LG,
+    bottom: SPACING.XL + 24,
+    flexDirection: 'column',
+    gap: SPACING.SM,
+  },
+  videoCustomTimeText: {
+    color: '#FFFFFF',
+    fontSize: FONT_SIZE.SM,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 3,
+  },
+  videoCustomProgressTouch: {
+    paddingVertical: 12, // Generous tap target above and below the visible bar
+  },
+  videoCustomProgressBg: {
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  videoCustomProgressFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
   },
   videoPlaceholder: {
     flex: 1,
