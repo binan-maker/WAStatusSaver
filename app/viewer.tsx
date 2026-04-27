@@ -771,7 +771,13 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-        removeClippedSubviews={true}
+        // Persistent view pool — keep the native ImageView/VideoView attached
+        // for the ±1 mounted slides instead of detaching them when scrolled
+        // off-screen. Combined with windowSize={3} this caps memory at 3
+        // slides while making swipe-back literally instant (the bitmap is
+        // already on-screen, just translated horizontally). This is the same
+        // pattern Google Photos uses for its pager.
+        removeClippedSubviews={false}
         updateCellsBatchingPeriod={50}
       />
 
