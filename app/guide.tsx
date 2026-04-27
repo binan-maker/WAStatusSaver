@@ -12,7 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 
-type TagColorKey = 'PRIMARY' | 'ACCENT_GOLD' | 'ACCENT_BLUE' | 'ACCENT_PINK';
+type TagColorKey = 'PRIMARY' | 'ACCENT_GOLD' | 'ACCENT_BLUE' | 'ACCENT_PINK' | 'ERROR';
 
 interface AccordionItem {
   title: string;
@@ -23,6 +23,48 @@ interface AccordionItem {
 }
 
 const FAQ_ITEMS: AccordionItem[] = [
+  {
+    title: 'Saved statuses survive app uninstall',
+    icon: 'shield-checkmark-outline',
+    tag: 'Important',
+    tagColor: 'PRIMARY',
+    content: [
+      'Every status you save through StatusVault is written to your phone\'s public gallery, inside an album called "StatusVault" (located at /Pictures/StatusVault/).',
+      '',
+      'Because the file lives in your gallery — not inside the app\'s private storage — your saved photos and videos are NOT deleted when you:',
+      '   • Uninstall and re-install StatusVault',
+      '   • Clear the app\'s data or cache',
+      '   • Delete your StatusVault account',
+      '   • Factory-reset is the only thing that wipes the album.',
+      '',
+      'After re-installing, open the Saved tab once. StatusVault automatically scans the "StatusVault" album in your gallery and re-attaches any items it finds there, so they show up again under Saved without you doing anything.',
+      '',
+      'If you ever want a saved item gone, delete it from the Saved tab inside the app (or from your gallery directly).',
+    ],
+  },
+  {
+    title: 'Deleting your account — what happens to Pro?',
+    icon: 'warning-outline',
+    tag: 'Pro Warning',
+    tagColor: 'ERROR',
+    content: [
+      'Deleting your account from Settings → Delete Account is permanent and cannot be undone after the 30-day grace period.',
+      '',
+      'IF YOU ARE A PRO MEMBER:',
+      '   • Your active Pro subscription is forfeited immediately.',
+      '   • Remaining paid days CANNOT be refunded or transferred.',
+      '   • Past payments are non-refundable once you confirm deletion.',
+      '   • Re-installing the app or signing back in with the same Google account will NOT bring Pro back. You would have to purchase again.',
+      '',
+      'WHAT GETS DELETED:',
+      '   • Google sign-in & profile, subscription records, payment history, referral progress, push token.',
+      '',
+      'WHAT IS KEPT ON YOUR DEVICE:',
+      '   • Your saved statuses (the "StatusVault" gallery album) stay in your phone\'s gallery.',
+      '',
+      'You have 30 days after tapping Delete to change your mind — just sign in again to cancel the deletion.',
+    ],
+  },
   {
     title: 'Initial Setup — Android 5 to 9',
     icon: 'phone-portrait-outline',
