@@ -1,0 +1,56 @@
+<<<<<<< HEAD
+I have analyzed the entire source code of your app to find out why it’s feeling "stuck" and laggy on Android 11+ while working perfectly on older versions.
+From a technical and architectural standpoint, here is the breakdown of the files involved and the reason for the performance issues.
+1. The Key Files Involved
+The "stuck" feeling during scrolling is happening due to the interaction between these three main files:
+WA/WA/contexts/MediaContext.tsx (The Brain):
+This file handles the logic for finding the WhatsApp status files. In Android 11+, it uses SAF (Storage Access Framework) to crawl folders. The code uses a "BFS Crawler" (Breadth-First Search) to find the .Statuses folder. On Android 11+, every time this file asks the system "What's in this folder?", the Android OS takes a lot of time to process the request compared to older versions.
+WA/WA/components/media/MediaCard.tsx (The Face):
+This is the most critical file for the scrolling lag. Inside, it uses expo-image to show thumbnails. For videos, it uses a property called videoTimestamp={500}. This tells the phone: "Hey, open this video, find the frame at 0.5 seconds, and show it as a picture." Doing this while the user is scrolling is extremely heavy on the CPU.
+WA/WA/app/(tabs)/index.tsx (The Home Page):
+This file uses FlashList to show the grid. While FlashList is very fast, it can't fix the fact that the MediaCard is asking the CPU to do heavy video processing every time a new card appears on the screen.
+2. Why Android 11+ is Buggy/Stuck?
+The reason it works perfectly on Android 10 but chokes on Android 11+ is a change in Android's security called Scoped Storage.
+Android 10 & Below: The app has direct access to the "Legacy" storage path (starting with file://). Reading these files is instantaneous. The CPU can load 100 images in a millisecond because it views them as simple files.
+Android 11 & 12+ (The Problem): Apps are forced to use SAF (Storage Access Framework) and content:// URIs. These are not direct files; they are like "virtual links." Every time the app wants to show a thumbnail from a content:// URI, the Android OS has to run a background security check and pipe the data through multiple layers. This "overhead" is huge, and when you have a grid of 20 videos, the phone simply can't keep up, making it feel 100% stuck.
+3. Your Idea: Can we make it "No CPU/OS Use" for thumbnails?
+YES, this is absolutely possible and is the high-quality way to fix it!
+Right now, the app is generating thumbnails "On the Fly" (as you scroll). This is like trying to cook a meal while you are already eating it.
+The Solution (The "Butter Smooth" Method):
+Instead of the OS generating thumbnails during the scroll, we can implement a Background Thumbnail Cacher:
+Generate Once: When the app first scans the statuses, it uses the CPU one time to create a tiny, high-quality .jpg for every video.
+Save to Cache: These tiny images are saved in the app's Internal Cache using direct file:// paths.
+Scroll using Cache: When the user scrolls the home page, the app never touches the heavy video file. It only loads the tiny cached JPG.
+Result: Since the scroll is now just loading small local pictures, the CPU usage drops to almost 0% during scrolling, and the "stuck" feeling disappears completely across all Android versions.
+Summary of Files to Investigate/Fix:
+MediaContext.tsx: To add a logic that generates these cache thumbnails when files are first discovered.
+MediaCard.tsx: To change the source from the heavy video URI to the fast local Cache URI.
+=======
+I have analyzed the entire source code of your app to find out why it’s feeling "stuck" and laggy on Android 11+ while working perfectly on older versions.
+From a technical and architectural standpoint, here is the breakdown of the files involved and the reason for the performance issues.
+1. The Key Files Involved
+The "stuck" feeling during scrolling is happening due to the interaction between these three main files:
+WA/WA/contexts/MediaContext.tsx (The Brain):
+This file handles the logic for finding the WhatsApp status files. In Android 11+, it uses SAF (Storage Access Framework) to crawl folders. The code uses a "BFS Crawler" (Breadth-First Search) to find the .Statuses folder. On Android 11+, every time this file asks the system "What's in this folder?", the Android OS takes a lot of time to process the request compared to older versions.
+WA/WA/components/media/MediaCard.tsx (The Face):
+This is the most critical file for the scrolling lag. Inside, it uses expo-image to show thumbnails. For videos, it uses a property called videoTimestamp={500}. This tells the phone: "Hey, open this video, find the frame at 0.5 seconds, and show it as a picture." Doing this while the user is scrolling is extremely heavy on the CPU.
+WA/WA/app/(tabs)/index.tsx (The Home Page):
+This file uses FlashList to show the grid. While FlashList is very fast, it can't fix the fact that the MediaCard is asking the CPU to do heavy video processing every time a new card appears on the screen.
+2. Why Android 11+ is Buggy/Stuck?
+The reason it works perfectly on Android 10 but chokes on Android 11+ is a change in Android's security called Scoped Storage.
+Android 10 & Below: The app has direct access to the "Legacy" storage path (starting with file://). Reading these files is instantaneous. The CPU can load 100 images in a millisecond because it views them as simple files.
+Android 11 & 12+ (The Problem): Apps are forced to use SAF (Storage Access Framework) and content:// URIs. These are not direct files; they are like "virtual links." Every time the app wants to show a thumbnail from a content:// URI, the Android OS has to run a background security check and pipe the data through multiple layers. This "overhead" is huge, and when you have a grid of 20 videos, the phone simply can't keep up, making it feel 100% stuck.
+3. Your Idea: Can we make it "No CPU/OS Use" for thumbnails?
+YES, this is absolutely possible and is the high-quality way to fix it!
+Right now, the app is generating thumbnails "On the Fly" (as you scroll). This is like trying to cook a meal while you are already eating it.
+The Solution (The "Butter Smooth" Method):
+Instead of the OS generating thumbnails during the scroll, we can implement a Background Thumbnail Cacher:
+Generate Once: When the app first scans the statuses, it uses the CPU one time to create a tiny, high-quality .jpg for every video.
+Save to Cache: These tiny images are saved in the app's Internal Cache using direct file:// paths.
+Scroll using Cache: When the user scrolls the home page, the app never touches the heavy video file. It only loads the tiny cached JPG.
+Result: Since the scroll is now just loading small local pictures, the CPU usage drops to almost 0% during scrolling, and the "stuck" feeling disappears completely across all Android versions.
+Summary of Files to Investigate/Fix:
+MediaContext.tsx: To add a logic that generates these cache thumbnails when files are first discovered.
+MediaCard.tsx: To change the source from the heavy video URI to the fast local Cache URI.
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+This approach would make your app feel as light and fast as the official WhatsApp gallery itself!

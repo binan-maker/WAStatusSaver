@@ -1,0 +1,86 @@
+ LOG  [Layout] _layout.tsx module loaded
+ LOG  Ads initialized: [{"description": "", "name": "com.google.android.gms.ads.MobileAds", "state": 1}]
+ LOG  [Layout] RootLayout mounted. Navigation Version: 33
+ LOG  [Layout] Initial app check starting...
+ LOG  [Layout] RootLayout mounted. Navigation Version: 33
+ LOG  [Layout] Fonts loaded successfully
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Layout] AppState transitioning: active -> background
+ LOG  [Loader] loadStatuses triggered. Version: 33, useSAF: true, silent: false
+ LOG  [Loader] Processing 1 granted SAF URIs
+ LOG  [SAF] readFromSAF started for URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia
+ LOG  [SAF] Target URI not cached, resolving...
+ LOG  [SAF] Probing via candidates. Base decoded: content://com.android.externalstorage.documents/tree/primary:android/media/com.whatsapp/whatsapp/media
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [Layout] AppState transitioning: background -> active
+ LOG  [Loader] refresh called (silent: true)
+ LOG  [Loader] loadStatuses already in progress, skipping redundant call
+ LOG  [SAF] Located target via probe: /.Statuses
+ LOG  [SAF] Target folder contains 29 total files
+ LOG  [SAF] readFromSAF successfully loaded 28 items from whatsapp
+ LOG  [Loader] Total items successfully loaded: 28 (Duration: 1179ms)
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [Layout] AppState transitioning: active -> background
+ LOG  [Layout] AppState transitioning: background -> active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Card] Loading thumbnail: 1d00e58a60cb422eb099bed18123dec0.jpg
+ LOG  [Layout] AppState transitioning: active -> background
+ LOG  [Card] Loading thumbnail: 5b0530368d724815a86f239f2184d63b.jpg
+ LOG  [Card] Loading thumbnail: 2d151ddfe68e489fa92ddfb2545ff951.jpg
+ LOG  [Card] Loading thumbnail: 95086ebb529b4b91b3989fa1b4dafb33.jpg
+ LOG  [Card] Loading thumbnail: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg
+ LOG  [Card] Loading thumbnail: da5cc74e488a4164b6369b128729307b.jpg
+ LOG  [Card] Loading thumbnail: e91a0dc94db14f948c2612f43cb24a55.jpg
+ LOG  [Card] Loading thumbnail: c27b9dbeab954102ba2ac84aa2eadc7d.jpg
+ LOG  [Card] Loading thumbnail: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Card] Loading thumbnail: 6adb92a65333432ca7ae6e827de6bccd.jpg
+ LOG  [Card] Loading thumbnail: 59b1d9a88b9844f2bad15872343ee3d1.jpg
+ LOG  [Card] Loading thumbnail: b31bb692048e4900a16ad488313b81cf.jpg
+ LOG  [Card] Loading thumbnail: 5e0954c71867495d907fba3fc44cdafa.jpg
+ LOG  [Card] Loading thumbnail: b63895889de74db198ab3ad552b5b6b4.jpg
+ LOG  [Card] Loading thumbnail: 5144c9b849df4072a9bc4d78b7561fc8.jpg
+ LOG  [Card] Loading thumbnail: 009f5648ad9c4f22af12e06234349e3d.jpg
+ LOG  [Layout] AppState transitioning: background -> active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card] Thumbnail loaded: 5b0530368d724815a86f239f2184d63b.jpg
+ LOG  [Card] Thumbnail loaded: 2d151ddfe68e489fa92ddfb2545ff951.jpg
+ LOG  [Card] Thumbnail loaded: 95086ebb529b4b91b3989fa1b4dafb33.jpg
+ LOG  [Card] Thumbnail loaded: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg
+ LOG  [Card] Thumbnail loaded: da5cc74e488a4164b6369b128729307b.jpg
+ LOG  [Card] Thumbnail loaded: e91a0dc94db14f948c2612f43cb24a55.jpg
+ LOG  [Card] Thumbnail loaded: c27b9dbeab954102ba2ac84aa2eadc7d.jpg
+ LOG  [Card] Thumbnail loaded: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Card] Thumbnail loaded: 6adb92a65333432ca7ae6e827de6bccd.jpg
+ LOG  [Card] Thumbnail loaded: 59b1d9a88b9844f2bad15872343ee3d1.jpg
+ LOG  [Card] Thumbnail loaded: b31bb692048e4900a16ad488313b81cf.jpg
+ LOG  [Card] Thumbnail loaded: 5e0954c71867495d907fba3fc44cdafa.jpg
+ LOG  [Card] Thumbnail loaded: b63895889de74db198ab3ad552b5b6b4.jpg
+ LOG  [Layout] AppState transitioning: active -> background
+ LOG  [Card] Thumbnail loaded: 5144c9b849df4072a9bc4d78b7561fc8.jpg
