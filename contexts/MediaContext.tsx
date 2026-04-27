@@ -28,7 +28,7 @@ import * as Clipboard from 'expo-clipboard';
 // we are already on a custom dev-client build and adding one more native
 // module is consistent with the existing architecture. The next APK build
 // (EAS or local prebuild) will autolink it automatically.
-import Share from 'react-native-share';
+import RNShare from 'react-native-share';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY, IMAGE_SWIPE_AD_FREQUENCY, INTERSTITIAL_COOLDOWN_MS } from '@/constants/admob';
 import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
