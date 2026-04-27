@@ -785,7 +785,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   );
 }
 
-export default function ViewerScreen() {
+ function ViewerScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
