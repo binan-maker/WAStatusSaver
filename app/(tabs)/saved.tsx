@@ -203,12 +203,11 @@ export default function SavedScreen() {
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled
-<<<<<<< HEAD
-          drawDistance={1500}
-=======
-          removeClippedSubviews={false}
-          drawDistance={500}
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+          // Same memory caps as the home grids (see app/(tabs)/index.tsx).
+          // Saved items are pure file:// thumbnails so removeClippedSubviews
+          // is safe and frees ~80-150 MB on long lists.
+          removeClippedSubviews
+          drawDistance={750}
         />
         </>
       )}

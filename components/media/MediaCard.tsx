@@ -85,21 +85,6 @@ function MediaCardInner({
       >
         {isVideo ? (
           <View style={styles.image}>
-<<<<<<< HEAD
-            <Image
-              source={{ uri }}
-              style={styles.image}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              recyclingKey={uri}
-              videoTimestamp={500}
-              allowDownscaling
-              decodeFormat="rgb"
-              priority="low"
-              placeholderContentFit="cover"
-              placeholder={THUMB_PLACEHOLDER}
-            />
-=======
             {useVideoFallback ? (
               // Fallback path — used only briefly until the background queue
               // generates a real cached frame for this video. videoTimestamp
@@ -115,7 +100,10 @@ function MediaCardInner({
                 videoTimestamp={0}
                 priority="low"
                 allowDownscaling
+                decodeFormat="rgb"
                 transition={0}
+                placeholder={THUMB_PLACEHOLDER}
+                placeholderContentFit="cover"
               />
             ) : (
               // Hot path — pure file:// JPG. No native decoder, no SAF,
@@ -128,10 +116,12 @@ function MediaCardInner({
                 recyclingKey={item.id}
                 priority="normal"
                 allowDownscaling
+                decodeFormat="rgb"
                 transition={0}
+                placeholder={THUMB_PLACEHOLDER}
+                placeholderContentFit="cover"
               />
             )}
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
                 <Ionicons name="play" size={16} color="#fff" />
@@ -144,19 +134,13 @@ function MediaCardInner({
             style={styles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
-<<<<<<< HEAD
-            recyclingKey={uri}
+            recyclingKey={item.id}
             allowDownscaling
             decodeFormat="rgb"
-            priority="low"
-            placeholderContentFit="cover"
-            placeholder={THUMB_PLACEHOLDER}
-=======
             transition={0}
-            priority="normal"
-            allowDownscaling
-            recyclingKey={item.id}
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+            priority="low"
+            placeholder={THUMB_PLACEHOLDER}
+            placeholderContentFit="cover"
           />
         )}
 

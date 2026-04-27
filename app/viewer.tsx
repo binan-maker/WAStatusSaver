@@ -657,16 +657,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               placeholderContentFit="cover"
               onLoadStart={() => setImageLoaded(false)}
               onLoad={() => setImageLoaded(true)}
-=======
-              priority={isActive ? 'high' : 'normal'}
-              allowDownscaling
-              transition={0}
-              recyclingKey={item.id}
-              onLoad={() => setImageLoaded(true)}
               onError={(e) => {
                 console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
               }}
->>>>>>> 27edc1f551452ee5890273228bff84088a2dc104
             />
             {/* Spinner overlay only while the SAF stream is being opened.
                 Once the placeholder is on screen there is no black void,
@@ -853,37 +846,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   const currentItem = items[currentIndex];
 
-<<<<<<< HEAD
-  // Predictive preloading. Images are warmed into expo-image's memory+disk
-  // cache via Image.prefetch so the next swipe lands on already-decoded
-  // pixels (no cold ContentResolver decode = no swipe lag). Videos are
-  // pre-copied to file:// cache so ExoPlayer can start playback the moment
-  // the user lands on them.
-  useEffect(() => {
-    // Look ahead AND behind one slot — covers both forward swipe and back swipe.
-    const candidates = [
-      items[currentIndex + 1],
-      items[currentIndex - 1],
-    ];
-    candidates.forEach((nextItem) => {
-      if (!nextItem) return;
-      if (nextItem.type === 'image') {
-        Image.prefetch(nextItem.uri, 'memory-disk').catch(() => {});
-      } else if (nextItem.type === 'video' && nextItem.uri.startsWith('content://')) {
-        prepareStatusForViewing(nextItem as StatusItem).catch(() => {});
-      }
-    });
-    // Stagger the second-ahead item so we don't hammer the JS thread / disk.
-    const timer = setTimeout(() => {
-      const ahead2 = items[currentIndex + 2];
-      if (!ahead2) return;
-      if (ahead2.type === 'image') {
-        Image.prefetch(ahead2.uri, 'memory-disk').catch(() => {});
-      } else if (ahead2.type === 'video' && ahead2.uri.startsWith('content://')) {
-        prepareStatusForViewing(ahead2 as StatusItem).catch(() => {});
-      }
-    }, 300);
-=======
   // Prefetch the prev/current/next IMAGES so the user never sees a blank
   // frame on swipe. Image.prefetch warms expo-image's memory-disk cache;
   // the next swipe then renders instantly from RAM instead of paying the
@@ -920,7 +882,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         Image.prefetch(n2Uri, 'memory-disk').catch(() => {});
       }
     }, 400);
->>>>>>> 27edc1f551452ee5890273228bff84088a2dc104
     return () => clearTimeout(timer);
   }, [currentIndex, items]);
 
@@ -1044,21 +1005,15 @@ const toggleControls = useCallback(() => {
         windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
-<<<<<<< HEAD
-        // Persistent view pool — keep the native ImageView/VideoView attached
-        // for the ±1 mounted slides instead of detaching them when scrolled
-        // off-screen. Combined with windowSize={3} this caps memory at 3
-        // slides while making swipe-back literally instant (the bitmap is
-        // already on-screen, just translated horizontally). This is the same
-        // pattern Google Photos uses for its pager.
-=======
-        // ANDROID 11+ FIX: Constant `false` (was dynamically toggling between
-        // image and video items). The boolean flip on every page change forced
-        // FlatList to recreate its cell wrappers, which destroyed the live
-        // VideoView's SurfaceView mid-swipe — causing the dreaded "stuck on
-        // black thumbnail then jumps" stutter. With a fixed value, cell
-        // wrappers stay stable across the entire viewer session.
->>>>>>> 739100cdd3f1b60e3c88daef725eb4a454b8c415
+        // ANDROID 11+ FIX: Constant `false` here (the viewer is the ONE place
+        // we keep clipped subviews mounted). Was previously toggling between
+        // image and video items per page, which forced FlatList to recreate
+        // its cell wrappers and destroyed the live VideoView's SurfaceView
+        // mid-swipe — causing the dreaded "stuck on black thumbnail then
+        // jumps" stutter. With windowSize={3} the memory footprint is still
+        // capped at 3 slides while keeping swipe-back literally instant
+        // (the bitmap is already on-screen, just translated horizontally —
+        // the same pattern Google Photos uses for its pager).
         removeClippedSubviews={false}
         updateCellsBatchingPeriod={50}
       />

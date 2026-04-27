@@ -292,10 +292,25 @@ const RootLayout = () => {
 
   const checkOnboarding = async () => {
     try {
-      const completed = await AsyncStorage.getItem('onboarding_completed');
-      if (!completed) {
+      // ANR-PROOF: race AsyncStorage against a 1.5 s timer. This read happens
+      // BEFORE the splash hides, so a slow SQLite open (which on Android 11+
+      // OEMs can briefly hang during the cold-launch I/O storm) was making
+      // the splash linger for an extra second or two. On timeout we use the
+      // sentinel '__timeout__' (NOT null) so we can DISTINGUISH "first
+      // launch — show onboarding" from "AsyncStorage is being slow — leave
+      // the user where they were last time". Worst case the user with a
+      // genuinely cleared install gets dropped straight into the app and
+      // can re-trigger onboarding from settings.
+      const TIMEOUT_SENTINEL = '__timeout__';
+      const completed = await Promise.race<string | null>([
+        AsyncStorage.getItem('onboarding_completed'),
+        new Promise<string>((resolve) => setTimeout(() => resolve(TIMEOUT_SENTINEL), 1500)),
+      ]);
+      if (completed === null) {
+        // Genuinely no onboarding flag stored → first launch.
         setShowOnboarding(true);
       }
+      // completed === TIMEOUT_SENTINEL or a real value → leave default (false).
     } catch {}
   };
 

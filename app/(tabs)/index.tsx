@@ -11,11 +11,8 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
-<<<<<<< HEAD
-=======
   AppState,
   InteractionManager,
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -281,6 +278,7 @@ export default function StatusesScreen() {
 
   const scrollViewRef = useRef<ScrollView>(null);
   const navigationRef = useRef<Map<string, number>>(new Map());
+  const lastRefreshTime = useRef<number>(0);
 
   // Consolidated Load Effect:
   // Triggers on mount, or whenever permissions are granted.
@@ -295,8 +293,6 @@ export default function StatusesScreen() {
     }
   }, [hasPermission, safGranted, isGrantingAccess, androidVersion]);
 
-<<<<<<< HEAD
-=======
   // Keep a ref to refresh so the AppState listener is never torn down/re-added
   // when refresh changes identity (happens whenever loadStatuses re-creates due to
   // safUris/hasPermission changes). Re-adding mid-session causes brief listener gaps.
@@ -309,6 +305,7 @@ export default function StatusesScreen() {
   // active. The user can always pull-to-refresh for an explicit refresh.
   // The initial load on app open is handled by the mount effect above; this
   // only catches "user came back after a long time".
+  // Also defers via InteractionManager so the refresh never races a tap/scroll.
   const APP_STATE_REFRESH_THROTTLE_MS = 30 * 60 * 1000; // 30 minutes
   useEffect(() => {
     // Seed the timestamp so the very first AppState→active right after
@@ -319,14 +316,15 @@ export default function StatusesScreen() {
         const now = Date.now();
         if (now - lastRefreshTime.current > APP_STATE_REFRESH_THROTTLE_MS) {
           lastRefreshTime.current = now;
-          refreshRef.current(true); // silent — no shimmer while watching
+          InteractionManager.runAfterInteractions(() => {
+            refreshRef.current(true); // silent — no shimmer while watching
+          });
         }
       }
     });
     return () => sub.remove();
   }, []); // stable — uses ref for refresh
 
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
   const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
   const selectedStatuses = useMemo(
     () => statuses.filter(s => s.source === selectedSource),
@@ -353,21 +351,6 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-<<<<<<< HEAD
-    // Pre-navigation prefetch — start decoding the full-res image into the
-    // memory+disk cache the instant the tap registers, so by the time the
-    // viewer's slide-in animation completes (~250 ms) the bitmap is already
-    // warm. Eliminates the cold ContentResolver IPC + decode wait that
-    // causes "delay on tap" on Android 11+.
-    if (item.type === 'image') {
-      ExpoImage.prefetch(item.uri, 'memory-disk').catch(() => {});
-    }
-
-    if (item.type === 'video') {
-      onVideoOpen(item.uri);
-    } else {
-      onImageSwipe();
-=======
     // PERF: Fire-and-forget prefetch on tap.
     // - For VIDEOS: NO upfront copy — the viewer feeds the content:// URI
     //   straight to ExoPlayer (the watchdog rescues the rare device where
@@ -397,7 +380,12 @@ export default function StatusesScreen() {
             setTimeout(() => prefetchedTapUris.delete(uri), 30000);
           });
       }
->>>>>>> 27912619b79cbba2126444cc878158ac6b8639a5
+    }
+
+    if (item.type === 'video') {
+      onVideoOpen(item.uri);
+    } else {
+      onImageSwipe();
     }
 
     // ANDROID 11 FIX: Navigate FIRST, synchronously, before any state updates.
@@ -725,12 +713,14 @@ export default function StatusesScreen() {
               renderItem={renderImageItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-<<<<<<< HEAD
-              drawDistance={1500}
-=======
-              removeClippedSubviews={false}
-              drawDistance={250}
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+              // ANDROID 11+ MEMORY CAP: Image grid uses ExpoImage thumbnails
+              // (no live SurfaceView), so removeClippedSubviews is safe and
+              // saves the GC ~80-150 MB on long lists. drawDistance=750 is the
+              // sweet spot — large enough to keep the next row warm so scroll
+              // feels instant, small enough to avoid eagerly decoding 30+
+              // off-screen bitmaps that blow the JS heap on cold launch.
+              removeClippedSubviews
+              drawDistance={750}
             />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
@@ -773,12 +763,12 @@ export default function StatusesScreen() {
               renderItem={renderVideoItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-<<<<<<< HEAD
-              drawDistance={1500}
-=======
-              removeClippedSubviews={false}
-              drawDistance={250}
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
+              // Same caps as the image grid above. Video cells in MediaCard
+              // are static thumbnails (not live VideoViews), so clipping
+              // off-screen subviews is safe here too. The dedicated viewer
+              // is the only place we keep removeClippedSubviews=false.
+              removeClippedSubviews
+              drawDistance={750}
             />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />

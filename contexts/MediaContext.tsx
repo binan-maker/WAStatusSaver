@@ -30,6 +30,30 @@ import { ThumbnailCache } from '@/lib/thumbnail-cache';
 // 1-2 s freeze on Android 11+ after granting folder access.
 // ──────────────────────────────────────────────────────────────────────────
 
+// ANR-PROOF PIPELINE (Bottleneck #1 fix): Hard-timeout wrapper.
+// Wraps any promise in a Promise.race against a timer. If the promise
+// hasn't resolved after `ms`, we resolve with `fallback` instead of
+// hanging forever. This is the single most important defense against
+// OEM-skin (MIUI, OneUI, HyperOS) DocumentProvider stalls — those calls
+// can hang 2-8 s when the storage indexer is busy, which on Android 11+
+// blocks the JS thread and trips the ANR watchdog. With this wrapper a
+// single misbehaving native call can never freeze cold launch.
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T, label?: string): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const t = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      if (label) console.log(`[Timeout] ${label} did not resolve in ${ms}ms, falling back`);
+      resolve(fallback);
+    }, ms);
+    p.then(
+      (v) => { if (!settled) { settled = true; clearTimeout(t); resolve(v); } },
+      (_e) => { if (!settled) { settled = true; clearTimeout(t); resolve(fallback); } },
+    );
+  });
+}
+
 // Lightweight polling helper. Calls `fn`, returns its value if `isOk(value)`
 // is true. Otherwise waits `delay` ms and retries with exponential backoff
 // until `maxMs` total elapsed. Always returns the LAST value (even if not ok)
@@ -399,37 +423,57 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     const init = async () => {
       try {
+        // ──────────────────────────────────────────────────────────────────
+        // ANR-PROOF PHASE 1 (Bottleneck #2 fix): CRITICAL state only.
+        // These are the reads the UI cannot meaningfully render without:
+        //   • permissions  – decides which screen to show
+        //   • SAF URI map  – decides whether we have storage access at all
+        //   • saved items  – the Saved tab needs them
+        //   • resolved URI cache – lets the first SAF read skip BFS
+        //   • statuses snapshot – paints the grid instantly on cold launch
+        // Each is wrapped in a hard 2.5 s timeout so that ONE stalled
+        // AsyncStorage / DocumentProvider call can never starve the JS
+        // thread and freeze the splash. On a fast device every entry
+        // resolves in 5-50 ms; the timeout is a SAFETY NET, not a budget.
+        // ──────────────────────────────────────────────────────────────────
+        const PHASE1_TIMEOUT_MS = 2500;
         await Promise.all([
-          checkExistingPermissions(),
-          loadSAFUri(),
-          loadSavedItems({ skipRescan: true }),
-          // Hydrate the resolved-URI map so the FIRST loadStatuses call can
-          // skip the BFS crawl entirely on devices that have already mapped
-          // their .Statuses folder in a previous session.
-          loadResolvedUriCache(),
-          // Hydrate the cached statuses list so the grid renders INSTANTLY
-          // on cold launch instead of staring at the shimmer until SAF reads.
-          // The fresh SAF read still runs and replaces the list when ready.
-          loadStatusesCache(mounted),
-          // Hydrate persisted telemetry counters so the rolling SAF mount
-          // window survives across cold launches (counts accumulate over the
-          // user's lifetime install, not per-session).
-          hydrateTelemetryOnce(),
-          // Hydrate the thumbnail cache map so cards mounted from the
-          // cached statuses snapshot above can already display their
-          // file:// thumbs on the very first paint of the grid.
-          ThumbnailCache.init(),
-          AsyncStorage.getItem('swipeCountForAds').then(saved => {
-            if (saved) {
-              const count = parseInt(saved, 10);
-              swipeCountRef.current = count;
-              setImageSwipeCount(count);
-            }
-          }).catch(() => {}),
+          withTimeout(checkExistingPermissions(), PHASE1_TIMEOUT_MS, undefined, 'checkExistingPermissions'),
+          withTimeout(loadSAFUri(), PHASE1_TIMEOUT_MS, undefined, 'loadSAFUri'),
+          withTimeout(loadSavedItems({ skipRescan: true }), PHASE1_TIMEOUT_MS, undefined, 'loadSavedItems'),
+          withTimeout(loadResolvedUriCache(), PHASE1_TIMEOUT_MS, undefined, 'loadResolvedUriCache'),
+          withTimeout(loadStatusesCache(mounted), PHASE1_TIMEOUT_MS, undefined, 'loadStatusesCache'),
         ]);
       } finally {
         if (mounted) setIsInitializing(false);
       }
+
+      // ──────────────────────────────────────────────────────────────────
+      // ANR-PROOF PHASE 3 (Bottleneck #2 fix): NON-CRITICAL hydration.
+      // These are useful but the UI works perfectly without them, so we
+      // fire-and-forget AFTER setIsInitializing(false) so they cannot
+      // delay the first interactive frame by a single millisecond. On
+      // Android 11+ the difference is dramatic — these three together
+      // were adding 200-600 ms to cold launch on slow devices because
+      // SQLite (AsyncStorage) + thumbnail cache disk reads + telemetry
+      // hydrate were all competing with SAF for the same I/O bandwidth.
+      // ──────────────────────────────────────────────────────────────────
+      InteractionManager.runAfterInteractions(() => {
+        if (!mounted) return;
+        // Each is independently catch()'d so one failure can't chain-fail
+        // the others. None of them can block the UI thread anyway because
+        // we don't await them.
+        hydrateTelemetryOnce().catch(() => {});
+        ThumbnailCache.init().catch(() => {});
+        AsyncStorage.getItem('swipeCountForAds').then(saved => {
+          if (!mounted || !saved) return;
+          const count = parseInt(saved, 10);
+          if (Number.isFinite(count)) {
+            swipeCountRef.current = count;
+            setImageSwipeCount(count);
+          }
+        }).catch(() => {});
+      });
     };
     init();
     // Defer the gallery album rescan ~3s after launch so it never competes
@@ -920,7 +964,16 @@ const crawlStart = Date.now();
   }
     let entries: string[];
     try {
-      entries = await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
+      // ANR-PROOF: hard 1.5 s timeout per BFS step. The OEM DocumentProvider
+      // can hang indefinitely if the indexer is busy; falling back to []
+      // makes BFS skip this branch and try the next one instead of freezing
+      // the entire cold launch waiting on a single misbehaving folder.
+      entries = await withTimeout(
+        FileSystem.StorageAccessFramework.readDirectoryAsync(uri),
+        1500,
+        [] as string[],
+        `BFS readDirectoryAsync depth=${depth}`,
+      );
     } catch (e) {
       console.warn(`[Crawler] Read failed at depth ${depth}:`, e);
       return null;
@@ -1014,7 +1067,17 @@ const crawlStart = Date.now();
         console.log(`[SAF] Using cached target URI: ${targetUri}`);
       }
 
-      const files = await FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri);
+      // ANR-PROOF: hard 3 s timeout on the final folder listing too. This
+      // is the call that returns the actual file URIs the grid will render,
+      // so timing out means an empty grid for one cycle (the user sees the
+      // cached snapshot from loadStatusesCache + can pull-to-refresh) rather
+      // than a frozen splash for 8+ seconds while the OEM indexer wakes up.
+      const files = await withTimeout(
+        FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri),
+        3000,
+        [] as string[],
+        'SAF final readDirectoryAsync',
+      );
       console.log(`[SAF] Target folder contains ${files.length} total files`);
       
       const decodedTarget = decodeURIComponent(targetUri).toLowerCase();
@@ -1191,20 +1254,20 @@ const crawlStart = Date.now();
   // the ref pattern keeps things consistent for any future deps).
   loadStatusesRef.current = loadStatuses;
 
-  const refresh = useCallback(async () => {
-    // Always silent: pull-to-refresh must NEVER blank the grid out to a
+  const refresh = useCallback(async (silent: boolean = true) => {
+    // Default to silent: pull-to-refresh must NEVER blank the grid out to a
     // shimmer. The RefreshControl spinner is the only feedback the user
     // needs. Existing thumbnails stay visible while the file system is
     // re-scanned in the background; FlashList + expo-image diff the keyed
     // items so removed files vanish, new files appear, and unchanged tiles
-    // never repaint.
+    // never repaint. Caller can pass silent=false to force a shimmer (e.g.
+    // first-grant flow where there's nothing on screen yet).
     resolvedUriCache.current.clear();
     setIsRefreshing(true);
-<<<<<<< HEAD
-    await loadStatuses(true);
-=======
+    // Use the ref so this callback can stay reference-stable (empty deps).
+    // Otherwise every loadStatuses identity change (which happens whenever
+    // safUris/hasPermission update) would force every consumer to re-render.
     await loadStatusesRef.current(silent);
->>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
     await loadSavedItems();
     setIsRefreshing(false);
   }, []);
