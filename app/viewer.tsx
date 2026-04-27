@@ -545,6 +545,27 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [isActive, isNearActive, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── URI preparation ──────────────────────────────────────────────────────
+  // ANDROID 11+ SAF STREAMING FIX (2026-04-27):
+  //   We previously handed the raw content:// URI to ExoPlayer and trusted
+  //   it to stream from SAF directly. ExoPlayer DOES open the SAF file
+  //   descriptor and play the first ~1 s of buffered data — but as soon as
+  //   it needs to refill the buffer, the stream stalls and never recovers
+  //   ("video freezes 1 second in" symptom on user-installed APKs). The
+  //   watchdog used to mask this with a fallback cache copy, but only for
+  //   the initial load — once playback started the watchdog disengaged
+  //   (correctly, per FIX J), exposing the same SAF-streaming bug mid-play.
+  //
+  //   The reliable path is to ALWAYS pre-copy content:// VIDEO sources
+  //   into the cache directory and feed the player a file:// URI. file://
+  //   gives ExoPlayer a real seekable filesystem fd that it can buffer
+  //   from indefinitely. Trade-off: +200-700 ms first-load latency on a
+  //   cache miss; cache hits return in ~10 ms. Subsequent plays of the
+  //   same status are basically instant. Worth it — broken playback is
+  //   strictly worse than slightly-slower-first-load.
+  //
+  //   Images (item.type === 'image') still use direct content:// — expo-image
+  //   handles SAF reliably (single-shot decode, no streaming buffer to refill).
+  //   Saved items (file:// already) bypass this entirely.
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
@@ -561,14 +582,37 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       return;
     }
 
-    // Direct content:// playback. Modern expo-video (ExoPlayer) accepts
-    // content:// URIs natively on Android, so we hand the URI to the player
-    // immediately — no upfront copy, no await. This shaves the 200 ms-2 s
-    // SAF copy off every video open. The watchdog effect below copies the
-    // file to cache and re-feeds the player IF and only if readyToPlay
-    // hasn't fired within 2.5 s (covers edge-case OEM ExoPlayer builds).
-    if (!displayUri) setDisplayUri(initialSource);
-  }, [initialSource, item, isNearActive, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (displayUri) return; // already prepared for this slot
+
+    // Non-video OR non-content URI → use immediately, no copy needed.
+    if (item.type !== 'video' || !initialSource.startsWith('content://')) {
+      setDisplayUri(initialSource);
+      return;
+    }
+
+    // Video + content:// → await a real file:// copy via the serialized
+    // copy queue. Cancellation guard handles the case where the user
+    // swipes away mid-copy (effect cleanup runs, cancelled = true).
+    let cancelled = false;
+    (async () => {
+      try {
+        const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
+        if (cancelled) return;
+        // If prepareStatusForViewing failed and returned the original
+        // content:// URI, fall back to direct play — better than nothing.
+        // The watchdog will still try a cache fallback if even that stalls
+        // before readyToPlay (though that path is now extremely rare).
+        setDisplayUri(cached || initialSource);
+      } catch (e) {
+        if (!cancelled) {
+          console.log(`[Viewer] Pre-copy failed for ${item.name}, falling back to direct content:// play:`, e);
+          setDisplayUri(initialSource);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [initialSource, item, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
 
