@@ -68,6 +68,84 @@ function enqueueCopy<T>(fn: () => Promise<T>): Promise<T> {
   return next as Promise<T>;
 }
 
+// ──────────────────────────────────────────────────────────────────────────
+// Lightweight in-memory telemetry. Counts direct-play vs fallback-copy and
+// keeps a rolling window of recent SAF mount times. Persisted to AsyncStorage
+// on a 2 s debounce so a long session never thrashes disk. Inspect via
+// getTelemetrySnapshot() (also exposed on the MediaContext value for ad-hoc
+// debugging from any screen / settings dev panel).
+// ──────────────────────────────────────────────────────────────────────────
+const TELEMETRY_KEY = '@statusvault_telemetry';
+const TELEMETRY_MAX_MOUNT_SAMPLES = 50;
+type TelemetrySnapshot = {
+  safMountTimesMs: number[];
+  directPlaySuccess: number;
+  fallbackCopyTriggered: number;
+  updatedAt: number;
+};
+const telemetryState: TelemetrySnapshot = {
+  safMountTimesMs: [],
+  directPlaySuccess: 0,
+  fallbackCopyTriggered: 0,
+  updatedAt: 0,
+};
+let telemetryHydrated = false;
+let telemetryFlushTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleTelemetryFlush() {
+  if (telemetryFlushTimer) return;
+  telemetryFlushTimer = setTimeout(() => {
+    telemetryFlushTimer = null;
+    telemetryState.updatedAt = Date.now();
+    AsyncStorage.setItem(TELEMETRY_KEY, JSON.stringify(telemetryState)).catch(() => {});
+  }, 2000);
+}
+async function hydrateTelemetryOnce() {
+  if (telemetryHydrated) return;
+  telemetryHydrated = true;
+  try {
+    const raw = await AsyncStorage.getItem(TELEMETRY_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Partial<TelemetrySnapshot>;
+    if (Array.isArray(parsed.safMountTimesMs)) {
+      telemetryState.safMountTimesMs = parsed.safMountTimesMs.slice(-TELEMETRY_MAX_MOUNT_SAMPLES);
+    }
+    if (typeof parsed.directPlaySuccess === 'number') {
+      telemetryState.directPlaySuccess = parsed.directPlaySuccess;
+    }
+    if (typeof parsed.fallbackCopyTriggered === 'number') {
+      telemetryState.fallbackCopyTriggered = parsed.fallbackCopyTriggered;
+    }
+  } catch {}
+}
+export function logSafMountTime(ms: number) {
+  if (!Number.isFinite(ms) || ms < 0) return;
+  telemetryState.safMountTimesMs.push(Math.round(ms));
+  if (telemetryState.safMountTimesMs.length > TELEMETRY_MAX_MOUNT_SAMPLES) {
+    telemetryState.safMountTimesMs.splice(0, telemetryState.safMountTimesMs.length - TELEMETRY_MAX_MOUNT_SAMPLES);
+  }
+  scheduleTelemetryFlush();
+}
+export function logDirectPlaySuccess() {
+  telemetryState.directPlaySuccess += 1;
+  scheduleTelemetryFlush();
+}
+export function logFallbackCopyTriggered() {
+  telemetryState.fallbackCopyTriggered += 1;
+  scheduleTelemetryFlush();
+}
+export function getTelemetrySnapshot(): TelemetrySnapshot {
+  const total = telemetryState.directPlaySuccess + telemetryState.fallbackCopyTriggered;
+  // Return a defensive copy so external code can't mutate our counters.
+  return {
+    safMountTimesMs: [...telemetryState.safMountTimesMs],
+    directPlaySuccess: telemetryState.directPlaySuccess,
+    fallbackCopyTriggered: telemetryState.fallbackCopyTriggered,
+    updatedAt: telemetryState.updatedAt,
+    // @ts-ignore — extra debug field, not in the type
+    directPlaySuccessRate: total === 0 ? null : telemetryState.directPlaySuccess / total,
+  };
+}
+
 export type MediaType = 'image' | 'video';
 export type StatusSource = 'whatsapp' | 'whatsapp_business';
 
@@ -286,6 +364,9 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // taking a dep on it (which would change identity every render).
   const loadStatusesRef = useRef<(silent?: boolean) => Promise<void>>(async () => {});
   const cleanupCacheFilesRef = useRef<(maxAgeMs?: number) => Promise<void>>(async () => {});
+  // Mirrors `statuses` state so background tasks (cache validation, etc.)
+  // can compare against the LATEST list without taking a render-coupled dep.
+  const statusesRef = useRef<StatusItem[]>([]);
 
   const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
 
@@ -299,6 +380,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   safGrantedRef.current = safGranted;
   videoViewCountRef.current = videoViewCount;
   imageSwipeCountRef.current = imageSwipeCount;
+  statusesRef.current = statuses;
 
   const storageMethod: AndroidStorageMethod = useMemo(() => {
     if (Platform.OS !== 'android') return 'unknown';
@@ -328,6 +410,10 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           // on cold launch instead of staring at the shimmer until SAF reads.
           // The fresh SAF read still runs and replaces the list when ready.
           loadStatusesCache(mounted),
+          // Hydrate persisted telemetry counters so the rolling SAF mount
+          // window survives across cold launches (counts accumulate over the
+          // user's lifetime install, not per-session).
+          hydrateTelemetryOnce(),
           AsyncStorage.getItem('swipeCountForAds').then(saved => {
             if (saved) {
               const count = parseInt(saved, 10);
@@ -412,14 +498,70 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // 100-200 ms after splash instead of the shimmer until SAF reads return.
   // The fresh SAF read still runs in parallel and replaces this list when
   // ready (selective patching keeps unchanged thumbnails mounted).
+  //
+  // CACHE INVALIDATION: WhatsApp auto-deletes statuses after 24 h, so
+  // persisted entries can point at SAF URIs whose underlying file no
+  // longer exists. After painting the cached snapshot, we kick off a
+  // background validation pass (deferred via InteractionManager so it
+  // never competes with first paint). It calls getInfoAsync on each
+  // entry and drops anything that's gone or zero-byte. The fresh SAF
+  // read usually wins this race anyway, but on slow OEMs the validation
+  // pass keeps us from flashing broken thumbnails for the full poll
+  // window.
   async function loadStatusesCache(mounted: boolean) {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEYS.STATUSES_CACHE);
       if (!raw || !mounted) return;
       const cached = JSON.parse(raw) as StatusItem[];
-      if (Array.isArray(cached) && cached.length > 0) {
-        setStatuses(cached);
-      }
+      if (!Array.isArray(cached) || cached.length === 0) return;
+      setStatuses(cached);
+
+      // Defer validation until after first paint + interactions. Skip
+      // entirely if a fresh SAF read has already replaced state by then
+      // (statusesRef differs from cached) — the fresh list is always
+      // more authoritative than disk validation.
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(async () => {
+          if (!mounted) return;
+          // If state has been replaced (length differs OR top item id
+          // differs), bail — fresh SAF read already won.
+          const current = statusesRef.current;
+          if (
+            current.length !== cached.length ||
+            (current[0] && cached[0] && current[0].id !== cached[0].id)
+          ) {
+            return;
+          }
+          const valid: StatusItem[] = [];
+          for (const it of cached) {
+            try {
+              if (!it.uri.startsWith('content://') && !it.uri.startsWith('file://')) {
+                valid.push(it);
+                continue;
+              }
+              const info = await FileSystem.getInfoAsync(it.uri);
+              if (info.exists && (info as any).size !== 0) {
+                valid.push(it);
+              }
+            } catch {
+              // SAF can throw on revoked URIs — treat as gone.
+            }
+            if (!mounted) return;
+          }
+          if (!mounted) return;
+          // Only patch state if (a) something was filtered out and
+          // (b) state still matches the cached snapshot.
+          if (valid.length === cached.length) return;
+          const stillMatches =
+            statusesRef.current.length === cached.length &&
+            statusesRef.current[0]?.id === cached[0]?.id;
+          if (!stillMatches) return;
+          console.log(
+            `[Cache] Validated cached statuses: dropped ${cached.length - valid.length} dead URI(s)`,
+          );
+          setStatuses(valid);
+        }, 1500);
+      });
     } catch {}
   }
 
@@ -593,6 +735,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       let result: { granted: boolean; directoryUri: string };
       try {
+        // SAF URI PERSISTENCE — Android 11+
+        // Expo's requestDirectoryPermissionsAsync internally calls
+        // ContentResolver.takePersistableUriPermission() with FLAG_GRANT_READ_URI_PERMISSION
+        // (see node_modules/expo-file-system/android/.../FilePickerContract.kt and
+        // FileSystemLegacyModule.kt). That means the grant SURVIVES app kill,
+        // device reboot, and process death — Android won't revoke read access
+        // until the user manually clears it from system settings or uninstalls.
+        // We do NOT need to (and cannot from JS) call takePersistableUriPermission
+        // ourselves; the native side has already done it before this Promise
+        // resolves. Verified against expo-file-system@19 source on 2026-04-27.
         result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
         console.log(`[SAF] Picker result: granted=${result.granted}, uri=${result.directoryUri}`);
       } catch (e) {
@@ -638,11 +790,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         // expose the folder immediately get instant results (was always
         // 700-2000 ms of dead time). Cap at 4 s — beyond that the folder
         // genuinely doesn't have anything readable yet.
+        const mountStart = Date.now();
         const items = await pollUntil(
           () => readSAFEntries(nextSafUris),
           (list) => list.length > 0,
           { maxMs: 4000, initialDelay: 250, backoff: 1.5, maxDelay: 1200 },
         );
+        // Telemetry — how long did the grant→first-non-empty-read cycle take?
+        // Use this to tune the polling caps if real-world devices come in
+        // consistently above 4 s (= we're hitting the deadline a lot).
+        logSafMountTime(Date.now() - mountStart);
 
         console.log(`[SAF] Final items loaded after grant: ${items.length}`);
         setStatuses(items);
@@ -903,6 +1060,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
           // and re-poll with backoff for up to 2.5 s — covers the case
           // where the OS hasn't yet exposed the hidden folder. As soon
           // as items appear we exit, so warm runs cost almost zero extra.
+          const mountStart = Date.now();
           const firstAttempt = await Promise.all(
             safEntries.map(([source, uri]) => readFromSAF(uri, source)),
           );
@@ -921,6 +1079,8 @@ export function MediaProvider({ children }: { children: ReactNode }) {
               { maxMs: 2500, initialDelay: 250, backoff: 1.6, maxDelay: 1000 },
             );
           }
+          // Telemetry — total time spent inside the SAF read for this load.
+          logSafMountTime(Date.now() - mountStart);
         } else if (safUriRef.current) {
           console.log('[Loader] Falling back to legacy single safUri');
           items = await readFromSAF(safUriRef.current);
@@ -1116,6 +1276,27 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
       await Sharing.shareAsync(shareUri);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // ─── Post-share temp cleanup ─────────────────────────────────────
+      // Android Intent.ACTION_SEND consumers (WhatsApp, Telegram, etc.)
+      // typically read the file synchronously while the picker is on
+      // screen. Once `shareAsync` resolves the user has either dispatched
+      // or dismissed, so the share_*.* file in our cache directory has
+      // served its purpose. Delete it after a 5 s grace period (covers
+      // the rare receiver that defers reads), but ONLY if we're the ones
+      // who created it (share_ prefix in our cache dir). Wrapped so a
+      // failed delete never bubbles up — the routine janitor will sweep
+      // it later anyway.
+      if (
+        typeof shareUri === 'string' &&
+        shareUri.startsWith('file://') &&
+        shareUri.includes('/share_')
+      ) {
+        const cleanupTarget = shareUri;
+        setTimeout(() => {
+          FileSystem.deleteAsync(cleanupTarget, { idempotent: true }).catch(() => {});
+        }, 5000);
+      }
     } catch (e) {
       console.error('Share error:', e);
     }

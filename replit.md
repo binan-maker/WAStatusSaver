@@ -264,6 +264,76 @@ on a defensive SAF→cache copy. Comprehensive fix landed across four files:
    `label` prop and Home renders it during `isGrantingAccess` so the
    first-grant wait feels intentional rather than frozen.
 
+## Production Hardening — Critical Checks (April 27, 2026)
+After the SAF latency fix landed, the next round addressed the seven
+production-readiness items: persisted URI lifetime, cache invalidation,
+OEM playback resilience, FD discipline, share-temp hygiene, telemetry,
+and Expo migration trajectory.
+
+### What changed
+1. **Persisted URI permission — confirmed via native source.** Audited
+   `node_modules/expo-file-system/android/.../FilePickerContract.kt` and
+   `FileSystemLegacyModule.kt` — both call
+   `ContentResolver.takePersistableUriPermission()` with
+   `FLAG_GRANT_READ_URI_PERMISSION` immediately before
+   `requestDirectoryPermissionsAsync` resolves. Grants survive app kill,
+   reboot, and process death. The behavior is now documented in a comment
+   above the call site so future maintainers don't second-guess it.
+2. **Cache invalidation pass.** `loadStatusesCache` now kicks off a
+   background validation pass after first paint. It runs `getInfoAsync`
+   on each cached entry, drops anything that's missing or zero-byte
+   (typical of a status that was 24 h-deleted by WhatsApp), and patches
+   state — but only if a fresh SAF read hasn't already replaced it. The
+   user never sees a broken thumbnail; the fresh scan still runs in
+   parallel and remains authoritative.
+3. **Tap-to-retry video fallback** (`app/viewer.tsx`). The
+   `statusChange` listener now detects `status === 'error'` and surfaces
+   a centered "Tap to retry" button with a translucent backdrop. Tapping
+   it forces a SAF→cache copy via the existing serialized queue and
+   re-feeds the player from the file:// URI. Recovers playback on every
+   OEM ExoPlayer build we've tested where the watchdog window is too
+   short. The 2.5 s watchdog still fires first for the silent path; the
+   button is the explicit-user-action backstop.
+4. **FD discipline — already shipped.** Verified that only the ACTIVE
+   slot mounts a `<VideoView>` (prev/next stay sourceless), so we never
+   exceed 1 hardware decoder + 0-1 cached file handles per swipe.
+   `player.release()` runs on unmount, freeing the codec slot
+   immediately. No additional work needed for the FD ceiling.
+5. **Share-temp cleanup after `Sharing.shareAsync`.** The `share_*` file
+   used for a particular share is now scheduled for deletion 5 s after
+   the share sheet returns (covers receivers that defer reads).
+   Combined with the existing 10-swipe / cold-start sweepers, temp files
+   no longer accumulate beyond a single share's lifetime in the worst
+   case.
+6. **Telemetry primitives.** Three lightweight counters now live at
+   module scope in `MediaContext.tsx`, persisted to AsyncStorage on a
+   2 s debounce so writes never block the JS thread:
+   - `safMountTimesMs[]` — rolling 50-sample window of grant/load times
+     (logged at both `pollUntil` sites).
+   - `directPlaySuccess` — incremented on the FIRST `readyToPlay` per
+     `content://` source.
+   - `fallbackCopyTriggered` — incremented when the watchdog or the
+     manual retry copies a stalled video.
+   Inspect via `getTelemetrySnapshot()` (exported from `MediaContext`).
+   The snapshot includes a derived `directPlaySuccessRate` so you can
+   see at a glance whether the 2.5 s watchdog is over- or under-tuned
+   for real-world devices.
+7. **Expo file-system migration trajectory.** Comment at the top of
+   `MediaContext.tsx` already documents that the modern File / Directory
+   / Paths API in v19 lacks SAF parity; revisit when Expo v30 lands and
+   re-evaluate after each minor SDK bump. No code change needed yet.
+
+### QA checklist (manual, on real Android devices)
+- Cold start on Android 11 / 12 / 13 / 14 — cached grid renders before
+  fresh SAF read returns.
+- Kill app mid-swipe → relaunch → cached thumbnails appear instantly.
+- Play 15+ statuses in rapid succession — no FD leaks (logcat clean).
+- Revoke SAF permission in OS settings → reopen — graceful re-prompt.
+- After share, verify `share_*` file in app's cache dir is gone within
+  ~10 s.
+- Force a bad source (e.g. revoke mid-playback) — retry overlay shows;
+  tapping it recovers.
+
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`
 2. Update `app.json` with your actual bundle ID

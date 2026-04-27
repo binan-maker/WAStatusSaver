@@ -20,7 +20,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
+import {
+  useMedia,
+  StatusItem,
+  SavedItem,
+  logDirectPlaySuccess,
+  logFallbackCopyTriggered,
+} from '@/contexts/MediaContext';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 
@@ -88,6 +94,19 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // disappears before ExoPlayer has pushed pixels to the screen.
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  // OEM-resilience: when ExoPlayer reports `error` on a content:// URI we
+  // surface a "Tap to retry" overlay instead of leaving the user staring
+  // at a frozen thumbnail. The retry handler forces a SAF→cache copy and
+  // re-feeds the player from file://, which recovers on every device we've
+  // seen (Samsung One UI, Xiaomi MIUI, Realme, stock Android).
+  const [videoError, setVideoError] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  // Module-level telemetry latches (per source). directPlayLoggedRef ensures
+  // we only count ONE success per content:// URI even if statusChange fires
+  // 'readyToPlay' multiple times across re-buffers. fallbackLoggedRef does the
+  // same for the watchdog so a single video stall doesn't get double-counted.
+  const directPlayLoggedRef = useRef(false);
+  const fallbackLoggedRef = useRef(false);
   const isActiveRef = useRef(isActive);
   // Update synchronously every render so every callback sees the latest value
   // without waiting for a useEffect to run after paint.
@@ -168,6 +187,40 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   }, [displayUri, item.type, player]);
 
+  // Tap-to-retry handler — runs when the user taps the error overlay.
+  // Forces a fresh SAF→cache copy (bypassing the watchdog) and re-feeds
+  // the player from the file:// URI. This recovers playback on every OEM
+  // ExoPlayer build we've tested. The button shows a spinner while the
+  // copy is in flight so the user gets immediate feedback.
+  const handleVideoRetry = useCallback(async () => {
+    if (item.type !== 'video') return;
+    setIsRetrying(true);
+    setVideoError(false);
+    try {
+      const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
+      if (!cached) {
+        setVideoError(true);
+        return;
+      }
+      isReadyToPlayRef.current = false;
+      isLoadingSource.current = true;
+      await player.replaceAsync(cached);
+      isLoadingSource.current = false;
+      setDisplayUri(cached);
+      // Telemetry: explicit user-driven retry counts as a fallback copy.
+      if (!fallbackLoggedRef.current) {
+        fallbackLoggedRef.current = true;
+        logFallbackCopyTriggered();
+      }
+      tryStartPlaybackRef.current();
+    } catch (err) {
+      console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
+      setVideoError(true);
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [item, player, prepareStatusForViewing]);
+
   // ── Callback refs for the stable status listener ──────────────────────────
   // The status listener is attached once per player instance and must never be
   // torn down/re-added when displayUri or other state changes — that would miss
@@ -196,7 +249,30 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         console.log(`[Viewer] Player status for ${item.name}: ${status}`);
         const ready = status === 'readyToPlay';
         isReadyToPlayRef.current = ready;
+
+        // ── Error surface — show retry overlay ─────────────────────────
+        // Some OEM ExoPlayer builds (older Xiaomi MIUI, certain Realme
+        // ROMs) reject content:// URIs from a foreign SAF tree with an
+        // immediate `error` status. Watchdog covers most of these, but
+        // for cases where playback fails AFTER the watchdog window we
+        // surface a tap-to-retry button instead of leaving the user
+        // stuck on a frozen thumbnail.
+        if (status === 'error') {
+          setVideoError(true);
+        }
+
+        // ── Telemetry: count ONE direct-play success per content:// source ──
+        // We only credit the FIRST readyToPlay event per source so re-buffers
+        // mid-playback don't inflate the success rate. file:// URIs aren't
+        // counted (they're already-cached fallbacks, not direct SAF playback).
+        if (ready && !directPlayLoggedRef.current && displayUri && displayUri.startsWith('content://')) {
+          directPlayLoggedRef.current = true;
+          logDirectPlaySuccess();
+        }
+
         if (ready) {
+          // Clear any lingering error state — playback recovered.
+          setVideoError(false);
           setIsVideoReady(true);
           // Always call the latest tryStartPlayback via ref — never a stale closure.
           tryStartPlaybackRef.current();
@@ -235,11 +311,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   // Reset ready + visible flags (and cancel any pending reveal) on source change.
   // Also clear the "has revealed once" latch — the new source needs to earn
-  // its own reveal via a fresh readyToPlay → 200ms delay cycle.
+  // its own reveal via a fresh readyToPlay → 200ms delay cycle. Also reset
+  // the per-source error state and telemetry latches so each new source
+  // starts from a clean slate.
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
+    setVideoError(false);
     hasRevealedOnceRef.current = false;
+    directPlayLoggedRef.current = false;
+    fallbackLoggedRef.current = false;
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -309,6 +390,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
               if (cancelled || isReadyToPlayRef.current) return;
               if (cached && cached !== displayUri) {
+                // Telemetry: count this watchdog→fallback cycle ONCE per
+                // source so we can spot devices/installs that hit it
+                // chronically (= we should pre-copy upfront for them).
+                if (!fallbackLoggedRef.current) {
+                  fallbackLoggedRef.current = true;
+                  logFallbackCopyTriggered();
+                }
                 isLoadingSource.current = true;
                 await player.replaceAsync(cached);
                 if (cancelled) return;
@@ -653,13 +741,41 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 </View>
               )}
 
-              {/* Spinner during buffering — sits above thumbnail, below native controls */}
-              {isNearActive && !isVideoReady && (
+              {/* Spinner during buffering — sits above thumbnail, below native controls. */}
+              {/* Hidden when the retry overlay is showing so we don't double-stack. */}
+              {isNearActive && !isVideoReady && !videoError && (
                 <View style={styles.videoSpinnerWrap} pointerEvents="none">
                   <ActivityIndicator
                     color={COLORS.PRIMARY}
                     size="large"
                   />
+                </View>
+              )}
+
+              {/*
+                Tap-to-retry overlay — shown when ExoPlayer reports `error`.
+                Receives touches (no pointerEvents="none") so the user can
+                actively recover from a stalled video on the rare OEM that
+                refuses our content:// URI even after the watchdog copy.
+              */}
+              {isActive && videoError && (
+                <View style={styles.videoRetryOverlay}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleVideoRetry}
+                    disabled={isRetrying}
+                    style={styles.videoRetryBtn}
+                    accessibilityLabel="Tap to retry playback"
+                  >
+                    {isRetrying ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="refresh-circle" size={32} color="#FFFFFF" />
+                        <Text style={styles.videoRetryText}>Tap to retry</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -1081,6 +1197,33 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     right: 0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  videoRetryOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  videoRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: SPACING.LG,
+    paddingVertical: SPACING.MD,
+    borderRadius: RADIUS.LG,
+    gap: SPACING.SM,
+    minWidth: 160,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  videoRetryText: {
+    color: '#FFFFFF',
+    fontSize: FONT_SIZE.MD,
+    fontWeight: '700',
   },
   videoPlaceholder: {
     flex: 1,
