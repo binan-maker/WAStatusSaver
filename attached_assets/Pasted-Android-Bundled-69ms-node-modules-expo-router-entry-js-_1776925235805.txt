@@ -1,0 +1,1765 @@
+<<<<<<< HEAD
+Android Bundled 69ms node_modules\expo-router\entry.js (1 module)
+ LOG  Ads initialized: [{"description": "", "name": "com.google.android.gms.ads.MobileAds", "state": 1}]
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Onboarding check starting...
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Fonts loaded in 4ms. Hiding Splash.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Loader] loadStatuses triggered. Version: 33, useSAF: true, silent: false
+ LOG  [Loader] Processing 1 granted SAF URIs
+ LOG  [SAF] readFromSAF started for URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia
+ LOG  [SAF] Target URI not cached, resolving...
+ LOG  [SAF] Probing via candidates. Base decoded: content://com.android.externalstorage.documents/tree/primary:android/media/com.whatsapp/whatsapp/media
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] refresh called (silent: true)
+ LOG  [Loader] loadStatuses already in progress, skipping redundant call
+ LOG  [SAF] Located target via probe: /.Statuses
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [SAF] Target folder contains 30 total files
+ LOG  [SAF] readFromSAF successfully loaded 29 items from whatsapp
+ LOG  [Loader] Finished batch load: 29 items in 2452ms
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Image] Loading thumb: 1d00e58a60cb422eb099bed18123dec0.jpg
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Image] Loading thumb: 5b0530368d724815a86f239f2184d63b.jpg
+ LOG  [Card/Image] Loading thumb: 2d151ddfe68e489fa92ddfb2545ff951.jpg
+ LOG  [Card/Image] Loading thumb: 95086ebb529b4b91b3989fa1b4dafb33.jpg
+ LOG  [Card/Image] Loading thumb: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg
+ LOG  [Card/Image] Loading thumb: da5cc74e488a4164b6369b128729307b.jpg
+ LOG  [Card/Image] Loading thumb: e91a0dc94db14f948c2612f43cb24a55.jpg
+ LOG  [Card/Video] Loading thumb for 1991494f943c4a20978dbadd9e51b28d.mp4
+ LOG  [Card/Video] Loading thumb for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4
+ LOG  [Card/Video] Loading thumb for 061bc2247a3a40cb92d09c6b0bd756d1.mp4
+ LOG  [Card/Video] Loading thumb for 778a6eb1afad41f782c0c4599b754bf2.mp4
+ LOG  [Card/Video] Loading thumb for 0d084666bac2426db68e9748883ecbfa.mp4
+ LOG  [Card/Video] Loading thumb for 189f473bf18f442ca4f0f93cf5863c12.mp4
+ LOG  [Card/Image] Loading thumb: c27b9dbeab954102ba2ac84aa2eadc7d.jpg
+ LOG  [Card/Image] Loading thumb: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Card/Image] Loading thumb: 6adb92a65333432ca7ae6e827de6bccd.jpg
+ LOG  [Card/Image] Loading thumb: 59b1d9a88b9844f2bad15872343ee3d1.jpg
+ LOG  [Card/Image] Loading thumb: b31bb692048e4900a16ad488313b81cf.jpg
+ LOG  [Card/Image] Loading thumb: 5e0954c71867495d907fba3fc44cdafa.jpg
+ LOG  [Card/Video] Loading thumb for f69df551b2834b108eea88f1223336a5.mp4
+ LOG  [Card/Video] Loading thumb for 90555e189cc1498c95f3b02c564f2460.mp4
+ LOG  [Card/Video] Loading thumb for b78ffe6f83d84b9ba8e29481c565b505.mp4
+ LOG  [Card/Video] Loading thumb for 37cffe936d174e2b826d8a13a6b12693.mp4
+ LOG  [Card/Video] Loading thumb for a465077380b746cc96da6c88209b455e.mp4
+ LOG  [Card/Video] Loading thumb for 6d1a0cef29ba405191415ecf740277bc.mp4
+ LOG  [Card/Image] Loading thumb: b63895889de74db198ab3ad552b5b6b4.jpg
+ LOG  [Card/Image] Loading thumb: 5144c9b849df4072a9bc4d78b7561fc8.jpg
+ LOG  [Card/Image] Loading thumb: 009f5648ad9c4f22af12e06234349e3d.jpg
+ LOG  [Card/Video] Loading thumb for 50b72c5b2d9f4db6bff70c0049a32836.mp4
+ LOG  [Card/Image] Thumb LOADED: 5b0530368d724815a86f239f2184d63b.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 2d151ddfe68e489fa92ddfb2545ff951.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 95086ebb529b4b91b3989fa1b4dafb33.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: da5cc74e488a4164b6369b128729307b.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: e91a0dc94db14f948c2612f43cb24a55.jpg (disk)
+ LOG  [Card/Video] Thumb LOADED for 1991494f943c4a20978dbadd9e51b28d.mp4 (disk)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Video] Thumb LOADED for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 061bc2247a3a40cb92d09c6b0bd756d1.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 778a6eb1afad41f782c0c4599b754bf2.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 0d084666bac2426db68e9748883ecbfa.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 189f473bf18f442ca4f0f93cf5863c12.mp4 (disk)
+ LOG  [Card/Image] Thumb LOADED: c27b9dbeab954102ba2ac84aa2eadc7d.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: aec7a3b666054d328b3dde013ab3a05b.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 6adb92a65333432ca7ae6e827de6bccd.jpg (disk)
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Card/Image] Thumb LOADED: 59b1d9a88b9844f2bad15872343ee3d1.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: b31bb692048e4900a16ad488313b81cf.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 5e0954c71867495d907fba3fc44cdafa.jpg (disk)
+ LOG  [Card/Video] Thumb LOADED for f69df551b2834b108eea88f1223336a5.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 90555e189cc1498c95f3b02c564f2460.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for b78ffe6f83d84b9ba8e29481c565b505.mp4 (disk)
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Card/Video] Thumb LOADED for 37cffe936d174e2b826d8a13a6b12693.mp4 (disk)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Video] Thumb LOADED for a465077380b746cc96da6c88209b455e.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 6d1a0cef29ba405191415ecf740277bc.mp4 (disk)
+ LOG  [Card/Image] Thumb LOADED: b63895889de74db198ab3ad552b5b6b4.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 5144c9b849df4072a9bc4d78b7561fc8.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 009f5648ad9c4f22af12e06234349e3d.jpg (disk)
+ LOG  [Card/Video] Thumb LOADED for 50b72c5b2d9f4db6bff70c0049a32836.mp4 (disk)
+ LOG  [Card/Image] Thumb LOADED: 1d00e58a60cb422eb099bed18123dec0.jpg (disk)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Home] Item pressed: da5cc74e488a4164b6369b128729307b.jpg (image)
+ ERROR  [TypeError: Cannot read property 'addListener' of undefined] 
+
+Call Stack
+  useEffect$argument_0 (node_modules\expo\src\hooks\useEvent.ts)
+  callCreate.reactStackBottomFrame (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookEffectListMount (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookPassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPendingEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSpawnedWork (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRootWhenReady (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performSyncWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSyncWorkAcrossRoots_impl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  processRootScheduleInMicrotask (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  scheduleMicrotask$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  FlatList.props.renderItem (app\viewer.tsx)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  renderProp (node_modules\react-native\Libraries\Lists\FlatList.js)
+  CellRenderer#_renderElement (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  CellRenderer#render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  ViewerScreen (app\viewer.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Lifecycle] Cleaning up AppState listener
+Android Bundled 68ms node_modules\expo-router\entry.js (1 module)
+ LOG  Ads initialized: [{"description": "", "name": "com.google.android.gms.ads.MobileAds", "state": 1}]
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Onboarding check starting...
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Fonts loaded in 3ms. Hiding Splash.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [Loader] loadStatuses triggered. Version: 33, useSAF: true, silent: false
+ LOG  [Loader] Processing 1 granted SAF URIs
+ LOG  [SAF] readFromSAF started for URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia
+ LOG  [SAF] Target URI not cached, resolving...
+ LOG  [SAF] Probing via candidates. Base decoded: content://com.android.externalstorage.documents/tree/primary:android/media/com.whatsapp/whatsapp/media
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] refresh called (silent: true)
+ LOG  [Loader] loadStatuses already in progress, skipping redundant call
+ LOG  [SAF] Located target via probe: /.Statuses
+ LOG  [SAF] Target folder contains 30 total files
+ LOG  [SAF] readFromSAF successfully loaded 29 items from whatsapp
+ LOG  [Loader] Finished batch load: 29 items in 1194ms
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Image] Loading thumb: 5b0530368d724815a86f239f2184d63b.jpg
+ LOG  [Card/Image] Thumb LOADED: 5b0530368d724815a86f239f2184d63b.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 2d151ddfe68e489fa92ddfb2545ff951.jpg
+ LOG  [Card/Image] Thumb LOADED: 2d151ddfe68e489fa92ddfb2545ff951.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 95086ebb529b4b91b3989fa1b4dafb33.jpg
+ LOG  [Card/Image] Thumb LOADED: 95086ebb529b4b91b3989fa1b4dafb33.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg
+ LOG  [Card/Image] Thumb LOADED: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg (memory)
+ LOG  [Card/Image] Loading thumb: da5cc74e488a4164b6369b128729307b.jpg
+ LOG  [Card/Image] Thumb LOADED: da5cc74e488a4164b6369b128729307b.jpg (memory)
+ LOG  [Card/Image] Loading thumb: e91a0dc94db14f948c2612f43cb24a55.jpg
+ LOG  [Card/Image] Thumb LOADED: e91a0dc94db14f948c2612f43cb24a55.jpg (memory)
+ LOG  [Card/Video] Loading thumb for 1991494f943c4a20978dbadd9e51b28d.mp4
+ LOG  [Card/Video] Thumb LOADED for 1991494f943c4a20978dbadd9e51b28d.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4
+ LOG  [Card/Video] Thumb LOADED for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 061bc2247a3a40cb92d09c6b0bd756d1.mp4
+ LOG  [Card/Video] Thumb LOADED for 061bc2247a3a40cb92d09c6b0bd756d1.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 778a6eb1afad41f782c0c4599b754bf2.mp4
+ LOG  [Card/Video] Thumb LOADED for 778a6eb1afad41f782c0c4599b754bf2.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 0d084666bac2426db68e9748883ecbfa.mp4
+ LOG  [Card/Video] Thumb LOADED for 0d084666bac2426db68e9748883ecbfa.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 189f473bf18f442ca4f0f93cf5863c12.mp4
+ LOG  [Card/Video] Thumb LOADED for 189f473bf18f442ca4f0f93cf5863c12.mp4 (memory)
+ LOG  [Card/Image] Loading thumb: c27b9dbeab954102ba2ac84aa2eadc7d.jpg
+ LOG  [Card/Image] Thumb LOADED: c27b9dbeab954102ba2ac84aa2eadc7d.jpg (memory)
+ LOG  [Card/Image] Loading thumb: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Card/Image] Thumb LOADED: aec7a3b666054d328b3dde013ab3a05b.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 6adb92a65333432ca7ae6e827de6bccd.jpg
+ LOG  [Card/Image] Thumb LOADED: 6adb92a65333432ca7ae6e827de6bccd.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 59b1d9a88b9844f2bad15872343ee3d1.jpg
+ LOG  [Card/Image] Thumb LOADED: 59b1d9a88b9844f2bad15872343ee3d1.jpg (memory)
+ LOG  [Card/Image] Loading thumb: b31bb692048e4900a16ad488313b81cf.jpg
+ LOG  [Card/Image] Thumb LOADED: b31bb692048e4900a16ad488313b81cf.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 5e0954c71867495d907fba3fc44cdafa.jpg
+ LOG  [Card/Image] Thumb LOADED: 5e0954c71867495d907fba3fc44cdafa.jpg (memory)
+ LOG  [Card/Video] Loading thumb for f69df551b2834b108eea88f1223336a5.mp4
+ LOG  [Card/Video] Thumb LOADED for f69df551b2834b108eea88f1223336a5.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 90555e189cc1498c95f3b02c564f2460.mp4
+ LOG  [Card/Video] Thumb LOADED for 90555e189cc1498c95f3b02c564f2460.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for b78ffe6f83d84b9ba8e29481c565b505.mp4
+ LOG  [Card/Video] Loading thumb for 37cffe936d174e2b826d8a13a6b12693.mp4
+ LOG  [Card/Video] Loading thumb for a465077380b746cc96da6c88209b455e.mp4
+ LOG  [Card/Video] Loading thumb for 6d1a0cef29ba405191415ecf740277bc.mp4
+ LOG  [Card/Image] Loading thumb: b63895889de74db198ab3ad552b5b6b4.jpg
+ LOG  [Card/Image] Thumb LOADED: b63895889de74db198ab3ad552b5b6b4.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 5144c9b849df4072a9bc4d78b7561fc8.jpg
+ LOG  [Card/Image] Thumb LOADED: 5144c9b849df4072a9bc4d78b7561fc8.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 009f5648ad9c4f22af12e06234349e3d.jpg
+ LOG  [Card/Image] Thumb LOADED: 009f5648ad9c4f22af12e06234349e3d.jpg (memory)
+ LOG  [Card/Video] Loading thumb for 50b72c5b2d9f4db6bff70c0049a32836.mp4
+ LOG  [Card/Image] Loading thumb: 1d00e58a60cb422eb099bed18123dec0.jpg
+ LOG  [Card/Image] Thumb LOADED: 1d00e58a60cb422eb099bed18123dec0.jpg (memory)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Video] Thumb LOADED for b78ffe6f83d84b9ba8e29481c565b505.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 37cffe936d174e2b826d8a13a6b12693.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for a465077380b746cc96da6c88209b455e.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 6d1a0cef29ba405191415ecf740277bc.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 50b72c5b2d9f4db6bff70c0049a32836.mp4 (disk)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Image] Loading thumb: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Image] Thumb LOADED: aec7a3b666054d328b3dde013ab3a05b.jpg (disk)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ ERROR  Banner ad failed to load:  [Error: [googleMobileAds/error-code-no-fill] The ad request was successful, but no ad was returned due to lack of ad inventory.] 
+
+Call Stack
+  onNativeEvent (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  executeDispatch (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  executeDispatchesAndReleaseTopLevel (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  call (<native>)
+  forEachAccumulated (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdatesImpl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  dispatchEvent (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  RNGoogleMobileAdsBannerView (<anonymous>)
+  React.forwardRef$argument_0 (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  render (node_modules\react-native-google-mobile-ads\src\ads\BannerAd.tsx)
+  AdBanner (components\ads\AdBanner.tsx)
+  SavedScreen (app\(tabs)\saved.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  BottomTabNavigator (node_modules\@react-navigation\bottom-tabs\lib\module\navigators\createBottomTabNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\TabsClient.js)
+  TabLayout (app\(tabs)\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ ERROR  Banner ad failed to load:  [Error: [googleMobileAds/error-code-no-fill] The ad request was successful, but no ad was returned due to lack of ad inventory.] 
+
+Call Stack
+  onNativeEvent (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  executeDispatch (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  executeDispatchesAndReleaseTopLevel (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  call (<native>)
+  forEachAccumulated (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdatesImpl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  dispatchEvent (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  RNGoogleMobileAdsBannerView (<anonymous>)
+  React.forwardRef$argument_0 (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  render (node_modules\react-native-google-mobile-ads\src\ads\BannerAd.tsx)
+  AdBanner (components\ads\AdBanner.tsx)
+  SavedScreen (app\(tabs)\saved.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  BottomTabNavigator (node_modules\@react-navigation\bottom-tabs\lib\module\navigators\createBottomTabNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\TabsClient.js)
+  TabLayout (app\(tabs)\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Home] Item pressed: 0d084666bac2426db68e9748883ecbfa.mp4 (video)
+ LOG  [Media] prepareStatusForViewing called for 189f473bf18f442ca4f0f93cf5863c12.mp4 (video)
+ ERROR  [TypeError: Cannot read property 'addListener' of undefined] 
+
+Call Stack
+  useEffect$argument_0 (node_modules\expo\src\hooks\useEvent.ts)
+  callCreate.reactStackBottomFrame (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookEffectListMount (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookPassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPendingEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSpawnedWork (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRootWhenReady (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performSyncWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSyncWorkAcrossRoots_impl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  processRootScheduleInMicrotask (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  scheduleMicrotask$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  FlatList.props.renderItem (app\viewer.tsx)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  renderProp (node_modules\react-native\Libraries\Lists\FlatList.js)
+  CellRenderer#_renderElement (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  CellRenderer#render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  ViewerScreen (app\viewer.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Media] Cache MISS for 189f473bf18f442ca4f0f93cf5863c12.mp4 - performing deep copy...
+ LOG  [Media] Deep copy complete for 189f473bf18f442ca4f0f93cf5863c12.mp4 in 1888ms
+ LOG  [Lifecycle] Cleaning up AppState listener
+Android Bundled 76ms node_modules\expo-router\entry.js (1 module)
+=======
+Android Bundled 69ms node_modules\expo-router\entry.js (1 module)
+ LOG  Ads initialized: [{"description": "", "name": "com.google.android.gms.ads.MobileAds", "state": 1}]
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Onboarding check starting...
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Fonts loaded in 4ms. Hiding Splash.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Loader] loadStatuses triggered. Version: 33, useSAF: true, silent: false
+ LOG  [Loader] Processing 1 granted SAF URIs
+ LOG  [SAF] readFromSAF started for URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia
+ LOG  [SAF] Target URI not cached, resolving...
+ LOG  [SAF] Probing via candidates. Base decoded: content://com.android.externalstorage.documents/tree/primary:android/media/com.whatsapp/whatsapp/media
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] refresh called (silent: true)
+ LOG  [Loader] loadStatuses already in progress, skipping redundant call
+ LOG  [SAF] Located target via probe: /.Statuses
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [SAF] Target folder contains 30 total files
+ LOG  [SAF] readFromSAF successfully loaded 29 items from whatsapp
+ LOG  [Loader] Finished batch load: 29 items in 2452ms
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Image] Loading thumb: 1d00e58a60cb422eb099bed18123dec0.jpg
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Image] Loading thumb: 5b0530368d724815a86f239f2184d63b.jpg
+ LOG  [Card/Image] Loading thumb: 2d151ddfe68e489fa92ddfb2545ff951.jpg
+ LOG  [Card/Image] Loading thumb: 95086ebb529b4b91b3989fa1b4dafb33.jpg
+ LOG  [Card/Image] Loading thumb: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg
+ LOG  [Card/Image] Loading thumb: da5cc74e488a4164b6369b128729307b.jpg
+ LOG  [Card/Image] Loading thumb: e91a0dc94db14f948c2612f43cb24a55.jpg
+ LOG  [Card/Video] Loading thumb for 1991494f943c4a20978dbadd9e51b28d.mp4
+ LOG  [Card/Video] Loading thumb for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4
+ LOG  [Card/Video] Loading thumb for 061bc2247a3a40cb92d09c6b0bd756d1.mp4
+ LOG  [Card/Video] Loading thumb for 778a6eb1afad41f782c0c4599b754bf2.mp4
+ LOG  [Card/Video] Loading thumb for 0d084666bac2426db68e9748883ecbfa.mp4
+ LOG  [Card/Video] Loading thumb for 189f473bf18f442ca4f0f93cf5863c12.mp4
+ LOG  [Card/Image] Loading thumb: c27b9dbeab954102ba2ac84aa2eadc7d.jpg
+ LOG  [Card/Image] Loading thumb: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Card/Image] Loading thumb: 6adb92a65333432ca7ae6e827de6bccd.jpg
+ LOG  [Card/Image] Loading thumb: 59b1d9a88b9844f2bad15872343ee3d1.jpg
+ LOG  [Card/Image] Loading thumb: b31bb692048e4900a16ad488313b81cf.jpg
+ LOG  [Card/Image] Loading thumb: 5e0954c71867495d907fba3fc44cdafa.jpg
+ LOG  [Card/Video] Loading thumb for f69df551b2834b108eea88f1223336a5.mp4
+ LOG  [Card/Video] Loading thumb for 90555e189cc1498c95f3b02c564f2460.mp4
+ LOG  [Card/Video] Loading thumb for b78ffe6f83d84b9ba8e29481c565b505.mp4
+ LOG  [Card/Video] Loading thumb for 37cffe936d174e2b826d8a13a6b12693.mp4
+ LOG  [Card/Video] Loading thumb for a465077380b746cc96da6c88209b455e.mp4
+ LOG  [Card/Video] Loading thumb for 6d1a0cef29ba405191415ecf740277bc.mp4
+ LOG  [Card/Image] Loading thumb: b63895889de74db198ab3ad552b5b6b4.jpg
+ LOG  [Card/Image] Loading thumb: 5144c9b849df4072a9bc4d78b7561fc8.jpg
+ LOG  [Card/Image] Loading thumb: 009f5648ad9c4f22af12e06234349e3d.jpg
+ LOG  [Card/Video] Loading thumb for 50b72c5b2d9f4db6bff70c0049a32836.mp4
+ LOG  [Card/Image] Thumb LOADED: 5b0530368d724815a86f239f2184d63b.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 2d151ddfe68e489fa92ddfb2545ff951.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 95086ebb529b4b91b3989fa1b4dafb33.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: da5cc74e488a4164b6369b128729307b.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: e91a0dc94db14f948c2612f43cb24a55.jpg (disk)
+ LOG  [Card/Video] Thumb LOADED for 1991494f943c4a20978dbadd9e51b28d.mp4 (disk)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Video] Thumb LOADED for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 061bc2247a3a40cb92d09c6b0bd756d1.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 778a6eb1afad41f782c0c4599b754bf2.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 0d084666bac2426db68e9748883ecbfa.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 189f473bf18f442ca4f0f93cf5863c12.mp4 (disk)
+ LOG  [Card/Image] Thumb LOADED: c27b9dbeab954102ba2ac84aa2eadc7d.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: aec7a3b666054d328b3dde013ab3a05b.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 6adb92a65333432ca7ae6e827de6bccd.jpg (disk)
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Card/Image] Thumb LOADED: 59b1d9a88b9844f2bad15872343ee3d1.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: b31bb692048e4900a16ad488313b81cf.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 5e0954c71867495d907fba3fc44cdafa.jpg (disk)
+ LOG  [Card/Video] Thumb LOADED for f69df551b2834b108eea88f1223336a5.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 90555e189cc1498c95f3b02c564f2460.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for b78ffe6f83d84b9ba8e29481c565b505.mp4 (disk)
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Card/Video] Thumb LOADED for 37cffe936d174e2b826d8a13a6b12693.mp4 (disk)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Video] Thumb LOADED for a465077380b746cc96da6c88209b455e.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 6d1a0cef29ba405191415ecf740277bc.mp4 (disk)
+ LOG  [Card/Image] Thumb LOADED: b63895889de74db198ab3ad552b5b6b4.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 5144c9b849df4072a9bc4d78b7561fc8.jpg (disk)
+ LOG  [Card/Image] Thumb LOADED: 009f5648ad9c4f22af12e06234349e3d.jpg (disk)
+ LOG  [Card/Video] Thumb LOADED for 50b72c5b2d9f4db6bff70c0049a32836.mp4 (disk)
+ LOG  [Card/Image] Thumb LOADED: 1d00e58a60cb422eb099bed18123dec0.jpg (disk)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Home] Item pressed: da5cc74e488a4164b6369b128729307b.jpg (image)
+ ERROR  [TypeError: Cannot read property 'addListener' of undefined] 
+
+Call Stack
+  useEffect$argument_0 (node_modules\expo\src\hooks\useEvent.ts)
+  callCreate.reactStackBottomFrame (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookEffectListMount (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookPassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPendingEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSpawnedWork (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRootWhenReady (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performSyncWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSyncWorkAcrossRoots_impl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  processRootScheduleInMicrotask (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  scheduleMicrotask$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  FlatList.props.renderItem (app\viewer.tsx)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  renderProp (node_modules\react-native\Libraries\Lists\FlatList.js)
+  CellRenderer#_renderElement (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  CellRenderer#render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  ViewerScreen (app\viewer.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Lifecycle] Cleaning up AppState listener
+Android Bundled 68ms node_modules\expo-router\entry.js (1 module)
+ LOG  Ads initialized: [{"description": "", "name": "com.google.android.gms.ads.MobileAds", "state": 1}]
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Onboarding check starting...
+ LOG  [Lifecycle] RootLayout mounted. Navigation Version: 33
+ LOG  [Lifecycle] Fonts loaded in 3ms. Hiding Splash.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ LOG  [Loader] loadStatuses triggered. Version: 33, useSAF: true, silent: false
+ LOG  [Loader] Processing 1 granted SAF URIs
+ LOG  [SAF] readFromSAF started for URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia
+ LOG  [SAF] Target URI not cached, resolving...
+ LOG  [SAF] Probing via candidates. Base decoded: content://com.android.externalstorage.documents/tree/primary:android/media/com.whatsapp/whatsapp/media
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] refresh called (silent: true)
+ LOG  [Loader] loadStatuses already in progress, skipping redundant call
+ LOG  [SAF] Located target via probe: /.Statuses
+ LOG  [SAF] Target folder contains 30 total files
+ LOG  [SAF] readFromSAF successfully loaded 29 items from whatsapp
+ LOG  [Loader] Finished batch load: 29 items in 1194ms
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [loadSavedItems] album rescan skipped: [Error: Call to function 'ExpoMediaLibrary.getAlbumAsync' has been rejected.
+→ Caused by: Missing MEDIA_LIBRARY permissions.]
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Image] Loading thumb: 5b0530368d724815a86f239f2184d63b.jpg
+ LOG  [Card/Image] Thumb LOADED: 5b0530368d724815a86f239f2184d63b.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 2d151ddfe68e489fa92ddfb2545ff951.jpg
+ LOG  [Card/Image] Thumb LOADED: 2d151ddfe68e489fa92ddfb2545ff951.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 95086ebb529b4b91b3989fa1b4dafb33.jpg
+ LOG  [Card/Image] Thumb LOADED: 95086ebb529b4b91b3989fa1b4dafb33.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg
+ LOG  [Card/Image] Thumb LOADED: 23e66ec4f0ba42e0afba5dea1c7d90b4.jpg (memory)
+ LOG  [Card/Image] Loading thumb: da5cc74e488a4164b6369b128729307b.jpg
+ LOG  [Card/Image] Thumb LOADED: da5cc74e488a4164b6369b128729307b.jpg (memory)
+ LOG  [Card/Image] Loading thumb: e91a0dc94db14f948c2612f43cb24a55.jpg
+ LOG  [Card/Image] Thumb LOADED: e91a0dc94db14f948c2612f43cb24a55.jpg (memory)
+ LOG  [Card/Video] Loading thumb for 1991494f943c4a20978dbadd9e51b28d.mp4
+ LOG  [Card/Video] Thumb LOADED for 1991494f943c4a20978dbadd9e51b28d.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4
+ LOG  [Card/Video] Thumb LOADED for d5d31ba397c74e4c8d98fcc186c7bc1d.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 061bc2247a3a40cb92d09c6b0bd756d1.mp4
+ LOG  [Card/Video] Thumb LOADED for 061bc2247a3a40cb92d09c6b0bd756d1.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 778a6eb1afad41f782c0c4599b754bf2.mp4
+ LOG  [Card/Video] Thumb LOADED for 778a6eb1afad41f782c0c4599b754bf2.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 0d084666bac2426db68e9748883ecbfa.mp4
+ LOG  [Card/Video] Thumb LOADED for 0d084666bac2426db68e9748883ecbfa.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 189f473bf18f442ca4f0f93cf5863c12.mp4
+ LOG  [Card/Video] Thumb LOADED for 189f473bf18f442ca4f0f93cf5863c12.mp4 (memory)
+ LOG  [Card/Image] Loading thumb: c27b9dbeab954102ba2ac84aa2eadc7d.jpg
+ LOG  [Card/Image] Thumb LOADED: c27b9dbeab954102ba2ac84aa2eadc7d.jpg (memory)
+ LOG  [Card/Image] Loading thumb: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Card/Image] Thumb LOADED: aec7a3b666054d328b3dde013ab3a05b.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 6adb92a65333432ca7ae6e827de6bccd.jpg
+ LOG  [Card/Image] Thumb LOADED: 6adb92a65333432ca7ae6e827de6bccd.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 59b1d9a88b9844f2bad15872343ee3d1.jpg
+ LOG  [Card/Image] Thumb LOADED: 59b1d9a88b9844f2bad15872343ee3d1.jpg (memory)
+ LOG  [Card/Image] Loading thumb: b31bb692048e4900a16ad488313b81cf.jpg
+ LOG  [Card/Image] Thumb LOADED: b31bb692048e4900a16ad488313b81cf.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 5e0954c71867495d907fba3fc44cdafa.jpg
+ LOG  [Card/Image] Thumb LOADED: 5e0954c71867495d907fba3fc44cdafa.jpg (memory)
+ LOG  [Card/Video] Loading thumb for f69df551b2834b108eea88f1223336a5.mp4
+ LOG  [Card/Video] Thumb LOADED for f69df551b2834b108eea88f1223336a5.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for 90555e189cc1498c95f3b02c564f2460.mp4
+ LOG  [Card/Video] Thumb LOADED for 90555e189cc1498c95f3b02c564f2460.mp4 (memory)
+ LOG  [Card/Video] Loading thumb for b78ffe6f83d84b9ba8e29481c565b505.mp4
+ LOG  [Card/Video] Loading thumb for 37cffe936d174e2b826d8a13a6b12693.mp4
+ LOG  [Card/Video] Loading thumb for a465077380b746cc96da6c88209b455e.mp4
+ LOG  [Card/Video] Loading thumb for 6d1a0cef29ba405191415ecf740277bc.mp4
+ LOG  [Card/Image] Loading thumb: b63895889de74db198ab3ad552b5b6b4.jpg
+ LOG  [Card/Image] Thumb LOADED: b63895889de74db198ab3ad552b5b6b4.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 5144c9b849df4072a9bc4d78b7561fc8.jpg
+ LOG  [Card/Image] Thumb LOADED: 5144c9b849df4072a9bc4d78b7561fc8.jpg (memory)
+ LOG  [Card/Image] Loading thumb: 009f5648ad9c4f22af12e06234349e3d.jpg
+ LOG  [Card/Image] Thumb LOADED: 009f5648ad9c4f22af12e06234349e3d.jpg (memory)
+ LOG  [Card/Video] Loading thumb for 50b72c5b2d9f4db6bff70c0049a32836.mp4
+ LOG  [Card/Image] Loading thumb: 1d00e58a60cb422eb099bed18123dec0.jpg
+ LOG  [Card/Image] Thumb LOADED: 1d00e58a60cb422eb099bed18123dec0.jpg (memory)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Video] Thumb LOADED for b78ffe6f83d84b9ba8e29481c565b505.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 37cffe936d174e2b826d8a13a6b12693.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for a465077380b746cc96da6c88209b455e.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 6d1a0cef29ba405191415ecf740277bc.mp4 (disk)
+ LOG  [Card/Video] Thumb LOADED for 50b72c5b2d9f4db6bff70c0049a32836.mp4 (disk)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Card/Image] Loading thumb: aec7a3b666054d328b3dde013ab3a05b.jpg
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Card/Image] Thumb LOADED: aec7a3b666054d328b3dde013ab3a05b.jpg (disk)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ ERROR  Interstitial ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ ERROR  App open ad error: [Error: [googleMobileAds/no-fill] Account not approved yet. <https://support.google.com/admob/answer/9905175#1>] 
+
+Call Stack
+  _handleAdEvent (node_modules\react-native-google-mobile-ads\src\ads\MobileAd.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  GoogleMobileAdsNativeEventEmitter.addListener$argument_1 (node_modules\react-native-google-mobile-ads\src\MobileAds.ts)
+  apply (<native>)
+  emit (node_modules\react-native\Libraries\vendor\emitter\EventEmitter.js)
+  apply (<native>)
+  <anonymous> (node_modules\@babel\runtime\helpers\superPropGet.js)
+  RCTDeviceEventEmitterImpl#emit (node_modules\react-native\Libraries\EventEmitter\RCTDeviceEventEmitter.js)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ ERROR  Banner ad failed to load:  [Error: [googleMobileAds/error-code-no-fill] The ad request was successful, but no ad was returned due to lack of ad inventory.] 
+
+Call Stack
+  onNativeEvent (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  executeDispatch (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  executeDispatchesAndReleaseTopLevel (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  call (<native>)
+  forEachAccumulated (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdatesImpl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  dispatchEvent (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  RNGoogleMobileAdsBannerView (<anonymous>)
+  React.forwardRef$argument_0 (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  render (node_modules\react-native-google-mobile-ads\src\ads\BannerAd.tsx)
+  AdBanner (components\ads\AdBanner.tsx)
+  SavedScreen (app\(tabs)\saved.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  BottomTabNavigator (node_modules\@react-navigation\bottom-tabs\lib\module\navigators\createBottomTabNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\TabsClient.js)
+  TabLayout (app\(tabs)\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ ERROR  Banner ad failed to load:  [Error: [googleMobileAds/error-code-no-fill] The ad request was successful, but no ad was returned due to lack of ad inventory.] 
+
+Call Stack
+  onNativeEvent (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  executeDispatch (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  executeDispatchesAndReleaseTopLevel (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  call (<native>)
+  forEachAccumulated (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdatesImpl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  batchedUpdates$1 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  dispatchEvent (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  RNGoogleMobileAdsBannerView (<anonymous>)
+  React.forwardRef$argument_0 (node_modules\react-native-google-mobile-ads\src\ads\BaseAd.tsx)
+  render (node_modules\react-native-google-mobile-ads\src\ads\BannerAd.tsx)
+  AdBanner (components\ads\AdBanner.tsx)
+  SavedScreen (app\(tabs)\saved.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  BottomTabNavigator (node_modules\@react-navigation\bottom-tabs\lib\module\navigators\createBottomTabNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\TabsClient.js)
+  TabLayout (app\(tabs)\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Loader] AppState active, but throttled. Skipping refresh.
+ LOG  [Home] Item pressed: 0d084666bac2426db68e9748883ecbfa.mp4 (video)
+ LOG  [Media] prepareStatusForViewing called for 189f473bf18f442ca4f0f93cf5863c12.mp4 (video)
+ ERROR  [TypeError: Cannot read property 'addListener' of undefined] 
+
+Call Stack
+  useEffect$argument_0 (node_modules\expo\src\hooks\useEvent.ts)
+  callCreate.reactStackBottomFrame (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  runWithFiberInDEV (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookEffectListMount (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitHookPassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraverseReconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  reconnectPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  recursivelyTraversePassiveMountEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitPassiveMountOnFiber (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPassiveEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushPendingEffects (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSpawnedWork (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  commitRootWhenReady (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  performSyncWorkOnRoot (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  flushSyncWorkAcrossRoots_impl (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  processRootScheduleInMicrotask (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js)
+  scheduleMicrotask$argument_0 (node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js) 
+
+Call Stack
+  FlatList.props.renderItem (app\viewer.tsx)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  renderProp (node_modules\react-native\Libraries\Lists\FlatList.js)
+  CellRenderer#_renderElement (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  CellRenderer#render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedListCellRenderer.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  _pushCells (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\node_modules\@react-native\virtualized-lists\Lists\VirtualizedList.js)
+  render (node_modules\react-native\Libraries\Lists\FlatList.js)
+  ViewerScreen (app\viewer.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  NativeStackNavigator (node_modules\expo-router\build\fork\native-stack\createNativeStackNavigator.js)
+  <anonymous> (node_modules\expo-router\build\layouts\withLayoutContext.js)
+  Object.assign$argument_0 (node_modules\expo-router\build\layouts\StackClient.js)
+  AuthGate (app\_layout.tsx)
+  AppContent (app\_layout.tsx)
+  RootLayout (app\_layout.tsx)
+  BaseRoute (node_modules\expo-router\build\useScreens.js)
+  SceneView (node_modules\@react-navigation\core\lib\module\SceneView.js)
+  render (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  routes.reduce$argument_0 (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  reduce (<native>)
+  useDescriptors (node_modules\@react-navigation\core\lib\module\useDescriptors.js)
+  useNavigationBuilder (node_modules\@react-navigation\core\lib\module\useNavigationBuilder.js)
+  Content (node_modules\expo-router\build\ExpoRoot.js)
+  ContextNavigator (node_modules\expo-router\build\ExpoRoot.js)
+  ExpoRoot (node_modules\expo-router\build\ExpoRoot.js)
+  App (node_modules\expo-router\build\qualified-entry.js)
+  WithDevTools (node_modules\expo\src\launch\withDevTools.tsx)
+ LOG  [Lifecycle] AppState transition from active to background
+ LOG  [Lifecycle] AppState transition from background to active
+ LOG  [Media] Cache MISS for 189f473bf18f442ca4f0f93cf5863c12.mp4 - performing deep copy...
+ LOG  [Media] Deep copy complete for 189f473bf18f442ca4f0f93cf5863c12.mp4 in 1888ms
+ LOG  [Lifecycle] Cleaning up AppState listener
+Android Bundled 76ms node_modules\expo-router\entry.js (1 module)
+>>>>>>> 165512fe5ef661babe9c47e55a5007c05ccbcd19
