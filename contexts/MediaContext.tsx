@@ -631,8 +631,28 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   // until after first paint & interactions.
   async function rescanGalleryAlbum(currentValid: SavedItem[]): Promise<SavedItem[] | null> {
     try {
-      const { status } = await MediaLibrary.getPermissionsAsync();
-      if (status !== 'granted') return null;
+      // We deliberately request write-only MediaLibrary permission (line ~731,
+      // requestPermissionsAsync(true)) because the app uses SAF for *reading*
+      // WhatsApp's .Statuses folder and only needs MediaLibrary to *write*
+      // saved files into the StatusVault album. Asking for full
+      // READ_MEDIA_IMAGES/VIDEO would put us in Play Store policy-review hell
+      // (READ_MEDIA_* are also explicitly blocked in app.json).
+      //
+      // Side-effect: on Android 13+, `getPermissionsAsync()` (no arg) can
+      // still report `status: 'granted'` when the user only granted write
+      // permission. If we naively trust that and call getAlbumAsync (which
+      // needs READ), expo-media-library throws "Missing MEDIA_LIBRARY
+      // permissions" — visible noise in the logs even though nothing is
+      // actually broken. Detect the write-only-only case explicitly via the
+      // accessPrivileges field and skip silently.
+      const perm: any = await MediaLibrary.getPermissionsAsync();
+      if (perm?.status !== 'granted') return null;
+      // accessPrivileges: 'all' | 'limited' | 'none' (Android 14+ / iOS 14+).
+      // Older versions don't expose this field — treat absence as 'all' so we
+      // don't regress devices that worked before.
+      const access = perm?.accessPrivileges;
+      if (access === 'none') return null;
+
       const album = await MediaLibrary.getAlbumAsync('StatusVault');
       if (!album) return null;
       const valid = [...currentValid];
@@ -670,7 +690,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         after = page.endCursor;
       }
       return added ? valid : null;
-    } catch (e) {
+    } catch (e: any) {
+      // Backstop: even with the accessPrivileges check above, some OEM Android
+      // builds still throw "Missing MEDIA_LIBRARY permissions" from
+      // getAlbumAsync (e.g. if the user revoked permission between launch and
+      // the deferred rescan timer firing). Silence this specific case — it's
+      // expected, not an error.
+      const msg: string = typeof e?.message === 'string' ? e.message : '';
+      if (msg.includes('MEDIA_LIBRARY permissions') || msg.includes('Missing MEDIA_LIBRARY')) {
+        return null;
+      }
       console.log('[loadSavedItems] album rescan skipped:', e);
       return null;
     }
