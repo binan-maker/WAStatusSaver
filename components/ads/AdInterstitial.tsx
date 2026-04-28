@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
-import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
+import { ADS_ENABLED, getAdUnitId } from '@/constants/admob';
 import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 
-const adUnitId = AD_UNIT_IDS.INTERSTITIAL;
+const adUnitId = getAdUnitId('INTERSTITIAL');
 
 let interstitial: InterstitialAd | null = null;
 let loadRetries = 0;

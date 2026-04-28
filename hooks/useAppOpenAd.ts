@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { AppOpenAd, AdEventType } from 'react-native-google-mobile-ads';
-import { AD_UNIT_IDS, ADS_ENABLED } from '@/constants/admob';
+import { ADS_ENABLED, getAdUnitId } from '@/constants/admob';
 import { useFreeAdsState } from '@/hooks/useFreeAdsState';
 
-const adUnitId = AD_UNIT_IDS.APP_OPEN;
+const adUnitId = getAdUnitId('APP_OPEN');
 
 let globalAppOpenAd: AppOpenAd | null = null;
 let isShowingAd = false;
