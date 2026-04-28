@@ -31,6 +31,10 @@ import { SPACING, FONT_SIZE, RADIUS, ADMOB } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
 import { getCachedShareLink } from '@/lib/share-link';
 
+// Per-screen error boundary: a crash on this tab shows a recovery UI
+// instead of white-screening the whole app.
+export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
+
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg?: string;
@@ -51,6 +55,9 @@ function SettingRow({ icon, iconBg, label, sublabel, value, onPress, showArrow =
       style={styles.settingRow}
       activeOpacity={onPress ? 0.7 : 1}
       disabled={!onPress}
+      accessibilityLabel={sublabel ? `${label}: ${sublabel}` : label}
+      accessibilityRole={onPress ? 'button' : 'none'}
+      accessibilityState={onPress ? undefined : { disabled: true }}
     >
       <View style={[styles.settingIcon, { backgroundColor: iconBg || COLORS.SURFACE_2 }]}>
         <Ionicons name={icon} size={18} color={danger ? COLORS.ERROR : COLORS.TEXT} />

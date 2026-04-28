@@ -1752,6 +1752,79 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
     };
   }, [cleanupCacheFiles]);
 
+  // ── FOREGROUND HEALTH CHECKS ────────────────────────────────────────────
+  // Every time the app returns from background:
+  //   1. SAF revocation check — Android can silently revoke takePersistable-
+  //      UriPermission after a WhatsApp update, storage migration, or when the
+  //      user manually clears permissions. Without this check the app shows an
+  //      empty grid forever and never tells the user why. We probe each stored
+  //      tree URI with a readDirectoryAsync; if it throws we clear that source
+  //      and flip safGranted=false so the UI shows the "Grant Access" button.
+  //   2. Cache sweep — throttled to once per 30 min on foreground so long
+  //      sessions (background → foreground many times) don't accumulate stale
+  //      view_ / share_ copies from hours-old playback sessions.
+  // Both run inside InteractionManager so they never compete with the
+  // navigation-resume animation that fires immediately on foreground.
+  const lastForegroundSweepRef = useRef<number>(0);
+  useEffect(() => {
+    let prevAppState = AppState.currentState;
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      const wasBackground = prevAppState === 'background';
+      prevAppState = nextState;
+      if (nextState !== 'active' || !wasBackground) return;
+
+      const now = Date.now();
+      const sinceLastSweep = now - lastForegroundSweepRef.current;
+
+      InteractionManager.runAfterInteractions(async () => {
+        // 1 ─ SAF revocation check (Android 11+ only)
+        if (Platform.OS === 'android' && androidVersionRef.current >= 30) {
+          const uris = safUrisRef.current;
+          if (uris.whatsapp || uris.whatsapp_business) {
+            let anyRevoked = false;
+            const stillValid: Partial<Record<StatusSource, string>> = {};
+            for (const src of (['whatsapp', 'whatsapp_business'] as StatusSource[])) {
+              const uri = uris[src];
+              if (!uri) continue;
+              try {
+                await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
+                stillValid[src] = uri;
+              } catch {
+                // readDirectoryAsync throws SecurityException / IllegalArgumentException
+                // when the persisted URI grant has been revoked.
+                anyRevoked = true;
+                resolvedUriCache.current.delete(uri);
+              }
+            }
+            if (anyRevoked) {
+              const hasAny = Object.keys(stillValid).length > 0;
+              setSafUris(stillValid);
+              setSafUri(stillValid.whatsapp || stillValid.whatsapp_business || null);
+              setSafGranted(hasAny);
+              try {
+                if (hasAny) {
+                  await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(stillValid));
+                } else {
+                  await AsyncStorage.multiRemove([STORAGE_KEYS.SAF_URIS, STORAGE_KEYS.SAF_URI]);
+                  await AsyncStorage.removeItem(STORAGE_KEYS.RESOLVED_URIS);
+                }
+              } catch {}
+            }
+          }
+        }
+
+        // 2 ─ Cache sweep, throttled to once per 30 min
+        if (sinceLastSweep > 30 * 60 * 1000) {
+          lastForegroundSweepRef.current = now;
+          cleanupCacheFilesRef.current(2 * 60 * 60 * 1000).catch(() => {});
+        }
+      });
+    });
+
+    return () => sub.remove();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const value: MediaContextValue = useMemo(() => ({
     statuses,
     savedItems,

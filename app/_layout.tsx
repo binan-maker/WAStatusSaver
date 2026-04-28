@@ -30,6 +30,22 @@ import { useStatusReminder } from '@/hooks/media/useStatusReminder';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { usePendingReferralAttribution } from '@/hooks/referral/usePendingReferralAttribution';
 
+// ── Production console hygiene ───────────────────────────────────────────
+// In release builds we redirect verbose log levels to no-ops so that:
+//  • Sensitive debug strings (URI paths, user IDs) never appear in Logcat
+//  • The JS engine skips the cost of object serialisation for each call
+//  • We avoid the rare MIUI/HyperOS "log buffer full" bridge stall
+// console.error is kept alive so that crash-reporting SDKs (Sentry /
+// Crashlytics) that monkey-patch it still receive uncaught errors.
+if (!__DEV__) {
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  const noop = () => {};
+  console.log   = noop;
+  console.debug = noop;
+  console.info  = noop;
+  console.warn  = noop;
+}
+
 SplashScreen.preventAutoHideAsync();
 
 // PERF: AdMob's native initialize() does heavy work on the JS+native bridge

@@ -33,6 +33,11 @@ import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
 
+// Per-screen error boundary: a crash on this tab shows a recovery UI
+// instead of white-screening the whole app. The user can navigate to
+// Saved or Settings while this tab recovers.
+export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
+
 const { width: SW } = Dimensions.get('window');
 const ROW_HEIGHT = CARD_SIZE + 2;
 // Module-level prefetch dedupe set. This is a plain Set (NOT a ref) because

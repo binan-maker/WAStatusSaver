@@ -26,6 +26,10 @@ import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
 
+// Per-screen error boundary: a crash on this tab shows a recovery UI
+// instead of white-screening the whole app.
+export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
+
 const { width: SW } = Dimensions.get('window');
 const ROW_HEIGHT = CARD_SIZE + 2;
 const TAB_BAR_APPROX = 60;

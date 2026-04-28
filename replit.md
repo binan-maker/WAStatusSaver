@@ -334,6 +334,41 @@ and Expo migration trajectory.
 - Force a bad source (e.g. revoke mid-playback) — retry overlay shows;
   tapping it recovers.
 
+## Production-Readiness Hardening (final 5%)
+
+### Crash resilience — per-screen ErrorBoundary (expo-router pattern)
+Each tab (`index`, `saved`, `settings`) exports a named `ErrorBoundary` that
+expo-router uses to isolate crashes. A JS exception on one tab shows a
+polished recovery card (`components/common/ScreenErrorFallback.tsx`) with
+"Try Again" and "Reload App" buttons. The other two tabs remain fully usable.
+`components/common/index.ts` barrel-exports `ScreenErrorFallback`.
+
+### Storage hygiene — foreground cache sweep (throttled)
+`MediaContext` foreground AppState listener (`useEffect`, empty deps) fires
+every time the app returns from background. A `lastForegroundSweepRef` ensures
+`cleanupCacheFiles(2h)` runs at most once per 30 minutes, keeping cache bloat
+under control for power users who background/foreground hundreds of times per day.
+
+### SAF revocation health check (Android 11+)
+Same foreground listener probes each stored tree URI with
+`FileSystem.StorageAccessFramework.readDirectoryAsync`. If a URI throws
+(Android revokes `takePersistableUriPermission` after WhatsApp updates or
+storage migration), that source is cleared from state + AsyncStorage and
+`safGranted` flips to false so the UI immediately shows the "Grant Access"
+button. Runs only on Android 11+ (API 30+). Both SAF check and cache sweep
+are wrapped in `InteractionManager.runAfterInteractions` to never compete
+with the navigation-resume animation.
+
+### Dev/prod console hygiene
+`app/_layout.tsx` globally silences `console.log/debug/info/warn` in release
+builds (keeps `console.error` alive for crash-reporting SDKs). `lib/logger.ts`
+provides a typed `{ log, debug, warn, error }` interface for future use.
+
+### SettingRow accessibility
+`TouchableOpacity` in `SettingRow` now has `accessibilityLabel` (label +
+sublabel) and `accessibilityRole="button"` so TalkBack / screen readers
+announce each row correctly.
+
 ## To Publish
 1. Replace AdMob unit IDs in `constants/admob.ts`
 2. Update `app.json` with your actual bundle ID
