@@ -155,9 +155,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   // Player declared BEFORE all effects so every closure captures the same binding.
   // Starts with no source — replaceAsync feeds the file:// URI after SAF copy.
+  //
+  // LOOP STRATEGY (2026-04-28): native `loop` is intentionally OFF. On many
+  // Android OEM ExoPlayer builds (Samsung One UI, Xiaomi MIUI, Realme), the
+  // native loop fails to re-trigger on the SECOND iteration when the source
+  // is a SAF-copied file:// URI — the video just stops at end-of-clip and
+  // never restarts ("plays for 1 second and freezes"). We loop manually
+  // from the playingChange listener instead, which is deterministic.
   const player = useVideoPlayer(null, (p) => {
     if (p) {
-      p.loop = true;
+      p.loop = false;
       p.muted = true;
       if (Platform.OS === 'android') {
         p.staysActiveInBackground = false;
@@ -357,12 +364,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           // Clear any lingering error state — playback recovered.
           setVideoError(false);
           setIsVideoReady(true);
-          // LOOP-RESTART FIX: Only start playback on the VERY FIRST readyToPlay
-          // for this source. With player.loop=true, ExoPlayer emits readyToPlay
-          // again on every loop iteration. Calling player.play() during that
-          // loop-restart transition interrupts ExoPlayer's own loop mechanism and
-          // causes the video to stall. We let ExoPlayer handle subsequent loops
-          // completely on its own — no JS intervention needed.
+          // FIRST-PLAY GATE: Only start playback on the VERY FIRST readyToPlay
+          // for this source. The looping itself is handled by the playingChange
+          // listener below (manual loop, see LOOP STRATEGY in useVideoPlayer
+          // config). The hasEverReachedReadyRef latch prevents accidental
+          // double-play() races with replaceAsync resolution.
           if (!hasEverReachedReadyRef.current) {
             hasEverReachedReadyRef.current = true;
             tryStartPlaybackRef.current();
@@ -433,13 +439,28 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [item.id]);
 
   // Subscribe to playingChange: mirror the live play/pause state into React
-  // so the icon in custom controls (if shown) updates correctly.
-  // NOTE: The "stuck detector" that used to call player.play() here was
-  // removed. With player.loop = true, ExoPlayer handles looping natively.
-  // The stuck detector was firing on every loop iteration (brief pause gap
-  // between loop end and restart on Android OEMs), causing the
-  // pause→play→pause→play loop that users reported. Removing it lets
-  // ExoPlayer manage its own loop state without JS interference.
+  // so the icon in custom controls (if shown) updates correctly, AND run a
+  // DEBOUNCED stuck-detector / manual-looper.
+  //
+  // History: an earlier version called player.play() on every "playing → false"
+  // event. With native loop = true that fired on every loop iteration (brief
+  // pause gap between loop end and restart on Android OEMs), causing a
+  // pause→play→pause→play oscillation. The fix THEN was to remove the
+  // detector entirely and trust native loop. But native loop is unreliable
+  // on the same OEM builds, so videos now freeze after the first iteration.
+  //
+  // The current strategy combines both lessons:
+  //   1. native loop is OFF (set in useVideoPlayer config above)
+  //   2. when playing flips to false we wait 600 ms BEFORE acting — that
+  //      grace window absorbs every legitimate brief pause (loop transition
+  //      attempts, mid-playback re-buffer, decoder hiccup) so we never
+  //      fight ExoPlayer's own state machine
+  //   3. after 600 ms, if the player is STILL not playing AND the user did
+  //      not press pause AND this slot is still active, we either
+  //         a) seek to 0 and play (if currentTime is at end → manual loop)
+  //         b) just call play() (mid-playback stall recovery)
+  //   4. as soon as playing flips back to true (auto-recovery succeeded
+  //      naturally), we cancel the pending timer
   useEffect(() => {
     if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
@@ -447,11 +468,65 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       sub = player.addListener('playingChange', (payload: any) => {
         const nowPlaying = payload?.isPlaying ?? payload?.playing ?? false;
         setIsPlaying(nowPlaying);
+
+        if (nowPlaying) {
+          // Player is playing — cancel any pending stuck-resume timer.
+          if (stuckResumeTimerRef.current) {
+            clearTimeout(stuckResumeTimerRef.current);
+            stuckResumeTimerRef.current = null;
+          }
+          return;
+        }
+
+        // playing flipped to false. Bail immediately on user-initiated pause
+        // or inactive slot — neither should trigger a resume.
+        if (userPausedRef.current || !isActiveRef.current) return;
+        // Also bail if we never even reached readyToPlay yet — the source-
+        // loading pipeline owns the initial play() call.
+        if (!hasEverReachedReadyRef.current) return;
+
+        // Debounce: replace any pending timer with a fresh 600 ms one so
+        // rapid-fire false events (during ExoPlayer's internal state churn
+        // around end-of-clip) collapse to a single decision after things
+        // settle.
+        if (stuckResumeTimerRef.current) clearTimeout(stuckResumeTimerRef.current);
+        stuckResumeTimerRef.current = setTimeout(() => {
+          stuckResumeTimerRef.current = null;
+          try {
+            // Re-check every guard — state may have changed during the wait.
+            if (!player) return;
+            if ((player as any).playing) return;
+            if (userPausedRef.current || !isActiveRef.current) return;
+
+            const currentSec = (player as any).currentTime ?? 0;
+            const durationSec = (player as any).duration ?? 0;
+            // Treat "within 0.5 s of the end" as end-of-clip — covers small
+            // float drift between currentTime and duration.
+            const atEnd = durationSec > 0 && currentSec >= durationSec - 0.5;
+
+            if (atEnd) {
+              // Manual loop: native loop didn't re-trigger.
+              (player as any).currentTime = 0;
+              player.play();
+            } else {
+              // Mid-playback stall: just resume.
+              player.play();
+            }
+          } catch (e) {
+            __DEV__ && console.log('[Viewer] stuck-resume failed:', e);
+          }
+        }, 600);
       });
     } catch (e) {
       __DEV__ && console.log('[Viewer] playingChange listener attach failed:', e);
     }
-    return () => { try { sub?.remove(); } catch {} };
+    return () => {
+      try { sub?.remove(); } catch {}
+      if (stuckResumeTimerRef.current) {
+        clearTimeout(stuckResumeTimerRef.current);
+        stuckResumeTimerRef.current = null;
+      }
+    };
   }, [player, item.type, item.name]);
 
   // Subscribe to timeUpdate. Throttled to 4 Hz — enough for a smooth
