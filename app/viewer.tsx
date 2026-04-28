@@ -431,44 +431,21 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setVideoControlsVisible(false);
   }, [item.id]);
 
-  // Subscribe to playingChange. Two jobs:
-  //   1. Mirror the live play/pause state into React so the icon updates.
-  //   2. STUCK DETECTOR — if the player flips to !playing AFTER having
-  //      reached readyToPlay AND the user did NOT initiate a pause, the
-  //      OEM ExoPlayer just stalled. Auto-call play() to wake it up.
-  //      This is the safety net for the "video freezes after 1 second"
-  //      symptom on devices where even a file:// source can stall.
+  // Subscribe to playingChange: mirror the live play/pause state into React
+  // so the icon in custom controls (if shown) updates correctly.
+  // NOTE: The "stuck detector" that used to call player.play() here was
+  // removed. With player.loop = true, ExoPlayer handles looping natively.
+  // The stuck detector was firing on every loop iteration (brief pause gap
+  // between loop end and restart on Android OEMs), causing the
+  // pause→play→pause→play loop that users reported. Removing it lets
+  // ExoPlayer manage its own loop state without JS interference.
   useEffect(() => {
     if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
     try {
       sub = player.addListener('playingChange', (payload: any) => {
-        // Different expo-video versions name this `isPlaying` vs `playing`.
         const nowPlaying = payload?.isPlaying ?? payload?.playing ?? false;
         setIsPlaying(nowPlaying);
-
-        if (
-          !nowPlaying &&
-          !userPausedRef.current &&
-          hasEverReachedReadyRef.current &&
-          isActiveRef.current &&
-          item.type === 'video'
-        ) {
-          // Schedule the resume on a micro-delay so we don't fight the
-          // same state-change cycle that just flipped us to !playing.
-          if (stuckResumeTimerRef.current) clearTimeout(stuckResumeTimerRef.current);
-          stuckResumeTimerRef.current = setTimeout(() => {
-            stuckResumeTimerRef.current = null;
-            if (!isActiveRef.current || userPausedRef.current) return;
-            try {
-              if (!player.playing) {
-                console.log(`[Viewer] Stuck detector: resuming ${item.name} after unexpected pause`);
-                player.muted = false;
-                player.play();
-              }
-            } catch {}
-          }, 250);
-        }
       });
     } catch (e) {
       console.log('[Viewer] playingChange listener attach failed:', e);
@@ -1017,24 +994,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
-                  nativeControls={false}
-                />
-              )}
-
-              {/*
-                CUSTOM CONTROLS TAP LAYER (FIX 2026-04-27):
-                Transparent full-surface tap target sitting directly above the
-                VideoView. Replaces ExoPlayer's flaky nativeControls. Tapping
-                here toggles our JS-owned overlay (play/pause + time + progress).
-                Only mounted while the video surface is actually visible and
-                playable — never over the thumbnail or the retry overlay.
-              */}
-              {isActive && isVideoVisible && !videoError && (
-                <TouchableOpacity
-                  style={StyleSheet.absoluteFill}
-                  activeOpacity={1}
-                  onPress={handleVideoSurfaceTap}
-                  accessibilityLabel="Show video controls"
+                  nativeControls={true}
+                  allowsFullscreen
                 />
               )}
 
@@ -1078,64 +1039,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 </View>
               )}
 
-              {/*
-                CUSTOM VIDEO CONTROLS OVERLAY (FIX 2026-04-27):
-                Owned entirely in JS — guaranteed responsive on every Android
-                OEM. Shows: large center play/pause button + time readout +
-                tap-to-seek progress bar. Auto-hides after 3.5 s of inactivity
-                but ALWAYS reappears on the next tap because we own the
-                videoControlsVisible state. Only mounted while the video is
-                ready, visible, active, and not showing an error overlay.
-              */}
-              {isActive && isVideoVisible && videoControlsVisible && !videoError && (
-                <>
-                  <View style={styles.videoCustomControlsCenter} pointerEvents="box-none">
-                    <TouchableOpacity
-                      style={styles.videoCustomPlayBtn}
-                      onPress={togglePlayPause}
-                      activeOpacity={0.85}
-                      hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                      accessibilityLabel={isPlaying ? 'Pause video' : 'Play video'}
-                    >
-                      <Ionicons
-                        name={isPlaying ? 'pause' : 'play'}
-                        size={42}
-                        color="#fff"
-                        style={isPlaying ? undefined : { marginLeft: 4 }}
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.videoCustomBottomBar} pointerEvents="box-none">
-                    <Text style={styles.videoCustomTimeText}>
-                      {formatTime(currentTime * 1000)} / {formatTime(videoDuration * 1000)}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.videoCustomProgressTouch}
-                      activeOpacity={1}
-                      onPress={(e) => {
-                        const x = e.nativeEvent.locationX;
-                        const w = SW - SPACING.LG * 2;
-                        if (w > 0) seekToFraction(x / w);
-                      }}
-                      accessibilityLabel="Seek bar"
-                    >
-                      <View style={styles.videoCustomProgressBg}>
-                        <View
-                          style={[
-                            styles.videoCustomProgressFill,
-                            {
-                              width: videoDuration > 0
-                                ? `${Math.max(0, Math.min(100, (currentTime / videoDuration) * 100))}%`
-                                : '0%',
-                            },
-                          ]}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
+              {/* Native ExoPlayer controls are shown via nativeControls={true} on VideoView above. */}
 
               {/*
                 Tap-to-retry overlay — shown when ExoPlayer reports `error`.
