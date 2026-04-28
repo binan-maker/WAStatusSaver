@@ -92,13 +92,27 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [videoDuration, setVideoDuration] = useState(0);
   const userPausedRef = useRef(false);
   const controlsHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stuckResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Module-level telemetry latches (per source). directPlayLoggedRef ensures
   // we only count ONE success per content:// URI even if statusChange fires
   // 'readyToPlay' multiple times across re-buffers. fallbackLoggedRef does the
   // same for the watchdog so a single video stall doesn't get double-counted.
   const directPlayLoggedRef = useRef(false);
   const fallbackLoggedRef = useRef(false);
+  // TRUE-STALL DETECTION (FIX U):
+  //   The only ground truth for "is the video actually playing" is whether
+  //   currentTime is advancing. expo-video on Android emits `playingChange=false`
+  //   events transiently during normal playback — they are NOT real pauses,
+  //   and reacting to them by calling player.play() introduces visible stutter
+  //   (the player briefly pauses to re-evaluate the redundant play() call).
+  //
+  //   These two refs track progress in wallclock terms:
+  //     lastProgressTimeRef  — the last currentTime value we observed advancing
+  //     lastProgressMsRef    — Date.now() at the moment we observed it advance
+  //   A periodic interval reads (player.currentTime, Date.now()) and compares.
+  //   A stall is declared ONLY if currentTime hasn't moved for 2 s of wallclock,
+  //   which is impossible during legitimate playback even at variable bitrate.
+  const lastProgressTimeRef = useRef(0);
+  const lastProgressMsRef = useRef(0);
   const isActiveRef = useRef(isActive);
   // Update synchronously every render so every callback sees the latest value
   // without waiting for a useEffect to run after paint.
@@ -417,6 +431,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     hasEverReachedReadyRef.current = false;
     directPlayLoggedRef.current = false;
     fallbackLoggedRef.current = false;
+    // Reset the true-stall watchdog's progress trackers so the new source
+    // gets a fresh wallclock window before any kick can fire.
+    lastProgressTimeRef.current = 0;
+    lastProgressMsRef.current = Date.now();
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -438,29 +456,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setVideoControlsVisible(false);
   }, [item.id]);
 
-  // Subscribe to playingChange: mirror the live play/pause state into React
-  // so the icon in custom controls (if shown) updates correctly, AND run a
-  // DEBOUNCED stuck-detector / manual-looper.
+  // Subscribe to playingChange: ONLY mirror state into React. Never call
+  // play() in response to this event.
   //
-  // History: an earlier version called player.play() on every "playing → false"
-  // event. With native loop = true that fired on every loop iteration (brief
-  // pause gap between loop end and restart on Android OEMs), causing a
-  // pause→play→pause→play oscillation. The fix THEN was to remove the
-  // detector entirely and trust native loop. But native loop is unreliable
-  // on the same OEM builds, so videos now freeze after the first iteration.
-  //
-  // The current strategy combines both lessons:
-  //   1. native loop is OFF (set in useVideoPlayer config above)
-  //   2. when playing flips to false we wait 600 ms BEFORE acting — that
-  //      grace window absorbs every legitimate brief pause (loop transition
-  //      attempts, mid-playback re-buffer, decoder hiccup) so we never
-  //      fight ExoPlayer's own state machine
-  //   3. after 600 ms, if the player is STILL not playing AND the user did
-  //      not press pause AND this slot is still active, we either
-  //         a) seek to 0 and play (if currentTime is at end → manual loop)
-  //         b) just call play() (mid-playback stall recovery)
-  //   4. as soon as playing flips back to true (auto-recovery succeeded
-  //      naturally), we cancel the pending timer
+  // Hard-learned lesson (FIX U): expo-video on Android emits transient
+  // `playingChange=false` events constantly during normal playback, even
+  // while the video is playing perfectly (currentTime advances at 1x).
+  // Every prior version that called play() in response to these events
+  // (v1's stuck-detector, v3's debounced recovery, v5's atEnd-gated
+  // recovery) caused visible stutter because each redundant play() makes
+  // the player briefly pause to re-evaluate. The actual stall detection
+  // lives in the `currentTime`-progress watchdog below — that is the only
+  // ground truth we trust.
   useEffect(() => {
     if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
@@ -468,65 +475,104 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       sub = player.addListener('playingChange', (payload: any) => {
         const nowPlaying = payload?.isPlaying ?? payload?.playing ?? false;
         setIsPlaying(nowPlaying);
-
-        if (nowPlaying) {
-          // Player is playing — cancel any pending stuck-resume timer.
-          if (stuckResumeTimerRef.current) {
-            clearTimeout(stuckResumeTimerRef.current);
-            stuckResumeTimerRef.current = null;
-          }
-          return;
-        }
-
-        // playing flipped to false. Bail immediately on user-initiated pause
-        // or inactive slot — neither should trigger a resume.
-        if (userPausedRef.current || !isActiveRef.current) return;
-        // Also bail if we never even reached readyToPlay yet — the source-
-        // loading pipeline owns the initial play() call.
-        if (!hasEverReachedReadyRef.current) return;
-
-        // Debounce: replace any pending timer with a fresh 600 ms one so
-        // rapid-fire false events (during ExoPlayer's internal state churn
-        // around end-of-clip) collapse to a single decision after things
-        // settle.
-        if (stuckResumeTimerRef.current) clearTimeout(stuckResumeTimerRef.current);
-        stuckResumeTimerRef.current = setTimeout(() => {
-          stuckResumeTimerRef.current = null;
-          try {
-            // Re-check every guard — state may have changed during the wait.
-            if (!player) return;
-            if ((player as any).playing) return;
-            if (userPausedRef.current || !isActiveRef.current) return;
-
-            const currentSec = (player as any).currentTime ?? 0;
-            const durationSec = (player as any).duration ?? 0;
-            // Treat "within 0.5 s of the end" as end-of-clip — covers small
-            // float drift between currentTime and duration.
-            const atEnd = durationSec > 0 && currentSec >= durationSec - 0.5;
-
-            if (atEnd) {
-              // Manual loop: native loop didn't re-trigger.
-              (player as any).currentTime = 0;
-              player.play();
-            } else {
-              // Mid-playback stall: just resume.
-              player.play();
-            }
-          } catch (e) {
-            __DEV__ && console.log('[Viewer] stuck-resume failed:', e);
-          }
-        }, 600);
       });
     } catch (e) {
       __DEV__ && console.log('[Viewer] playingChange listener attach failed:', e);
     }
-    return () => {
-      try { sub?.remove(); } catch {}
-      if (stuckResumeTimerRef.current) {
-        clearTimeout(stuckResumeTimerRef.current);
-        stuckResumeTimerRef.current = null;
-      }
-    };
+    return () => { try { sub?.remove(); } catch {} };
+  }, [player, item.type, item.name]);
+
+  // ── DETERMINISTIC LOOP via expo-video's playToEnd event ──────────────
+  // Fires EXACTLY ONCE per loop iteration when the player reaches the end
+  // of the source. We seek to 0 and play immediately — no debounce, no
+  // delay. This replaces what `player.loop = true` was supposed to do
+  // natively but doesn't, reliably, on Android OEM ExoPlayer builds.
+  useEffect(() => {
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
+    let sub: { remove: () => void } | null = null;
+    try {
+      sub = player.addListener('playToEnd', () => {
+        if (userPausedRef.current || !isActiveRef.current) return;
+        __DEV__ && console.log(`[Viewer] playToEnd for ${item.name} — restarting loop`);
+        try {
+          (player as any).currentTime = 0;
+          player.play();
+          // Reset progress tracker so the watchdog doesn't see "currentTime
+          // jumped backwards" as a non-advance.
+          lastProgressTimeRef.current = 0;
+          lastProgressMsRef.current = Date.now();
+        } catch (e) {
+          __DEV__ && console.log('[Viewer] playToEnd loop restart failed:', e);
+        }
+      });
+    } catch (e) {
+      __DEV__ && console.log('[Viewer] playToEnd listener attach failed:', e);
+    }
+    return () => { try { sub?.remove(); } catch {} };
+  }, [player, item.type, item.name]);
+
+  // ── TRUE-STALL WATCHDOG (currentTime progress check) ────────────────
+  // The only stall-recovery mechanism in the entire viewer. It runs on a
+  // 1 s interval and uses ACTUAL playback progress as the trigger:
+  //   • read player.currentTime
+  //   • compare to lastProgressTimeRef (the last value we saw advance)
+  //   • if it's grown by > 0.05 s, update both refs and bail (still playing)
+  //   • if it hasn't advanced in 2.5 s of wallclock AND we're active AND
+  //     not user-paused AND not at end-of-clip → call play() once
+  //
+  // Why this is structurally immune to the previous bugs:
+  //   • Trigger is forward progress (objective), not playingChange events
+  //     (noisy on Android). We CAN'T misfire during normal playback because
+  //     normal playback advances currentTime at 1x.
+  //   • 2.5 s threshold is far longer than any legitimate ExoPlayer self-
+  //     recovery window (~50-300 ms), so we never race with the decoder.
+  //   • We only fire ONE play() per stall (we update lastProgressMsRef
+  //     after kicking, so the next check has a fresh 2.5 s window).
+  useEffect(() => {
+    if (item.type !== 'video' || !player) return;
+    // Initialize on attach.
+    lastProgressTimeRef.current = 0;
+    lastProgressMsRef.current = Date.now();
+
+    const interval = setInterval(() => {
+      try {
+        if (!isActiveRef.current) return;
+        if (userPausedRef.current) return;
+        if (!hasEverReachedReadyRef.current) return;
+
+        const currentSec = (player as any).currentTime ?? 0;
+        const durationSec = (player as any).duration ?? 0;
+
+        // End-of-clip → playToEnd handles. We track progress against the
+        // restart but don't fire play() here.
+        if (durationSec > 0 && currentSec >= durationSec - 0.5) {
+          lastProgressTimeRef.current = currentSec;
+          lastProgressMsRef.current = Date.now();
+          return;
+        }
+
+        // currentTime advanced — playback is healthy.
+        if (currentSec > lastProgressTimeRef.current + 0.05) {
+          lastProgressTimeRef.current = currentSec;
+          lastProgressMsRef.current = Date.now();
+          return;
+        }
+
+        // No progress. If we've been here for 2.5 s of wallclock, this is
+        // a real stall (no possible legitimate explanation).
+        const stalledMs = Date.now() - lastProgressMsRef.current;
+        if (stalledMs >= 2500) {
+          __DEV__ && console.log(`[Viewer] true stall detected for ${item.name} at ${currentSec.toFixed(2)}/${durationSec.toFixed(2)} (stalled ${stalledMs}ms) — kicking play()`);
+          try { player.play(); } catch {}
+          // Reset wallclock so the next check has a fresh window before
+          // firing again. If the kick worked, currentTime will advance and
+          // the regular branch above takes over.
+          lastProgressMsRef.current = Date.now();
+        }
+      } catch {}
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [player, item.type, item.name]);
 
   // Subscribe to timeUpdate. Throttled to 4 Hz — enough for a smooth
@@ -573,7 +619,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   useEffect(() => {
     return () => {
       if (controlsHideTimerRef.current) clearTimeout(controlsHideTimerRef.current);
-      if (stuckResumeTimerRef.current) clearTimeout(stuckResumeTimerRef.current);
     };
   }, []);
   // ──────────────────────────────────────────────────────────────────────
