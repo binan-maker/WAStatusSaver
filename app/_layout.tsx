@@ -71,12 +71,28 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
   const { colors: COLORS } = useTheme();
   const router = useRouter();
   const segments = useSegments();
+  // Tracks whether we already pushed the user to /onboarding this session so
+  // subsequent segment changes (after the user completes onboarding and lands
+  // on the tabs) don't re-trigger the redirect and loop them back.
+  const onboardingNavigatedRef = useRef(false);
 
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === 'signin';
+    const inOnboarding = segments[0] === 'onboarding';
 
+    // CASE 1: Fresh install / reinstall — take the user straight to onboarding
+    // with zero friction. No Google sign-in required. The old flow required the
+    // user to hit the signin screen first, which acted as an unintended gate.
+    if (showOnboarding && !inOnboarding && !onboardingNavigatedRef.current) {
+      onboardingNavigatedRef.current = true;
+      router.replace('/onboarding');
+      return;
+    }
+
+    // CASE 2: User signed in via the signin screen (e.g. from Settings →
+    // account section). Redirect to the appropriate destination.
     if (user && inAuthGroup) {
       if (showOnboarding) {
         router.replace('/onboarding');
@@ -292,26 +308,21 @@ const RootLayout = () => {
 
   const checkOnboarding = async () => {
     try {
-      // ANR-PROOF: race AsyncStorage against a 1.5 s timer. This read happens
-      // BEFORE the splash hides, so a slow SQLite open (which on Android 11+
-      // OEMs can briefly hang during the cold-launch I/O storm) was making
-      // the splash linger for an extra second or two. On timeout we use the
-      // sentinel '__timeout__' (NOT null) so we can DISTINGUISH "first
-      // launch — show onboarding" from "AsyncStorage is being slow — leave
-      // the user where they were last time". Worst case the user with a
-      // genuinely cleared install gets dropped straight into the app and
-      // can re-trigger onboarding from settings.
-      const TIMEOUT_SENTINEL = '__timeout__';
-      const completed = await Promise.race<string | null>([
-        AsyncStorage.getItem('onboarding_completed'),
-        new Promise<string>((resolve) => setTimeout(() => resolve(TIMEOUT_SENTINEL), 1500)),
-      ]);
+      // The AppLoadingScreen takes ~2.5 s minimum, so AsyncStorage will always
+      // resolve well before the loading animation finishes. The old approach
+      // raced AsyncStorage against a 1.5 s timeout and treated a slow read the
+      // same as "already completed onboarding" — silently skipping onboarding
+      // on first launch on slow devices. Removed. If the read throws for any
+      // reason we default to SHOWING onboarding (safe: better to see it once
+      // extra than to never see it on a genuine fresh install).
+      const completed = await AsyncStorage.getItem('onboarding_completed');
       if (completed === null) {
-        // Genuinely no onboarding flag stored → first launch.
         setShowOnboarding(true);
       }
-      // completed === TIMEOUT_SENTINEL or a real value → leave default (false).
-    } catch {}
+    } catch {
+      // Storage read failed (extremely rare) — show onboarding as safe default.
+      setShowOnboarding(true);
+    }
   };
 
   if (!fontsLoaded || !splashHidden) return null;
