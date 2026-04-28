@@ -279,6 +279,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         return;
       }
       isReadyToPlayRef.current = false;
+      hasEverReachedReadyRef.current = false; // fresh source — next readyToPlay should trigger play()
       isLoadingSource.current = true;
       // Mirror the watchdog's pattern: mark the dedupe ref BEFORE setDisplayUri
       // so the source-loading effect's re-run with displayUri=cached sees
@@ -293,7 +294,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         fallbackLoggedRef.current = true;
         logFallbackCopyTriggered();
       }
-      tryStartPlaybackRef.current();
+      // play() will be triggered by the statusChange readyToPlay event (first
+      // occurrence only). Do not call tryStartPlayback here.
     } catch (err) {
       console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
       setVideoError(true);
@@ -355,24 +357,23 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           // Clear any lingering error state — playback recovered.
           setVideoError(false);
           setIsVideoReady(true);
-          // Latch: the video has now reached readyToPlay at least once for
-          // this source. Mid-playback re-buffers will flip status back to
-          // 'loading' but must NOT cause the watchdog to swap the source.
-          hasEverReachedReadyRef.current = true;
-          // Always call the latest tryStartPlayback via ref — never a stale closure.
-          tryStartPlaybackRef.current();
+          // LOOP-RESTART FIX: Only start playback on the VERY FIRST readyToPlay
+          // for this source. With player.loop=true, ExoPlayer emits readyToPlay
+          // again on every loop iteration. Calling player.play() during that
+          // loop-restart transition interrupts ExoPlayer's own loop mechanism and
+          // causes the video to stall. We let ExoPlayer handle subsequent loops
+          // completely on its own — no JS intervention needed.
+          if (!hasEverReachedReadyRef.current) {
+            hasEverReachedReadyRef.current = true;
+            tryStartPlaybackRef.current();
+          }
           if (!hasRevealedOnceRef.current) {
             // First-ever readyToPlay for this source: schedule the reveal so
             // ExoPlayer has time to push the very first frame to the surface.
-            // 80ms is enough for the SurfaceView to bind and accept frames
-            // on Android 11 — was 200ms which added noticeable dead time
-            // between "ready" and visible video.
             scheduleRevealRef.current(80);
-          } else {
-            // Mid-playback re-buffer just finished. Surface is already
-            // visible; nothing else to do — DO NOT reschedule reveal,
-            // DO NOT touch isVideoVisible.
           }
+          // Mid-playback re-buffer just finished: surface is already visible,
+          // nothing else to do. DO NOT reschedule reveal or touch isVideoVisible.
         } else {
           // Non-ready status (loading / idle / error). Only reset visibility
           // BEFORE the very first frame has been shown. After we've revealed
@@ -567,7 +568,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         if (cancelled) return;
         console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
         isLoadingSource.current = false;
-        tryStartPlaybackRef.current();
+        // DO NOT call tryStartPlayback here. play() is triggered exclusively by
+        // the statusChange readyToPlay event (first occurrence only). Calling it
+        // here is either a no-op (readyToPlay hasn't fired yet, isReadyToPlayRef
+        // is false) OR a double-play race (readyToPlay fired mid-await → player
+        // already playing → second play() interrupts the decoder). Let the event
+        // listener be the single source of play() calls.
 
         // ─── Watchdog: fall back to file:// copy if ExoPlayer can't ────
         // play the content:// URI directly. Most devices fire readyToPlay
@@ -612,7 +618,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 if (cancelled) return;
                 isLoadingSource.current = false;
                 setDisplayUri(cached);
-                tryStartPlaybackRef.current();
+                // play() will be triggered by the statusChange readyToPlay event.
+                // Do not call tryStartPlayback here — same double-play race as above.
                 console.log(`[Viewer] Watchdog: switched ${item.name} to cached copy successfully`);
               }
             } catch (err) {
