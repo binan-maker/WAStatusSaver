@@ -91,6 +91,10 @@
     readyToPlay after a retry correctly triggers playback (previously it could have been skipped
     if the ref hadn't been cleared yet from the display-uri-change effect).
   - Verified: Metro bundler restarted clean, no syntax errors.
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> f775d4316bd39ca14613b74569a46cd0da404c8d
 
 [x] FIX O — TAB BAR NEEDS 2-3 TAPS TO NAVIGATE (ANDROID) (2026-04-28)
   - Root cause 1 (Pressable double-tap): expo-router v4 / react-navigation v7 changed the default
@@ -114,3 +118,8 @@
     react-navigation to re-render the tab bar background every time.
     Fix: Memoized with useCallback keyed on [isIOS, resolved, COLORS.TAB_BAR].
   - Verified: Metro bundler restarted clean, no syntax errors.
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 270cfe1d8592bc15ed8ab1c0e06c519a8af92bcb
+>>>>>>> f775d4316bd39ca14613b74569a46cd0da404c8d
