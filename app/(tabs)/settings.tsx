@@ -120,7 +120,7 @@ export default function SettingsScreen() {
         url: Platform.OS === 'ios' ? shortLink : undefined,
       });
     } catch (e) {
-      console.log('Share error:', e);
+      __DEV__ && console.log('Share error:', e);
     }
   };
 

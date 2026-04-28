@@ -143,7 +143,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const scheduleReveal = useCallback((delayMs: number) => {
     clearRevealTimer();
     revealTimerRef.current = setTimeout(() => {
-      console.log(`[Viewer] REVEALING video surface for ${item.name}`);
+      __DEV__ && console.log(`[Viewer] REVEALING video surface for ${item.name}`);
       hasRevealedOnceRef.current = true;
       setIsVideoVisible(true);
     }, delayMs);
@@ -202,7 +202,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       // Keep controls visible after the tap so the user sees the new icon.
       showVideoControls();
     } catch (e) {
-      console.log('[Viewer] togglePlayPause error:', e);
+      __DEV__ && console.log('[Viewer] togglePlayPause error:', e);
     }
   }, [player, showVideoControls]);
 
@@ -225,7 +225,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       setCurrentTime(targetSec);
       showVideoControls();
     } catch (e) {
-      console.log('[Viewer] seek error:', e);
+      __DEV__ && console.log('[Viewer] seek error:', e);
     }
   }, [player, videoDuration, showVideoControls]);
   // ──────────────────────────────────────────────────────────────────────
@@ -259,7 +259,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       player.muted = false;
       player.play();
     } catch (e) {
-      console.log('Player start error:', e);
+      __DEV__ && console.log('Player start error:', e);
     }
   }, [displayUri, item.type, player]);
 
@@ -329,7 +329,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     let subscription: { remove: () => void } | null = null;
     try {
       subscription = player.addListener('statusChange', ({ status }: { status: string }) => {
-        console.log(`[Viewer] Player status for ${item.name}: ${status}`);
+        __DEV__ && console.log(`[Viewer] Player status for ${item.name}: ${status}`);
         const ready = status === 'readyToPlay';
         isReadyToPlayRef.current = ready;
 
@@ -388,7 +388,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         }
       });
     } catch (e) {
-      console.log('[Viewer] Could not attach statusChange listener:', e);
+      __DEV__ && console.log('[Viewer] Could not attach statusChange listener:', e);
     }
     return () => {
       try { subscription?.remove(); } catch {}
@@ -449,7 +449,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         setIsPlaying(nowPlaying);
       });
     } catch (e) {
-      console.log('[Viewer] playingChange listener attach failed:', e);
+      __DEV__ && console.log('[Viewer] playingChange listener attach failed:', e);
     }
     return () => { try { sub?.remove(); } catch {} };
   }, [player, item.type, item.name]);
@@ -534,7 +534,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     // and briefly stalled playback on Android 11. With this short-circuit
     // the second pass is a no-op.
     if (lastReplacedSourceRef.current === displayUri) {
-      console.log(`[Viewer] Skipping duplicate replaceAsync for ${item.name}`);
+      __DEV__ && console.log(`[Viewer] Skipping duplicate replaceAsync for ${item.name}`);
       return;
     }
 
@@ -551,14 +551,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // collide with the JS thread on slow Android 11 devices.
         const isLocalCached = displayUri.startsWith('file://');
         if (!isLocalCached) {
-          console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
+          __DEV__ && console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
           await Promise.race([
             new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
             new Promise<void>(resolve => setTimeout(resolve, 120)),
           ]);
           if (cancelled) return;
         }
-        console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
+        __DEV__ && console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
         // Mark BEFORE awaiting so a watchdog-triggered displayUri update
         // arriving mid-await doesn't re-fire replaceAsync against the same
@@ -566,7 +566,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         lastReplacedSourceRef.current = displayUri;
         await player.replaceAsync(displayUri);
         if (cancelled) return;
-        console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
+        __DEV__ && console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
         isLoadingSource.current = false;
         // DO NOT call tryStartPlayback here. play() is triggered exclusively by
         // the statusChange readyToPlay event (first occurrence only). Calling it
@@ -591,7 +591,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             // would mistake a 1.5 s re-buffer for an initial-load stall and
             // forcibly swap the source mid-playback, freezing the video.
             if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
-            console.log(`[Viewer] Watchdog: direct content:// playback stalled for ${item.name}, falling back to cached copy`);
+            __DEV__ && console.log(`[Viewer] Watchdog: direct content:// playback stalled for ${item.name}, falling back to cached copy`);
             try {
               const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
               // Re-check the latch AFTER the await — the player might have
@@ -620,7 +620,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 setDisplayUri(cached);
                 // play() will be triggered by the statusChange readyToPlay event.
                 // Do not call tryStartPlayback here — same double-play race as above.
-                console.log(`[Viewer] Watchdog: switched ${item.name} to cached copy successfully`);
+                __DEV__ && console.log(`[Viewer] Watchdog: switched ${item.name} to cached copy successfully`);
               }
             } catch (err) {
               isLoadingSource.current = false;
@@ -708,7 +708,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         lastReplacedSourceRef.current = null;
       }
     } catch (e) {
-      console.log('Player sync error:', e);
+      __DEV__ && console.log('Player sync error:', e);
     }
   // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef.
   }, [isActive, isNearActive, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -17,7 +17,7 @@ export async function preloadImage(uri: string): Promise<void> {
       }
     }
   } catch (error) {
-    console.warn('Failed to preload image:', uri);
+    __DEV__ && console.warn('Failed to preload image:', uri);
   }
 }
 

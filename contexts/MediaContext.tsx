@@ -54,7 +54,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T, label?: string):
     const t = setTimeout(() => {
       if (settled) return;
       settled = true;
-      if (label) console.log(`[Timeout] ${label} did not resolve in ${ms}ms, falling back`);
+      if (label) __DEV__ && console.log(`[Timeout] ${label} did not resolve in ${ms}ms, falling back`);
       resolve(fallback);
     }, ms);
     p.then(
@@ -618,7 +618,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
             statusesRef.current.length === cached.length &&
             statusesRef.current[0]?.id === cached[0]?.id;
           if (!stillMatches) return;
-          console.log(
+          __DEV__ && console.log(
             `[Cache] Validated cached statuses: dropped ${cached.length - valid.length} dead URI(s)`,
           );
           setStatuses(valid);
@@ -710,7 +710,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       if (msg.includes('MEDIA_LIBRARY permissions') || msg.includes('Missing MEDIA_LIBRARY')) {
         return null;
       }
-      console.log('[loadSavedItems] album rescan skipped:', e);
+      __DEV__ && console.log('[loadSavedItems] album rescan skipped:', e);
       return null;
     }
   }
@@ -765,16 +765,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   }
 
   const requestPermissions = useCallback(async (): Promise<boolean> => {
-    console.log('[Permissions] requestPermissions started');
+    __DEV__ && console.log('[Permissions] requestPermissions started');
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync(true);
-      console.log(`[Permissions] MediaLibrary status: ${status}`);
+      __DEV__ && console.log(`[Permissions] MediaLibrary status: ${status}`);
       setPermissionStatus(status);
       const granted = status === 'granted';
       setHasPermission(granted);
 
       if (granted && androidVersionRef.current < 30) {
-        console.log('[Permissions] Legacy device, auto-loading statuses');
+        __DEV__ && console.log('[Permissions] Legacy device, auto-loading statuses');
         await loadStatusesRef.current();
       }
 
@@ -794,16 +794,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     // Safety guard: Android 10 and below should NOT use SAF for statuses
     // as it creates unnecessary friction and often fails to see hidden folders.
     if (androidVersionRef.current < 30) {
-      console.warn('[SAF] requestSAF called on Android < 11. Aborting as Legacy uses direct access.');
+      __DEV__ && console.warn('[SAF] requestSAF called on Android < 11. Aborting as Legacy uses direct access.');
       return;
     }
 
-    console.log(`[SAF] requestSAF initiated. Source: ${source}, Manual: ${manual}`);
+    __DEV__ && console.log(`[SAF] requestSAF initiated. Source: ${source}, Manual: ${manual}`);
 
     // Prevent concurrent calls — Android throws "unfinished permission request"
     // if requestDirectoryPermissionsAsync is called while one is already open.
     if (safRequestInFlight.current) {
-      console.warn('[SAF] requestSAF already in flight, ignoring concurrent call');
+      __DEV__ && console.warn('[SAF] requestSAF already in flight, ignoring concurrent call');
       return;
     }
     safRequestInFlight.current = true;
@@ -811,7 +811,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     // Work Profile support: when `manual` is true, open at storage root so the
     // user can navigate to their second WhatsApp's media folder.
     const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
-    console.log(`[SAF] Initial URI for picker: ${initialUri || 'Storage Root'}`);
+    __DEV__ && console.log(`[SAF] Initial URI for picker: ${initialUri || 'Storage Root'}`);
 
     setIsRequestingSAF(true);
 
@@ -837,7 +837,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         // ourselves; the native side has already done it before this Promise
         // resolves. Verified against expo-file-system@19 source on 2026-04-27.
         result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri ?? null);
-        console.log(`[SAF] Picker result: granted=${result.granted}, uri=${result.directoryUri}`);
+        __DEV__ && console.log(`[SAF] Picker result: granted=${result.granted}, uri=${result.directoryUri}`);
       } catch (e) {
         console.error('[SAF] requestDirectoryPermissionsAsync failed:', e);
         setIsRequestingSAF(false);
@@ -848,7 +848,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       setIsRequestingSAF(false);
 
       if (!result.granted) {
-        console.log('[SAF] Permission denied by user');
+        __DEV__ && console.log('[SAF] Permission denied by user');
         safRequestInFlight.current = false;
         return;
       }
@@ -868,7 +868,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       resolvedUriCache.current.delete(result.directoryUri);
 
       try {
-        console.log('[SAF] Polling for folder mount + first non-empty read...');
+        __DEV__ && console.log('[SAF] Polling for folder mount + first non-empty read...');
 
         const readSAFEntries = async (uriMap: Partial<Record<StatusSource, string>>) => {
           const entries = Object.entries(uriMap) as [StatusSource, string][];
@@ -892,7 +892,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         // consistently above 4 s (= we're hitting the deadline a lot).
         logSafMountTime(Date.now() - mountStart);
 
-        console.log(`[SAF] Final items loaded after grant: ${items.length}`);
+        __DEV__ && console.log(`[SAF] Final items loaded after grant: ${items.length}`);
         setStatuses(items);
         if (items.length > 0) persistStatusesCache(items);
       } finally {
@@ -909,20 +909,20 @@ export function MediaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function readFromLegacyPath(): Promise<StatusItem[]> {
-    console.log('[Legacy] readFromLegacyPath started');
+    __DEV__ && console.log('[Legacy] readFromLegacyPath started');
     const items: StatusItem[] = [];
     for (const path of WHATSAPP_LEGACY_PATHS) {
       try {
         const uri = `file://${path}`;
-        console.log(`[Legacy] Checking path: ${path}`);
+        __DEV__ && console.log(`[Legacy] Checking path: ${path}`);
         const info = await FileSystem.getInfoAsync(uri);
         if (!info.exists) {
-          console.log(`[Legacy] Path does not exist: ${path}`);
+          __DEV__ && console.log(`[Legacy] Path does not exist: ${path}`);
           continue;
         }
 
         const files = await FileSystem.readDirectoryAsync(uri);
-        console.log(`[Legacy] Found ${files.length} files in path: ${path}`);
+        __DEV__ && console.log(`[Legacy] Found ${files.length} files in path: ${path}`);
         const source = path.toLowerCase().includes('business') ? 'whatsapp_business' : 'whatsapp';
 
         for (const file of files) {
@@ -940,14 +940,14 @@ export function MediaProvider({ children }: { children: ReactNode }) {
               source,
             });
           } catch (e) {
-            console.warn(`[Legacy] Failed to get info for file ${file}:`, e);
+            __DEV__ && console.warn(`[Legacy] Failed to get info for file ${file}:`, e);
           }
         }
       } catch (e) {
         console.error(`[Legacy] Error reading path ${path}:`, e);
       }
     }
-    console.log(`[Legacy] Total items found: ${items.length}`);
+    __DEV__ && console.log(`[Legacy] Total items found: ${items.length}`);
     return items;
   }
 
@@ -966,7 +966,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
       // Tree part: keep treeDocId as-is; document part: encode once
       return `${prefix}${treeDocId}/document/${encodeURIComponent(childDocId)}`;
     } catch (e) {
-      console.warn('[SAF] buildChildDocUri failed:', e);
+      __DEV__ && console.warn('[SAF] buildChildDocUri failed:', e);
       return null;
     }
   }
@@ -993,12 +993,12 @@ const crawlStart = Date.now();
   async function bfsFindStatuses(uri: string, depth: number): Promise<string | null> {
   // Timeout guard
   if (Date.now() - crawlStart > BFS_TIMEOUT_MS) {
-    console.log('[Crawler] Timeout reached, aborting crawl');
+    __DEV__ && console.log('[Crawler] Timeout reached, aborting crawl');
     return null;
   }
   
   if (depth > SAF_BFS_MAX_DEPTH) {
-    console.log(`[Crawler] Max depth ${depth} reached. Stopping crawl.`);
+    __DEV__ && console.log(`[Crawler] Max depth ${depth} reached. Stopping crawl.`);
     return null;
   }
     let entries: string[];
@@ -1014,20 +1014,20 @@ const crawlStart = Date.now();
         `BFS readDirectoryAsync depth=${depth}`,
       );
     } catch (e) {
-      console.warn(`[Crawler] Read failed at depth ${depth}:`, e);
+      __DEV__ && console.warn(`[Crawler] Read failed at depth ${depth}:`, e);
       return null;
     }
     
-    console.log(`[Crawler] Depth ${depth}: Scanning ${entries.length} entries...`);
+    __DEV__ && console.log(`[Crawler] Depth ${depth}: Scanning ${entries.length} entries...`);
     for (const entry of entries) {
       const name = safUriToFileName(entry);
       if (name === '.Statuses') {
-        console.log(`[Crawler] SUCCESS! Found .Statuses at: ${entry}`);
+        __DEV__ && console.log(`[Crawler] SUCCESS! Found .Statuses at: ${entry}`);
         return entry;
       }
       // Only recurse into known intermediate folders (case-insensitive)
       if (SAF_KNOWN_INTERMEDIATE.has(name.toLowerCase())) {
-        console.log(`[Crawler] Descending into potential path: ${name}`);
+        __DEV__ && console.log(`[Crawler] Descending into potential path: ${name}`);
         const found = await bfsFindStatuses(entry, depth + 1);
         if (found) return found;
       }
@@ -1041,22 +1041,22 @@ const crawlStart = Date.now();
   // Strategy 3 (BFS): Recursively crawls visible subfolders to find .Statuses.
   async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
-    console.log(`[SAF] readFromSAF started for URI: ${safDirUri}`);
+    __DEV__ && console.log(`[SAF] readFromSAF started for URI: ${safDirUri}`);
     try {
       let targetUri: string | null = resolvedUriCache.current.get(safDirUri) ?? null;
 
       if (!targetUri) {
-        console.log('[SAF] Target URI not cached, resolving...');
+        __DEV__ && console.log('[SAF] Target URI not cached, resolving...');
         // --- 1. Immediate Check: Are we already IN .Statuses? ---
         if (safUriToFileName(safDirUri) === '.Statuses') {
           targetUri = safDirUri;
-          console.log('[SAF] Target matches granted URI (direct entry hit)');
+          __DEV__ && console.log('[SAF] Target matches granted URI (direct entry hit)');
         }
 
         // --- 2. Advanced Direct Probing (Context-Aware) ---
         if (!targetUri) {
           const decoded = decodeURIComponent(safDirUri).toLowerCase();
-          console.log(`[SAF] Probing via candidates. Base decoded: ${decoded}`);
+          __DEV__ && console.log(`[SAF] Probing via candidates. Base decoded: ${decoded}`);
           const candidatePaths = [
             '/.Statuses',
             '/Media/.Statuses',
@@ -1066,7 +1066,7 @@ const crawlStart = Date.now();
 
           // If granted Android/media, add deeper relative probes
           if (decoded.endsWith('android/media')) {
-            console.log('[SAF] Android/media detected, adding deep probes');
+            __DEV__ && console.log('[SAF] Android/media detected, adding deep probes');
             candidatePaths.push('/com.whatsapp/WhatsApp/Media/.Statuses');
             candidatePaths.push('/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses');
           }
@@ -1077,7 +1077,7 @@ const crawlStart = Date.now();
             try {
               await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
               targetUri = uri;
-              console.log(`[SAF] Located target via probe: ${rel}`);
+              __DEV__ && console.log(`[SAF] Located target via probe: ${rel}`);
               break;
             } catch {
               // Path not found at this level
@@ -1087,13 +1087,13 @@ const crawlStart = Date.now();
 
         // --- 3. The Crawler (BFS with Hidden Probes) ---
         if (!targetUri) {
-          console.log('[SAF] Direct probes failed, starting recursive crawler...');
+          __DEV__ && console.log('[SAF] Direct probes failed, starting recursive crawler...');
           targetUri = await bfsFindStatuses(safDirUri, 0);
-          if (targetUri) console.log(`[SAF] Crawler found .Statuses at: ${targetUri}`);
+          if (targetUri) __DEV__ && console.log(`[SAF] Crawler found .Statuses at: ${targetUri}`);
         }
 
         if (!targetUri) {
-          console.warn('[SAF] .Statuses folder could not be located in tree:', safDirUri);
+          __DEV__ && console.warn('[SAF] .Statuses folder could not be located in tree:', safDirUri);
           return [];
         }
 
@@ -1103,7 +1103,7 @@ const crawlStart = Date.now();
         resolvedUriCache.current.set(safDirUri, targetUri);
         persistResolvedUriCache();
       } else {
-        console.log(`[SAF] Using cached target URI: ${targetUri}`);
+        __DEV__ && console.log(`[SAF] Using cached target URI: ${targetUri}`);
       }
 
       // ANR-PROOF: hard 3 s timeout on the final folder listing too. This
@@ -1117,7 +1117,7 @@ const crawlStart = Date.now();
         [] as string[],
         'SAF final readDirectoryAsync',
       );
-      console.log(`[SAF] Target folder contains ${files.length} total files`);
+      __DEV__ && console.log(`[SAF] Target folder contains ${files.length} total files`);
       
       const decodedTarget = decodeURIComponent(targetUri).toLowerCase();
       const source = forcedSource ||
@@ -1135,7 +1135,7 @@ const crawlStart = Date.now();
         });
       }
 
-      console.log(`[SAF] readFromSAF successfully loaded ${items.length} items from ${source}`);
+      __DEV__ && console.log(`[SAF] readFromSAF successfully loaded ${items.length} items from ${source}`);
       return items;
     } catch (e) {
       console.error('[SAF] readFromSAF function failed:', e);
@@ -1146,17 +1146,17 @@ const crawlStart = Date.now();
   const loadStatuses = useCallback(async (silent: boolean = false) => {
     // Ref to track active loading state and avoid double-fetches
     if (isLoadingRef.current) {
-      console.log('[Loader] loadStatuses already in progress, skipping redundant call');
+      __DEV__ && console.log('[Loader] loadStatuses already in progress, skipping redundant call');
       return;
     }
 
     const av = androidVersionRef.current;
     const isModernAndroid = Platform.OS === 'android' && av >= 30;
     const useSAF = isModernAndroid;
-    console.log(`[Loader] loadStatuses triggered. Version: ${av}, useSAF: ${useSAF}, silent: ${silent}`);
+    __DEV__ && console.log(`[Loader] loadStatuses triggered. Version: ${av}, useSAF: ${useSAF}, silent: ${silent}`);
 
     if (useSAF && !safGrantedRef.current) {
-      console.log('[Loader] Modern Android but SAF not granted yet');
+      __DEV__ && console.log('[Loader] Modern Android but SAF not granted yet');
       return;
     }
 
@@ -1170,7 +1170,7 @@ const crawlStart = Date.now();
         // --- Android 11+ Logic (SAF) ---
         const safEntries = Object.entries(safUrisRef.current) as [StatusSource, string][];
         if (safEntries.length > 0) {
-          console.log(`[Loader] Processing ${safEntries.length} granted SAF URIs`);
+          __DEV__ && console.log(`[Loader] Processing ${safEntries.length} granted SAF URIs`);
           // Sequential reads with a small inter-entry gap so the SAF bridge
           // never gets congested on low-end devices. The previous code ran
           // both folders in parallel via Promise.all AND a duplicate
@@ -1190,7 +1190,7 @@ const crawlStart = Date.now();
                   await new Promise(r => setTimeout(r, 50));
                 }
               } catch (e) {
-                console.warn(`[SAF] Failed to read ${source}:`, e);
+                __DEV__ && console.warn(`[SAF] Failed to read ${source}:`, e);
               }
             }
             return results;
@@ -1198,7 +1198,7 @@ const crawlStart = Date.now();
 
           items = await readAllSequential();
           if (items.length === 0) {
-            console.log('[Loader] First SAF read empty, polling with backoff...');
+            __DEV__ && console.log('[Loader] First SAF read empty, polling with backoff...');
             resolvedUriCache.current.clear();
             items = await pollUntil(
               readAllSequential,
@@ -1208,18 +1208,18 @@ const crawlStart = Date.now();
           }
           logSafMountTime(Date.now() - mountStart);
         } else if (safUriRef.current) {
-          console.log('[Loader] Falling back to legacy single safUri');
+          __DEV__ && console.log('[Loader] Falling back to legacy single safUri');
           items = await readFromSAF(safUriRef.current);
         }
       } else {
         // --- Android 10 and Below Logic (Legacy) ---
-        console.log(`[Loader] Legacy check: hasPermission=${hasPermissionRef.current}`);
+        __DEV__ && console.log(`[Loader] Legacy check: hasPermission=${hasPermissionRef.current}`);
         if (hasPermissionRef.current) {
           items = await readFromLegacyPath();
         }
       }
 
-      console.log(`[Loader] Total items successfully loaded: ${items.length}`);
+      __DEV__ && console.log(`[Loader] Total items successfully loaded: ${items.length}`);
       items.sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
       // SELECTIVE PATCHING: Reuse existing item object references when an
       // item with the same id+modTime is already in state. This keeps
@@ -1312,7 +1312,7 @@ const crawlStart = Date.now();
   }, []);
 
   const saveStatus = useCallback(async (item: StatusItem): Promise<boolean> => {
-    console.log(`[Media] saveStatus started for: ${item.name}`);
+    __DEV__ && console.log(`[Media] saveStatus started for: ${item.name}`);
     try {
       // SAVE DELAY FIX — Step 1: Immediate haptic so the user knows the tap
       // registered before any I/O starts. Previously the first user-visible
@@ -1324,7 +1324,7 @@ const crawlStart = Date.now();
       const savedDir = `${FileSystem.documentDirectory}saved/`;
       const dirInfo = await FileSystem.getInfoAsync(savedDir);
       if (!dirInfo.exists) {
-        console.log('[Media] Creating saved directory');
+        __DEV__ && console.log('[Media] Creating saved directory');
         await FileSystem.makeDirectoryAsync(savedDir, { intermediates: true });
       }
 
@@ -1333,11 +1333,11 @@ const crawlStart = Date.now();
         s => s.id === item.id || s.name === item.name
       );
       if (duplicate) {
-        console.log('[Media] Duplicate identified, checking existence');
+        __DEV__ && console.log('[Media] Duplicate identified, checking existence');
         try {
           const dupInfo = await FileSystem.getInfoAsync(duplicate.localUri);
           if (dupInfo.exists) {
-            console.log('[Media] Duplicate exists locally, skipping save');
+            __DEV__ && console.log('[Media] Duplicate exists locally, skipping save');
             return true;
           }
         } catch {}
@@ -1351,7 +1351,7 @@ const crawlStart = Date.now();
       // queue so concurrent saves never fight each other for I/O bandwidth.
       // On Android 11+ ContentResolver copies are throttled; running two
       // simultaneously makes BOTH slower than back-to-back.
-      console.log(`[Media] Copying file from ${item.uri} to ${destUri}`);
+      __DEV__ && console.log(`[Media] Copying file from ${item.uri} to ${destUri}`);
       await enqueueCopy(() => FileSystem.copyAsync({ from: item.uri, to: destUri }));
 
       // SAVE DELAY FIX — Step 3: Update app state IMMEDIATELY after the
@@ -1380,7 +1380,7 @@ const crawlStart = Date.now();
         InteractionManager.runAfterInteractions(() => {
           MediaLibrary.createAssetAsync(destUri)
             .then(asset => MediaLibrary.createAlbumAsync('StatusVault', asset, false))
-            .then(() => console.log('[Media] Gallery export successful'))
+            .then(() => __DEV__ && console.log('[Media] Gallery export successful'))
             .catch((err) => {
               console.error('[Media] MediaLibrary save error:', err);
               if (!isModernAndroid) {
@@ -1393,7 +1393,7 @@ const crawlStart = Date.now();
         });
       }
 
-      console.log('[Media] Save operation completed successfully');
+      __DEV__ && console.log('[Media] Save operation completed successfully');
       maybeShowRatingPrompt();
       return true;
     } catch (e) {
@@ -1503,7 +1503,7 @@ const crawlStart = Date.now();
         // back to expo-sharing so the user can still share the media.
         const msg = String(e?.message || e || '');
         if (msg !== 'User did not share' && !msg.includes('cancel')) {
-          console.warn('[Share] react-native-share failed, falling back to expo-sharing:', msg);
+          __DEV__ && console.warn('[Share] react-native-share failed, falling back to expo-sharing:', msg);
           try {
             await Sharing.shareAsync(shareUri);
             nativeShareSucceeded = true;
@@ -1650,7 +1650,7 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
     try {
       const info = await FileSystem.getInfoAsync(tempUri);
       if (info.exists && (info as any).size > 0) {
-        console.log(`[Media] Cache hit for ${item.name} (${Date.now() - start}ms)`);
+        __DEV__ && console.log(`[Media] Cache hit for ${item.name} (${Date.now() - start}ms)`);
         return tempUri;
       }
     } catch {}
@@ -1679,18 +1679,18 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
     return enqueueCopy(async () => {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          console.log(`[Media] (queue) Copying ${item.name} to cache (attempt ${attempt})...`);
+          __DEV__ && console.log(`[Media] (queue) Copying ${item.name} to cache (attempt ${attempt})...`);
           await FileSystem.copyAsync({ from: item.uri, to: tempUri });
           const verify = await FileSystem.getInfoAsync(tempUri);
           const size = (verify as any).size ?? 0;
           if (verify.exists && size > 0) {
-            console.log(`[Media] (queue) Copy complete for ${item.name} (${Date.now() - start}ms, ${size} bytes)`);
+            __DEV__ && console.log(`[Media] (queue) Copy complete for ${item.name} (${Date.now() - start}ms, ${size} bytes)`);
             return tempUri;
           }
-          console.warn(`[Media] (queue) Copy verify failed for ${item.name} (attempt ${attempt}): exists=${verify.exists}, size=${size}`);
+          __DEV__ && console.warn(`[Media] (queue) Copy verify failed for ${item.name} (attempt ${attempt}): exists=${verify.exists}, size=${size}`);
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         } catch (e) {
-          console.warn(`[Media] (queue) Copy attempt ${attempt} threw for ${item.name}:`, e);
+          __DEV__ && console.warn(`[Media] (queue) Copy attempt ${attempt} threw for ${item.name}:`, e);
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         }
       }
@@ -1725,7 +1725,7 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
         } catch {}
       }
     } catch (e) {
-      console.log('Cache cleanup error:', e);
+      __DEV__ && console.log('Cache cleanup error:', e);
     }
   }, []);
 

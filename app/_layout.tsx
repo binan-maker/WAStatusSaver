@@ -62,9 +62,9 @@ function initMobileAdsDeferred() {
       mobileAds()
         .initialize()
         .then((adapterStatuses) => {
-          console.log('Ads initialized:', adapterStatuses);
+          __DEV__ && console.log('Ads initialized:', adapterStatuses);
         })
-        .catch((e) => console.log('Google Mobile Ads initialization error:', e));
+        .catch((e) => __DEV__ && console.log('Google Mobile Ads initialization error:', e));
     }, 1500);
   });
 }

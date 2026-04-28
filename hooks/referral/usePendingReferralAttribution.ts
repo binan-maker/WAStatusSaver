@@ -50,7 +50,7 @@ export function usePendingReferralAttribution() {
         const body = (await res.json()) as AttributeInstallResponse;
         if (body.success) {
           // Silent success — Invite screen will show the updated count next time.
-          console.log('[referral] install attributed to', code);
+          __DEV__ && console.log('[referral] install attributed to', code);
         }
       } catch (err) {
         // Body parse error / network error — keep the key for next session retry,
@@ -60,7 +60,7 @@ export function usePendingReferralAttribution() {
         if (/^4\d\d/.test(msg)) {
           await AsyncStorage.removeItem(PENDING_REF_KEY).catch(() => {});
         }
-        console.log('[referral] attribute-install failed:', msg);
+        __DEV__ && console.log('[referral] attribute-install failed:', msg);
       }
     })();
   }, [user]);

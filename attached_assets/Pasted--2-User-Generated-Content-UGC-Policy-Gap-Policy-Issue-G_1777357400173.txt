@@ -1,0 +1,89 @@
+❌ #2: User-Generated Content (UGC) Policy Gap
+Policy Issue: Google Play Policy 4.6 (User-Generated Content):
+Apps that display/save user content must have:
+✅ Clear reporting mechanism for abusive content
+✅ Content moderation policy (even if just "user responsibility")
+✅ Privacy policy explaining data handling
+Your Current State: No reporting flow, no content policy, minimal privacy docs.
+✅ Fix:
+Add a "Report Content" button in viewer (logs to console or sends to your backend)
+Add PRIVACY.md or link to hosted privacy policy explaining:
+"We do not upload, store, or access your WhatsApp content. All processing happens locally on your device."
+Add Terms of Use snippet: "Users are responsible for content they save/share. Do not save copyrighted or private content without permission." ❌ #4: AdMob Policy Compliance (Even in Test Mode) 
+Location: hooks/ads/, config/ads.ts
+Policy Issues:
+❌ Showing ads to users under 13 without COPPA compliance
+❌ No GDPR/CCPA consent flow before personalized ads
+❌ Test ads in production builds (if IS_TEST_MODE logic fails)
+✅ Fix:
+Add age gate in onboarding: "This app is intended for users 13+"
+Integrate Google UMP (User Messaging Platform) for consent:
+bash
+1
+Ensure IS_TEST_MODE cannot be overridden in production:
+typescript
+123 #6: Background Task Risks (ANR + Policy)
+Location: MediaContext.tsx, thumbnail-cache.ts
+Issue: Long-running SAF operations, thumbnail generation, and cache cleanup run on main thread or without WorkManager.
+Risk: Android 11+ kills apps that block main thread >5s (ANR). Google Play may reject apps with poor performance metrics.
+✅ Fix:
+Wrap heavy operations in InteractionManager.runAfterInteractions() + setTimeout
+Use expo-background-fetch or native WorkManager for truly background tasks
+Add timeout guards to all FileSystem calls:
+typescript
+123456
+ #7: Sensitive Data Exposure in Logs
+Location: Throughout codebase (console.log, console.warn)
+Issue: Logging file URIs, user IDs, or payment tokens can leak to crash reporting tools or logcat.
+✅ Fix:
+typescript
+1234567891011  💰 Payment Ecosystem Issues
+#8: Google Play Billing Integration Gaps
+Location: payment-providers/google-play.ts
+Missing Requirements:
+❌ No license test user setup instructions
+❌ No subscription restore flow (getAvailablePurchases())
+❌ No purchase error handling for "user cancelled", "item already owned"
+✅ Fix:
+typescript
+1234567891011121314151617181920212223242526
+#9: Razorpay Webhook Security
+Location: server/routes/payment.ts (if exists) or client-side verification
+Issue: If you verify payments client-side only, users can spoof success responses.
+✅ Fix:
+Always verify Razorpay payments server-side using webhook signature:
+typescript
+12345678910111213
+Never grant premium access based solely on client callback
+🌐 International Compliance Issues
+#10: GDPR/CCPA/India DPDP Compliance
+Issue: You collect:
+✅ Device ID (for guest sessions)
+✅ Usage telemetry (ad impressions, save/share counts)
+✅ Possibly IP addresses (via AdMob/Razorpay)
+Missing:
+❌ Privacy policy URL in app + Play Store
+❌ Data deletion request mechanism
+❌ Consent for personalized ads (UMP)
+✅ Fix:
+Host a privacy policy at https://statusvault.app/privacy with:
+What data you collect (device ID, usage stats)
+Why (analytics, fraud prevention)
+How users can request deletion (email: privacy@statusvault.app)
+Add "Privacy Settings" screen in app with:
+Toggle for personalized ads (via UMP)
+"Delete My Data" button (clears AsyncStorage + logs request)
+Add to Play Store listing: Privacy policy URL + Data safety section
+🧪 Testing & QA Gaps
+#11: No Automated Testing
+Risk: Manual testing misses edge cases (SAF revocation, low storage, OEM quirks).
+✅ Quick Wins:
+bash
+123456789
+#12: No Crash Monitoring
+Risk: Production crashes go unnoticed, hurting ratings.
+✅ Fix:
+bash
+1
+typescript
+1234567 
