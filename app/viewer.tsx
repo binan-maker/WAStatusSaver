@@ -137,6 +137,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // cold restart) to read the live URI without being captured in their closure.
   const displayUriRef = useRef<string | null>(null);
   displayUriRef.current = displayUri; // sync update — same pattern as isActiveRef
+  // Raised to true for the entire duration of a cold decoder restart
+  // (replaceAsync(null) → wait → replaceAsync(uri)). Guards both the stall
+  // watchdog and the playToEnd loop handler so neither fires during the
+  // restart window and interferes with the recovery sequence.
+  const isColdRestartingRef = useRef(false);
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
   // "Has the player ever reached readyToPlay for the current source?" Latch.
@@ -334,16 +339,24 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       if (currentUri) {
         // Cold restart: fully release the hardware decoder, wait, then reallocate.
         __DEV__ && console.log(`[Viewer] Manual retry: cold-restarting decoder for ${item.name}`);
+        isColdRestartingRef.current = true; // pause watchdog + playToEnd
         isReadyToPlayRef.current = false;
         hasEverReachedReadyRef.current = false;
-        lastProgressTimeRef.current = 0;
-        lastProgressMsRef.current = Date.now();
         lastReplacedSourceRef.current = null;
         await player.replaceAsync(null);
         await new Promise(r => setTimeout(r, 1000));
-        if (!isActiveRef.current) return;
+        if (!isActiveRef.current) {
+          isColdRestartingRef.current = false;
+          return;
+        }
         lastReplacedSourceRef.current = currentUri;
         await player.replaceAsync(currentUri);
+        // Reset stall state so watchdog gives the fresh decoder a clean slate.
+        stallCountRef.current = 0;
+        stallAutoRetryFiredRef.current = false;
+        lastProgressTimeRef.current = 0;
+        lastProgressMsRef.current = Date.now();
+        isColdRestartingRef.current = false;
         // play() fires from statusChange readyToPlay — do NOT call here.
       } else {
         // Initial load completely failed (no URI yet) — try Layer 3 as
@@ -372,6 +385,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       }
     } catch (err) {
       console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
+      isColdRestartingRef.current = false; // always re-enable watchdog
       setVideoError(true);
     } finally {
       setIsRetrying(false);
@@ -516,6 +530,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     layer3TriedRef.current = false;
     stallCountRef.current = 0;
     stallAutoRetryFiredRef.current = false;
+    isColdRestartingRef.current = false; // clear any in-flight restart for prev item
   }, [item.id]);
 
   // Subscribe to playingChange: ONLY mirror state into React. Never call
@@ -554,6 +569,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     let sub: { remove: () => void } | null = null;
     try {
       sub = player.addListener('playToEnd', () => {
+        // Do NOT interfere while a cold decoder restart is in progress.
+        // replaceAsync(null) itself can trigger a spurious playToEnd from
+        // the native layer; acting on it would play() a null source and
+        // corrupt the restart sequence.
+        if (isColdRestartingRef.current) return;
         if (userPausedRef.current || !isActiveRef.current) return;
         __DEV__ && console.log(`[Viewer] playToEnd for ${item.name} — restarting loop`);
         try {
@@ -598,6 +618,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     const interval = setInterval(() => {
       try {
+        // Skip entirely while a cold restart is in progress — we don't want
+        // the stall counter advancing during the replaceAsync(null)→wait→
+        // replaceAsync(uri) window, as that would trigger stall #4+ the moment
+        // the fresh decoder reaches readyToPlay.
+        if (isColdRestartingRef.current) return;
         if (!isActiveRef.current) return;
         if (userPausedRef.current) return;
         if (!hasEverReachedReadyRef.current) return;
@@ -660,7 +685,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             // when the second replaceAsync fires, so the same stuck decoder
             // gets reused and stalls again immediately.
             stallAutoRetryFiredRef.current = true;
-            lastProgressTimeRef.current = 0; // reset so fresh tracking after reload
+            isColdRestartingRef.current = true; // pause watchdog + playToEnd
             const uriToReload = displayUriRef.current;
             __DEV__ && console.log(`[Viewer] true stall #${stallN} for ${item.name} — cold-restarting decoder`);
             (async () => {
@@ -669,22 +694,34 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 hasEverReachedReadyRef.current = false;
                 await player.replaceAsync(null);
                 await new Promise(r => setTimeout(r, 1000));
-                if (!isActiveRef.current || userPausedRef.current || !uriToReload) return;
+                if (!isActiveRef.current || userPausedRef.current || !uriToReload) {
+                  isColdRestartingRef.current = false;
+                  return;
+                }
                 __DEV__ && console.log(`[Viewer] cold restart: reloading ${item.name}`);
-                lastReplacedSourceRef.current = null;
                 lastReplacedSourceRef.current = uriToReload;
-                lastProgressMsRef.current = Date.now();
                 await player.replaceAsync(uriToReload);
+                // Reset stall counter AFTER the new source is loaded so the
+                // watchdog gives the fresh decoder a clean slate.
+                stallCountRef.current = 0;
+                stallAutoRetryFiredRef.current = false;
+                lastProgressTimeRef.current = 0;
+                lastProgressMsRef.current = Date.now();
                 // play() fires from statusChange readyToPlay automatically.
               } catch (e) {
                 __DEV__ && console.log(`[Viewer] cold restart failed for ${item.name}:`, e);
                 setVideoError(true);
+              } finally {
+                isColdRestartingRef.current = false; // always re-enable watchdog
               }
             })();
-          } else if (stallN >= 4) {
-            // Stall #4+ — cold restart also failed. Show the error overlay
-            // so the user can manually retry (which does another cold restart).
-            __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — all auto-recovery failed, showing error`);
+          } else if (stallN === 4) {
+            // Stall #4 — cold restart also failed (or stall happened before
+            // cold restart had a chance due to a race). Show the error overlay
+            // so the user can manually trigger another cold restart.
+            // Only fire once (stallN === 4) — subsequent ticks still increment
+            // stallCountRef but we don't log or call setState again.
+            __DEV__ && console.log(`[Viewer] stall #4 for ${item.name} — cold restart did not recover, showing error`);
             setVideoError(true);
           }
 

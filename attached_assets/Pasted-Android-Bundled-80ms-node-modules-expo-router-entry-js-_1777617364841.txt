@@ -1,0 +1,43 @@
+Android Bundled 80ms node_modules\expo-router\entry.js (1 module)
+ WARN  Layout children must be of type Screen, all other children are ignored. To use custom children, create a custom <Layout />. Update Layout Route at: "app/_layout"
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Loader] loadStatuses triggered. Version: 33, useSAF: true, silent: false
+ LOG  [Loader] Processing 1 granted SAF URIs
+ LOG  [SAF] readFromSAF started for URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia
+ LOG  [SAF] Using cached target URI: content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia/document/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses
+ LOG  [SAF] Target folder contains 38 total files
+ LOG  [SAF] readFromSAF successfully loaded 37 items from whatsapp
+ LOG  [Loader] Total items successfully loaded: 37
+ WARN  The `allowsFullscreen` prop is deprecated and will be removed in a future release. Use `fullscreenOptions` prop instead.
+ LOG  [Viewer] playToEnd for c406dabd677e4c51a60d247ce3b2686f.mp4 — restarting loop
+ LOG  [Media] Cache hit for c406dabd677e4c51a60d247ce3b2686f.mp4 (84ms)
+ LOG  [Viewer] Calling replaceAsync for c406dabd677e4c51a60d247ce3b2686f.mp4 (0ms)
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: loading
+ LOG  [Viewer] replaceAsync complete for c406dabd677e4c51a60d247ce3b2686f.mp4 (2038ms)
+ LOG  [Media] Cache hit for 1832a5ae1694481e8b815b4f5866f888.mp4 (20ms)
+ LOG  Ads initialized: [{"description": "Timeout.", "name": "com.google.android.gms.ads.MobileAds", "state": 0}]
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: readyToPlay
+ LOG  [Media] Cache hit for d53d790fd0fa4857ac49b75103c1b964.mp4 (36ms)
+ LOG  [Viewer] REVEALING video surface for c406dabd677e4c51a60d247ce3b2686f.mp4
+ LOG  [Viewer] true stall #1 for c406dabd677e4c51a60d247ce3b2686f.mp4 at 1.89/34.47 (stalled 2998ms) — kicking play()
+ LOG  [Viewer] true stall #2 for c406dabd677e4c51a60d247ce3b2686f.mp4 — pause/resume cycle to clear decoder buffer
+ LOG  [Viewer] true stall #3 for c406dabd677e4c51a60d247ce3b2686f.mp4 — cold-restarting decoder
+ LOG  [Viewer] playToEnd for c406dabd677e4c51a60d247ce3b2686f.mp4 — restarting loop
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: idle
+ LOG  [Viewer] cold restart: reloading c406dabd677e4c51a60d247ce3b2686f.mp4
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: loading
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: readyToPlay
+ LOG  [Viewer] stall #4 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] stall #5 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] stall #6 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] stall #7 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] stall #8 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] stall #9 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] stall #10 for c406dabd677e4c51a60d247ce3b2686f.mp4 — all auto-recovery failed, showing error
+ LOG  [Viewer] Manual retry: cold-restarting decoder for c406dabd677e4c51a60d247ce3b2686f.mp4
+ LOG  [Viewer] playToEnd for c406dabd677e4c51a60d247ce3b2686f.mp4 — restarting loop
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: idle
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: loading
+ LOG  [Viewer] Player status for c406dabd677e4c51a60d247ce3b2686f.mp4: readyToPlay
+ LOG  [Viewer] true stall #1 for c406dabd677e4c51a60d247ce3b2686f.mp4 at 0.48/34.47 (stalled 3259ms) — kicking play()
