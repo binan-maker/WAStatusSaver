@@ -639,9 +639,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         }
 
         // currentTime advanced — playback is healthy.
+        // Also reset the stall counter so each distinct stall event gets
+        // its own fresh 3-level recovery chain (seek → pause/resume → cold
+        // restart). Without this, a video that temporarily stalls, recovers,
+        // then stalls later at a different position would jump straight to
+        // cold restart on its second stall.
         if (currentSec > lastProgressTimeRef.current + 0.05) {
           lastProgressTimeRef.current = currentSec;
           lastProgressMsRef.current = Date.now();
+          if (stallCountRef.current > 0) {
+            stallCountRef.current = 0;
+            stallAutoRetryFiredRef.current = false;
+          }
           return;
         }
 
@@ -653,16 +662,45 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           const stallN = stallCountRef.current;
 
           if (stallN === 1) {
-            // Stall #1 — simple play() kick. Covers transient ExoPlayer
-            // decoder hiccups that self-resolve with a nudge.
-            __DEV__ && console.log(`[Viewer] true stall #1 for ${item.name} at ${currentSec.toFixed(2)}/${durationSec.toFixed(2)} (stalled ${stalledMs}ms) — kicking play()`);
-            try { player.play(); } catch {}
+            // Stall #1 — seek forward 0.5 s past the stuck frame, then play().
+            //
+            // ROOT CAUSE (Android 11+ ExoPlayer): the hardware MediaCodec
+            // stops delivering output buffers at a specific inter-frame
+            // position (typically ~0.4 s on WhatsApp status videos). The
+            // decoder is not exhausted — it is stuck on a particular P-frame
+            // or B-frame that references a frame the codec has already
+            // discarded from its output queue. This happens because Android
+            // 11+ (API 30+) defaulted ExoPlayer to asynchronous MediaCodec
+            // mode (MediaCodecAsyncCallback), and some OEM implementations
+            // never deliver the `onOutputBufferAvailable` callback for that
+            // specific buffer index.
+            //
+            // A plain play() call cannot unstick this because the codec's
+            // output pipeline is already blocked — the renderer is waiting
+            // forever for a buffer that will never arrive.
+            //
+            // seekTo(stuck + 0.5s) forces ExoPlayer to flush its decoder
+            // queue, seek the extractor to the next keyframe at or after the
+            // target position, and restart the decode pipeline from a clean
+            // I-frame. This is the minimal disruptive fix that avoids
+            // destroying and reallocating the hardware decoder (cold restart).
+            const seekTarget = currentSec + 0.5;
+            __DEV__ && console.log(`[Viewer] stall #1 for ${item.name} at ${currentSec.toFixed(2)}s — seeking to ${seekTarget.toFixed(2)}s to skip stuck frame`);
+            try {
+              (player as any).currentTime = seekTarget;
+              player.play();
+              // Advance the watchdog baseline to the seek target so we don't
+              // immediately re-trigger a stall on the very next tick.
+              lastProgressTimeRef.current = seekTarget;
+              lastProgressMsRef.current = Date.now();
+            } catch {}
 
           } else if (stallN === 2) {
             // Stall #2 — pause + 500 ms + play. Forces ExoPlayer to drain and
-            // refill its decoder buffer, clearing temporary codec resource
-            // contention (Samsung One UI, Xiaomi MIUI, Realme).
-            __DEV__ && console.log(`[Viewer] true stall #2 for ${item.name} — pause/resume cycle to clear decoder buffer`);
+            // refill its decoder buffer. Also reset the watchdog baseline so
+            // stall #3 doesn't fire immediately on the very next tick.
+            __DEV__ && console.log(`[Viewer] stall #2 for ${item.name} — pause/resume cycle`);
+            lastProgressMsRef.current = Date.now(); // give 2.5 s for recovery
             try {
               player.pause();
               setTimeout(() => {
