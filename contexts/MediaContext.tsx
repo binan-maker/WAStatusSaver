@@ -33,6 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VIDEO_AD_FREQUENCY, IMAGE_SWIPE_AD_FREQUENCY, INTERSTITIAL_COOLDOWN_MS } from '@/constants/admob';
 import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
 import { ThumbnailCache } from '@/lib/thumbnail-cache';
+import { cleanupDocumentCache } from '@/lib/video-fallback';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SAF latency mitigation primitives — used throughout this file to replace
@@ -1737,11 +1738,22 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
   // MediaProvider mount and could enumerate hundreds of cache files via
   // sequential getInfoAsync, blocking the JS thread for hundreds of ms
   // during the most critical moment of cold launch.
+  //
+  // Also runs Layer 3 (documentDirectory vcache/) cleanup on a longer
+  // 7-day window — those files are intentionally kept longer than the
+  // 4-hour cacheDirectory window because they serve as a last-resort
+  // fallback and their directory is never auto-evicted by the OS.
   useEffect(() => {
     let cancelled = false;
     const handle = InteractionManager.runAfterInteractions(() => {
       const t = setTimeout(() => {
-        if (!cancelled) cleanupCacheFiles().catch(() => {});
+        if (!cancelled) {
+          cleanupCacheFiles().catch(() => {});
+          // Layer 3 vcache cleanup: 7-day retention, runs 1s after the cache sweep
+          setTimeout(() => {
+            if (!cancelled) cleanupDocumentCache().catch(() => {});
+          }, 1000);
+        }
       }, 3000);
       return () => clearTimeout(t);
     });
