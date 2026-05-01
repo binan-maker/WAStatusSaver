@@ -54,11 +54,11 @@ export default function SavedScreen() {
   const shareRating = useMilestoneRating('share');
   const insets = useSafeAreaInsets();
 
-  const filtered = savedItems.filter(item => {
+  const filtered = useMemo(() => savedItems.filter(item => {
     if (filter === 'images') return item.type === 'image';
     if (filter === 'videos') return item.type === 'video';
     return true;
-  });
+  }), [savedItems, filter]);
 
   const lastPressRef = React.useRef<Map<string, number>>(new Map());
 
@@ -99,6 +99,18 @@ export default function SavedScreen() {
   const handlePressAny = useCallback((item: any) => handlePress(item as SavedItem), [handlePress]);
   const handleShareAny = useCallback((item: any) => handleShare(item as SavedItem), [handleShare]);
   const handleDeleteAny = useCallback((item: any) => handleDelete(item as SavedItem), [handleDelete]);
+
+  const renderSavedItem = useCallback(({ item }: { item: SavedItem }) => (
+    <MediaCard
+      item={item}
+      isSaved
+      onPress={handlePressAny}
+      onShare={handleShareAny}
+      onDelete={handleDeleteAny}
+      showSaveButton={false}
+      showDeleteButton
+    />
+  ), [handlePressAny, handleShareAny, handleDeleteAny]);
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
@@ -191,19 +203,7 @@ export default function SavedScreen() {
               progressBackgroundColor={COLORS.SURFACE}
             />
           }
-          renderItem={({ item, index }) => {
-            return (
-              <MediaCard
-                item={item}
-                isSaved
-                onPress={handlePressAny}
-                onShare={handleShareAny}
-                onDelete={handleDeleteAny}
-                showSaveButton={false}
-                showDeleteButton
-              />
-            );
-          }}
+          renderItem={renderSavedItem}
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled

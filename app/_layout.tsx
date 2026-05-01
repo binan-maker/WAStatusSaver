@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, AppState, AppStateStatus, InteractionManager } from 'react-native';
+import { useStableStatusBar } from '@/hooks/useStableStatusBar';
 import {
   useFonts,
   Nunito_400Regular,
@@ -77,8 +78,13 @@ async function applyImmersiveMode(bg: string, isDark: boolean) {
       await NavigationBar.setVisibilityAsync('visible');
     }
     await NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
-    await NavigationBar.setBackgroundColorAsync(bg);
-    await NavigationBar.setBehaviorAsync('inset-swipe');
+    // Android 15 (API 35+) enforces edge-to-edge regardless of app settings.
+    // setBackgroundColorAsync and setBehaviorAsync are no-ops and emit warnings
+    // on those devices — skip them to keep logs clean.
+    if (sdkVersion < 35) {
+      await NavigationBar.setBackgroundColorAsync(bg);
+      await NavigationBar.setBehaviorAsync('inset-swipe');
+    }
   } catch {}
 }
 
@@ -236,6 +242,14 @@ function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
   const { colors, resolved } = useTheme();
   const { showAd: showInterstitial } = useInterstitialAd();
 
+  // Keep the status bar locked to a solid, theme-matching color so it never
+  // hides or flickers — regardless of which screen is active.
+  useStableStatusBar({
+    backgroundColor: resolved === 'dark' ? '#05070A' : '#FFFFFF',
+    barStyle: resolved === 'dark' ? 'light-content' : 'dark-content',
+    translucent: false,
+  });
+
   // Re-apply Android nav bar background whenever the theme changes.
   useEffect(() => {
     applyImmersiveMode(colors.BACKGROUND, resolved === 'dark');
@@ -286,7 +300,7 @@ function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
 
   return (
     <MediaProvider>
-      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
+      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       <AuthGate showOnboarding={showOnboarding} />
       <GoogleSignInModal visible={signingIn} />
     </MediaProvider>
@@ -347,7 +361,7 @@ const RootLayout = () => {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider>
-          <StatusBar style="auto" translucent backgroundColor="transparent" />
+          <StatusBar style="auto" />
           <AppLoadingScreen onDone={() => setLoadingDone(true)} />
         </ThemeProvider>
       </GestureHandlerRootView>
