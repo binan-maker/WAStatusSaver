@@ -32,6 +32,7 @@ import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
+import { runLayer4 } from '@/lib/video-fallback';
 
 // Per-screen error boundary: a crash on this tab shows a recovery UI
 // instead of white-screening the whole app. The user can navigate to
@@ -385,6 +386,15 @@ export default function StatusesScreen() {
             setTimeout(() => prefetchedTapUris.delete(uri), 30000);
           });
       }
+    }
+
+    // Android 11+ videos: open directly in the system native player (MX
+    // Player, VLC, Google Photos, etc.) — skip the in-app viewer entirely.
+    // This avoids all ExoPlayer hardware-decoder issues on API 30+ devices.
+    if (item.type === 'video' && Platform.OS === 'android' && (Platform.Version as number) >= 30) {
+      runLayer4(item.uri).catch(() => {});
+      setTimeout(() => onVideoOpen(item.uri), 0);
+      return;
     }
 
     // ANDROID 11 FIX: Navigate FIRST, synchronously, before ANY state updates.

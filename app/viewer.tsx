@@ -34,9 +34,17 @@ import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 import { AdInterstitial } from '@/components/ads/AdInterstitial';
 import { AdBanner } from '@/components/ads/AdBanner';
 import { BannerAdSize } from 'react-native-google-mobile-ads';
-import { runLayer3, type VideoLayer } from '@/lib/video-fallback';
+import { runLayer3, runLayer4, type VideoLayer } from '@/lib/video-fallback';
 
 const { width: SW, height: SH } = Dimensions.get('window');
+
+// On Android 11+ (API 30+) the hardware MediaCodec pool is exhausted by
+// ExoPlayer on many OEM builds (Samsung One UI, Xiaomi MIUI, Realme, Oppo).
+// We disable ALL in-app video playback on these devices — videos are opened
+// directly in the system native player (MX Player, VLC, Google Photos, etc.)
+// via Layer 4. This eliminates the entire class of decoder-stall bugs.
+const IS_ANDROID_11_PLUS =
+  Platform.OS === 'android' && (Platform.Version as number) >= 30;
 
 interface ViewerItemProps {
   item: StatusItem | SavedItem;
@@ -296,6 +304,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const tryStartPlayback = useCallback(() => {
     if (
       item.type !== 'video' ||
+      IS_ANDROID_11_PLUS ||
       !displayUri ||
       !isReadyToPlayRef.current ||  // set false before replaceAsync, true only on readyToPlay
       !isActiveRef.current
@@ -412,7 +421,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // addListener in a try/catch: on Android 11 the native bridge can be
   // uninitialized on the very first render, making addListener undefined.
   useEffect(() => {
-    if (item.type !== 'video') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
     if (!player || typeof player.addListener !== 'function') return;
     let subscription: { remove: () => void } | null = null;
     try {
@@ -546,7 +555,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // lives in the `currentTime`-progress watchdog below — that is the only
   // ground truth we trust.
   useEffect(() => {
-    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
     try {
       sub = player.addListener('playingChange', (payload: any) => {
@@ -565,7 +574,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // delay. This replaces what `player.loop = true` was supposed to do
   // natively but doesn't, reliably, on Android OEM ExoPlayer builds.
   useEffect(() => {
-    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
     try {
       sub = player.addListener('playToEnd', () => {
@@ -611,7 +620,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   //   • We only fire ONE play() per stall (we update lastProgressMsRef
   //     after kicking, so the next check has a fresh 2.5 s window).
   useEffect(() => {
-    if (item.type !== 'video' || !player) return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player) return;
     // Initialize on attach.
     lastProgressTimeRef.current = 0;
     lastProgressMsRef.current = Date.now();
@@ -797,7 +806,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Subscribe to timeUpdate. Throttled to 4 Hz — enough for a smooth
   // progress bar without burning CPU on the JS thread.
   useEffect(() => {
-    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || typeof player.addListener !== 'function') return;
     try { (player as any).timeUpdateEventInterval = 0.25; } catch {}
     let sub: { remove: () => void } | null = null;
     try {
@@ -813,7 +822,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // each time isVideoReady flips so a re-buffer that bumps the duration
   // (rare but possible for variable-bitrate clips) updates the progress bar.
   useEffect(() => {
-    if (item.type !== 'video' || !player) return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player) return;
     if (!isVideoReady) return;
     try {
       const d = (player as any).duration;
@@ -827,7 +836,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // so the user immediately knows they CAN tap to interact. Hides on the
   // standard 3.5 s timer afterwards.
   useEffect(() => {
-    if (item.type !== 'video') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
     if (isActive && isVideoVisible) {
       showVideoControls();
     }
@@ -853,8 +862,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // and keep the thumbnail up until we KNOW frames are rendering (200 ms post-
   // readyToPlay). This eliminates the black screen unconditionally on all devices.
   useEffect(() => {
-    if (item.type !== 'video' || !player || !displayUri) return;
-    // ANDROID 11+ HARDWARE DECODER FIX: Only the ACTIVE slot allocates a
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || !displayUri) return;
+    // Only the ACTIVE slot allocates a
     // decoder via replaceAsync. Pre/next slots stay sourceless so the system
     // codec pool never runs out. We hand the URI directly to ExoPlayer
     // (content:// works natively) — replaceAsync against a content:// URI
@@ -999,7 +1008,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   //    that resolves before the first render's useEffect can run).
   // Both cases are caught by reacting to BOTH isActive and isVideoReady changes.
   useEffect(() => {
-    if (item.type !== 'video') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
     if (isActive && isVideoReady && !isVideoVisible) {
       scheduleRevealRef.current(80);
     }
@@ -1009,7 +1018,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Separate from the reveal effect so changes to isVideoReady don't
   // accidentally re-run the cleanup path.
   useEffect(() => {
-    if (item.type !== 'video') return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
     if (!isActive) {
       setIsVideoVisible(false);
       clearRevealTimerRef.current();
@@ -1018,7 +1027,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   // ── Active / inactive sync ───────────────────────────────────────────────
   useEffect(() => {
-    if (item.type !== 'video' || !player || isLoadingSource.current) return;
+    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || isLoadingSource.current) return;
     try {
       if (isActive) {
         // Use ref so we always call the latest tryStartPlayback without this
@@ -1082,7 +1091,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // DO NOT call replaceAsync(null) here — the active/inactive sync effect
         // handles that. Calling it from two effects simultaneously causes a race
         // that corrupts the player state and produces black screen on Android 11.
-        if (item.type === 'video' && player) {
+        if (item.type === 'video' && !IS_ANDROID_11_PLUS && player) {
           isReadyToPlayRef.current = false;
           try { player.pause(); } catch {}
         }
@@ -1091,6 +1100,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
 
     if (displayUri) return; // already prepared for this slot
+
+    // Android 11+ videos: skip all SAF copy machinery — the viewer shows
+    // a static thumbnail and "Open in Native Player" button instead.
+    if (item.type === 'video' && IS_ANDROID_11_PLUS) return;
 
     // Non-video OR non-content URI → use immediately, no copy needed.
     if (item.type !== 'video' || !initialSource.startsWith('content://')) {
@@ -1341,32 +1354,40 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             )}
           </Reanimated.View>
         </GestureDetector>
+      ) : IS_ANDROID_11_PLUS ? (
+        // Android 11+: no in-app video playback — show thumbnail and open
+        // the video in the system native player (MX Player, VLC, etc.).
+        <View style={StyleSheet.absoluteFill}>
+          <View style={styles.videoWrap}>
+            <Image
+              source={{ uri: initialSource }}
+              style={StyleSheet.absoluteFill}
+              contentFit="contain"
+              cachePolicy="memory-disk"
+              transition={0}
+              recyclingKey={item.id}
+              videoTimestamp={500}
+            />
+            {isActive && (
+              <View style={styles.videoRetryOverlay} pointerEvents="box-none">
+                <View style={styles.videoRetryStack}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => { runLayer4(initialSource).catch(() => {}); }}
+                    style={styles.videoRetryBtn}
+                    accessibilityLabel="Open video in native player"
+                  >
+                    <Ionicons name="play-circle" size={32} color="#FFFFFF" />
+                    <Text style={styles.videoRetryText}>Open in Player</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
       ) : (
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
-              {/*
-                VideoView is mounted when isNearActive (prev/current/next).
-                nativeControls={true} → ExoPlayer's built-in seek bar, play/pause,
-                duration are shown automatically. The thumbnail overlay above it
-                has pointerEvents="none" so all touches fall through to the native
-                controls even while the thumbnail is still covering the surface.
-
-                replaceAsync fires after InteractionManager (animation done).
-                The thumbnail stays up 200 ms past readyToPlay (isVideoVisible)
-                so ExoPlayer has filled its frame pipeline before we reveal.
-                player.release() on unmount frees the hardware codec slot.
-              */}
-              {/*
-                ANDROID 11+ HARDWARE DECODER FIX:
-                VideoView is now mounted ONLY when this slot is the ACTIVE
-                page — never for prev/next. Android 11/12 phones typically
-                have a 1-2 instance hardware H.264 decoder budget; mounting
-                3 VideoViews simultaneously (prev/cur/next) was exhausting
-                that pool, causing the next swipe's video to silently fail
-                to allocate a decoder and freeze on the thumbnail forever.
-                Single live surface = guaranteed decoder availability =
-                no more "video not playing after swipe" lockups.
-              */}
               {isActive && (
                 <VideoView
                   key={item.id}
@@ -1378,12 +1399,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 />
               )}
 
-              {/*
-                Thumbnail overlay: stays visible until isVideoVisible.
-                pointerEvents="none" so all taps fall through to native VideoView controls.
-                Shows a play button badge so users can always see it's a playable video
-                and have a visible affordance even while ExoPlayer is warming up.
-              */}
               {(!isActive || !isVideoVisible) && (
                 <View style={StyleSheet.absoluteFill} pointerEvents="none">
                   <Image
@@ -1395,8 +1410,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     recyclingKey={item.id}
                     videoTimestamp={500}
                   />
-                  {/* Play badge — always visible while thumbnail is up so
-                      users know this is a video and see a control target */}
                   {isActive && !isVideoReady && !videoError && (
                     <View style={styles.videoPlayBadge} pointerEvents="none">
                       <View style={styles.videoPlayBadgeInner}>
@@ -1407,8 +1420,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 </View>
               )}
 
-              {/* Spinner during buffering — sits above thumbnail, below native controls. */}
-              {/* Hidden when the retry overlay is showing so we don't double-stack. */}
               {isNearActive && !isVideoReady && !videoError && (
                 <View style={styles.videoSpinnerWrap} pointerEvents="none">
                   <ActivityIndicator
@@ -1418,16 +1429,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 </View>
               )}
 
-              {/* Native ExoPlayer controls are shown via nativeControls={true} on VideoView above. */}
-
-              {/*
-                Tap-to-retry overlay — shown when all automatic recovery
-                strategies (play kick, pause/resume, cold restart) have
-                failed. The "Retry" button performs another cold decoder
-                restart (replaceAsync null + 1 s + replaceAsync uri),
-                giving the hardware codec pool another chance to release
-                and reallocate a fresh slot.
-              */}
               {isActive && videoError && (
                 <View style={styles.videoRetryOverlay}>
                   <View style={styles.videoRetryStack}>
