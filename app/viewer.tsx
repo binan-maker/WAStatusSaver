@@ -34,7 +34,7 @@ import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 import { AdInterstitial } from '@/components/ads/AdInterstitial';
 import { AdBanner } from '@/components/ads/AdBanner';
 import { BannerAdSize } from 'react-native-google-mobile-ads';
-import { runFallbackChain, runLayer4, type VideoLayer } from '@/lib/video-fallback';
+import { runLayer3, type VideoLayer } from '@/lib/video-fallback';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -78,13 +78,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // seen (Samsung One UI, Xiaomi MIUI, Realme, stock Android).
   const [videoError, setVideoError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
-  // 5-LAYER FALLBACK TRACKING:
+  // FALLBACK TRACKING:
   //   videoFallbackLayer — which layer the current source was loaded from
-  //     (1=direct, 2=cacheDir copy, 3=documentDir copy, 4=native player, 5=MediaLibrary)
-  //   nativePlayerOpened — true after Layer 4 opened an external player
+  //     (2=cacheDir copy, 3=documentDir copy)
   //   layer3Tried — latch so the retry handler knows Layer 3 was already auto-attempted
   const [videoFallbackLayer, setVideoFallbackLayer] = useState<VideoLayer>(2);
-  const [nativePlayerOpened, setNativePlayerOpened] = useState(false);
   const layer3TriedRef = useRef(false);
   // HARDWARE DECODER STALL ESCALATION:
   //   stallCountRef  — counts how many consecutive 2.5 s stall windows have
@@ -135,6 +133,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Update synchronously every render so every callback sees the latest value
   // without waiting for a useEffect to run after paint.
   isActiveRef.current = isActive;
+  // Sync ref to current displayUri — allows interval callbacks (stall watchdog,
+  // cold restart) to read the live URI without being captured in their closure.
+  const displayUriRef = useRef<string | null>(null);
+  displayUriRef.current = displayUri; // sync update — same pattern as isActiveRef
   const isLoadingSource = useRef(false);
   const isReadyToPlayRef = useRef(false);
   // "Has the player ever reached readyToPlay for the current source?" Latch.
@@ -302,100 +304,79 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   }, [displayUri, item.type, player]);
 
-  // Tap-to-retry handler — cycles through the 5-layer fallback chain.
+  // Manual retry handler — called by the "Retry" button in the error overlay.
   //
-  // The retry overlay calls this each time the user taps. We track which
-  // layer we're on via videoFallbackLayer and advance through:
-  //   Layer 2 (primary cache copy, auto-tried in URI prep) → already failed
-  //   Layer 3 (documentDirectory copy, different path) — auto-tried here
-  //   Layer 4 (native Android Intent player — opens externally)
-  //   Layer 5 (MediaLibrary save → fresh content:// URI)
+  // Root cause of video stalls (confirmed by logs): ExoPlayer hardware decoder
+  // exhaustion on Android 11+ OEM devices. The stall occurs regardless of the
+  // URI format (cacheDir, documentDir, DCIM — all stall identically). This
+  // proves the problem is the DECODER, not the file. Cycling through different
+  // URI layers does nothing useful.
   //
-  // A separate "Open in External Player" button directly triggers Layer 4
-  // without cycling through layers, so users always have a manual escape hatch.
+  // The fix is a COLD DECODER RESTART:
+  //   1. replaceAsync(null) — fully releases the hardware codec slot
+  //   2. 1 second wait      — lets the Android codec pool reclaim the slot
+  //   3. replaceAsync(uri)  — allocates a fresh decoder for the same file
+  //
+  // If no displayUri is available (initial Layer 2+3 failure), we try Layer 3
+  // (documentDirectory copy) first to get a file:// URI to restart with.
   const handleVideoRetry = useCallback(async () => {
     if (item.type !== 'video') return;
     setIsRetrying(true);
     setVideoError(false);
 
-    const sourceUri = ('localUri' in item)
-      ? (item as SavedItem).localUri
-      : (item as StatusItem).uri;
-
-    // Determine which layer to attempt next.
-    const nextLayer: VideoLayer = videoFallbackLayer >= 3 ? (videoFallbackLayer + 1) as VideoLayer : 3;
+    // Reset stall escalation so the watchdog starts fresh for this attempt.
+    stallCountRef.current = 0;
+    stallAutoRetryFiredRef.current = false;
 
     try {
-      __DEV__ && console.log(`[Viewer] Retry: attempting Layer ${nextLayer} for ${item.name}`);
+      const currentUri = displayUriRef.current;
 
-      const result = await runFallbackChain(sourceUri, item.id, item.name, item.type, nextLayer);
-
-      if (result.openedExternally) {
-        // Layer 4 — video opened in external player. The viewer stays on
-        // screen; we update state to show the "Opened in external player" message.
-        setVideoFallbackLayer(4);
-        setNativePlayerOpened(true);
-        setIsRetrying(false);
-        return;
-      }
-
-      if (result.uri) {
-        // Layer 3 or 5 — we got a playable URI. Feed it to ExoPlayer.
-        setVideoFallbackLayer(result.layer);
+      if (currentUri) {
+        // Cold restart: fully release the hardware decoder, wait, then reallocate.
+        __DEV__ && console.log(`[Viewer] Manual retry: cold-restarting decoder for ${item.name}`);
         isReadyToPlayRef.current = false;
         hasEverReachedReadyRef.current = false;
-        isLoadingSource.current = true;
-        lastReplacedSourceRef.current = result.uri;
-        await player.replaceAsync(result.uri);
-        isLoadingSource.current = false;
-        setDisplayUri(result.uri);
-        if (!fallbackLoggedRef.current) {
-          fallbackLoggedRef.current = true;
-          logFallbackCopyTriggered();
-        }
+        lastProgressTimeRef.current = 0;
+        lastProgressMsRef.current = Date.now();
+        lastReplacedSourceRef.current = null;
+        await player.replaceAsync(null);
+        await new Promise(r => setTimeout(r, 1000));
+        if (!isActiveRef.current) return;
+        lastReplacedSourceRef.current = currentUri;
+        await player.replaceAsync(currentUri);
         // play() fires from statusChange readyToPlay — do NOT call here.
       } else {
-        // All remaining layers failed.
-        setVideoFallbackLayer(5);
-        setVideoError(true);
+        // Initial load completely failed (no URI yet) — try Layer 3 as
+        // a last resort to obtain a file:// URI we can cold-restart with.
+        const sourceUri = ('localUri' in item)
+          ? (item as SavedItem).localUri
+          : (item as StatusItem).uri;
+        __DEV__ && console.log(`[Viewer] Manual retry: no URI, attempting Layer 3 for ${item.name}`);
+        const l3Uri = await runLayer3(sourceUri, item.id, item.name, item.type);
+        if (l3Uri) {
+          setVideoFallbackLayer(3);
+          isReadyToPlayRef.current = false;
+          hasEverReachedReadyRef.current = false;
+          lastProgressTimeRef.current = 0;
+          lastProgressMsRef.current = Date.now();
+          lastReplacedSourceRef.current = l3Uri;
+          await player.replaceAsync(l3Uri);
+          setDisplayUri(l3Uri);
+          if (!fallbackLoggedRef.current) {
+            fallbackLoggedRef.current = true;
+            logFallbackCopyTriggered();
+          }
+        } else {
+          setVideoError(true);
+        }
       }
     } catch (err) {
-      console.error(`[Viewer] Retry Layer ${nextLayer} failed for ${item.name}:`, err);
-      setVideoFallbackLayer(Math.max(nextLayer, 3) as VideoLayer);
+      console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
       setVideoError(true);
     } finally {
       setIsRetrying(false);
     }
-  }, [item, player, videoFallbackLayer]);
-
-  // "Open in External Player" — directly triggers Layer 4 without cycling
-  // through other layers. Available from the retry overlay AND the video
-  // action sidebar so users can always escape to the native player.
-  const handleOpenNativePlayer = useCallback(async () => {
-    if (item.type !== 'video') return;
-    setIsRetrying(true);
-
-    const sourceUri = displayUri
-      || (('localUri' in item) ? (item as SavedItem).localUri : (item as StatusItem).uri);
-
-    try {
-      const opened = await runLayer4(sourceUri);
-      if (opened) {
-        setVideoFallbackLayer(4);
-        setNativePlayerOpened(true);
-        setVideoError(false);
-      } else {
-        // Layer 4 failed (no video player app installed) — advance to Layer 5.
-        setVideoFallbackLayer(5);
-        setVideoError(true);
-      }
-    } catch (e) {
-      __DEV__ && console.log('[Viewer] handleOpenNativePlayer error:', e);
-      setVideoError(true);
-    } finally {
-      setIsRetrying(false);
-    }
-  }, [item, displayUri]);
+  }, [item, player]);
 
   // ── Callback refs for the stable status listener ──────────────────────────
   // The status listener is attached once per player instance and must never be
@@ -407,11 +388,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const tryStartPlaybackRef = useRef(tryStartPlayback);
   const scheduleRevealRef = useRef(scheduleReveal);
   const clearRevealTimerRef = useRef(clearRevealTimer);
-  const handleVideoRetryRef = useRef(handleVideoRetry);
   useEffect(() => { tryStartPlaybackRef.current = tryStartPlayback; });
   useEffect(() => { scheduleRevealRef.current = scheduleReveal; });
   useEffect(() => { clearRevealTimerRef.current = clearRevealTimer; });
-  useEffect(() => { handleVideoRetryRef.current = handleVideoRetry; });
 
   // ── Status listener ──────────────────────────────────────────────────────
   // Attached once per player instance. Uses refs for callbacks so it always
@@ -534,7 +513,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setVideoDuration(0);
     setVideoControlsVisible(false);
     setVideoFallbackLayer(2);
-    setNativePlayerOpened(false);
     layer3TriedRef.current = false;
     stallCountRef.current = 0;
     stallAutoRetryFiredRef.current = false;
@@ -668,17 +646,46 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               }, 500);
             } catch {}
 
-          } else if (!stallAutoRetryFiredRef.current) {
-            // Stall #3+ — hardware decoder is genuinely stuck (H.264 High
+          } else if (stallN === 3 && !stallAutoRetryFiredRef.current) {
+            // Stall #3 — hardware decoder is genuinely stuck (H.264 High
             // Profile / HEVC on limited OEM codec slots). play() and
-            // pause/resume have both failed. Auto-trigger the Layer 3 fallback
-            // (documentDirectory copy) which gives ExoPlayer a fresh file://
-            // path and typically causes it to allocate a new decoder instance.
-            // stallAutoRetryFiredRef latch ensures we only do this ONCE per
-            // source — not once per 2.5 s interval tick.
+            // pause/resume have both failed. Cycling to a different file URI
+            // also fails (logs confirm all URI formats stall identically).
+            //
+            // COLD DECODER RESTART:
+            //   replaceAsync(null) → 1 s wait → replaceAsync(same URI)
+            // This forces the Android codec pool to fully release the slot
+            // and allocate a fresh hardware decoder instance. The 1 s wait
+            // is critical — without it the OS hasn't returned the slot yet
+            // when the second replaceAsync fires, so the same stuck decoder
+            // gets reused and stalls again immediately.
             stallAutoRetryFiredRef.current = true;
-            __DEV__ && console.log(`[Viewer] true stall #${stallN} for ${item.name} — hardware decoder stuck, auto-triggering Layer 3 fallback`);
-            handleVideoRetryRef.current?.().catch?.(() => {});
+            lastProgressTimeRef.current = 0; // reset so fresh tracking after reload
+            const uriToReload = displayUriRef.current;
+            __DEV__ && console.log(`[Viewer] true stall #${stallN} for ${item.name} — cold-restarting decoder`);
+            (async () => {
+              try {
+                isReadyToPlayRef.current = false;
+                hasEverReachedReadyRef.current = false;
+                await player.replaceAsync(null);
+                await new Promise(r => setTimeout(r, 1000));
+                if (!isActiveRef.current || userPausedRef.current || !uriToReload) return;
+                __DEV__ && console.log(`[Viewer] cold restart: reloading ${item.name}`);
+                lastReplacedSourceRef.current = null;
+                lastReplacedSourceRef.current = uriToReload;
+                lastProgressMsRef.current = Date.now();
+                await player.replaceAsync(uriToReload);
+                // play() fires from statusChange readyToPlay automatically.
+              } catch (e) {
+                __DEV__ && console.log(`[Viewer] cold restart failed for ${item.name}:`, e);
+                setVideoError(true);
+              }
+            })();
+          } else if (stallN >= 4) {
+            // Stall #4+ — cold restart also failed. Show the error overlay
+            // so the user can manually retry (which does another cold restart).
+            __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — all auto-recovery failed, showing error`);
+            setVideoError(true);
           }
 
           // Reset wallclock so the next check has a fresh window before
@@ -1027,23 +1034,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       if (cancelled) return;
       layer3TriedRef.current = true;
       try {
-        const l3result = await runFallbackChain(
+        const l3Uri = await runLayer3(
           (item as StatusItem).uri,
           item.id,
           item.name,
           item.type,
-          3,
         );
         if (cancelled) return;
 
-        if (l3result.openedExternally) {
-          setVideoFallbackLayer(4);
-          setNativePlayerOpened(true);
-          return;
-        }
-        if (l3result.uri) {
-          setVideoFallbackLayer(l3result.layer);
-          setDisplayUri(l3result.uri);
+        if (l3Uri) {
+          setVideoFallbackLayer(3);
+          setDisplayUri(l3Uri);
           logFallbackCopyTriggered();
           return;
         }
@@ -1052,8 +1053,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         __DEV__ && console.warn(`[Viewer] Layer 3 also failed for ${item.name}:`, e);
       }
 
-      // Layers 2 and 3 both failed — surface the retry overlay.
-      // The user can manually trigger Layers 4 or 5 from there.
+      // Layers 2 and 3 both failed — surface the retry overlay so the
+      // user can manually trigger a cold decoder restart.
       if (!cancelled) {
         console.error(`[Viewer] Layers 2+3 failed for ${item.name} — surfacing retry overlay`);
         setVideoFallbackLayer(3);
@@ -1325,75 +1326,36 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               {/* Native ExoPlayer controls are shown via nativeControls={true} on VideoView above. */}
 
               {/*
-                Tap-to-retry overlay — shown when ExoPlayer reports `error`.
-                Receives touches (no pointerEvents="none") so the user can
-                actively recover from a stalled video on the rare OEM that
-                refuses our content:// URI even after the watchdog copy.
+                Tap-to-retry overlay — shown when all automatic recovery
+                strategies (play kick, pause/resume, cold restart) have
+                failed. The "Retry" button performs another cold decoder
+                restart (replaceAsync null + 1 s + replaceAsync uri),
+                giving the hardware codec pool another chance to release
+                and reallocate a fresh slot.
               */}
-              {isActive && (videoError || nativePlayerOpened) && (
+              {isActive && videoError && (
                 <View style={styles.videoRetryOverlay}>
-                  {nativePlayerOpened ? (
-                    // Layer 4 succeeded — opened externally. Show a friendly message.
-                    <View style={styles.videoNativeOpenedBox}>
-                      <Ionicons name="play-circle" size={36} color={COLORS.PRIMARY} />
-                      <Text style={styles.videoRetryText}>Opened in external player</Text>
-                      <Text style={styles.videoRetrySubText}>Switch to your video player app</Text>
-                    </View>
-                  ) : (
-                    // Layers 2+3 failed — show progressive retry options.
-                    <View style={styles.videoRetryStack}>
-                      {/* Layer indicator */}
-                      <Text style={styles.videoRetrySubText}>
-                        {videoFallbackLayer <= 3
-                          ? 'Trying alternate copy method...'
-                          : videoFallbackLayer === 4
-                          ? 'Trying native player...'
-                          : 'All internal methods failed'}
-                      </Text>
-
-                      {/* Primary retry button — advances through Layer 3 → 4 → 5 */}
-                      {videoFallbackLayer < 5 && (
-                        <TouchableOpacity
-                          activeOpacity={0.85}
-                          onPress={handleVideoRetry}
-                          disabled={isRetrying}
-                          style={styles.videoRetryBtn}
-                          accessibilityLabel="Tap to retry playback"
-                        >
-                          {isRetrying ? (
-                            <ActivityIndicator color="#FFFFFF" />
-                          ) : (
-                            <>
-                              <Ionicons name="refresh-circle" size={28} color="#FFFFFF" />
-                              <Text style={styles.videoRetryText}>
-                                {videoFallbackLayer <= 3 ? 'Retry (Alt Method)' : 'Retry (Save & Play)'}
-                              </Text>
-                            </>
-                          )}
-                        </TouchableOpacity>
+                  <View style={styles.videoRetryStack}>
+                    <Text style={styles.videoRetrySubText}>
+                      Video playback failed
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleVideoRetry}
+                      disabled={isRetrying}
+                      style={styles.videoRetryBtn}
+                      accessibilityLabel="Tap to retry playback"
+                    >
+                      {isRetrying ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="refresh-circle" size={28} color="#FFFFFF" />
+                          <Text style={styles.videoRetryText}>Retry</Text>
+                        </>
                       )}
-
-                      {/* Open in External Player — Layer 4 direct, always visible */}
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={handleOpenNativePlayer}
-                        disabled={isRetrying}
-                        style={[styles.videoRetryBtn, styles.videoRetryBtnSecondary]}
-                        accessibilityLabel="Open in external video player"
-                      >
-                        {isRetrying ? (
-                          <ActivityIndicator color={COLORS.PRIMARY} />
-                        ) : (
-                          <>
-                            <Ionicons name="open-outline" size={22} color={COLORS.PRIMARY} />
-                            <Text style={[styles.videoRetryText, { color: COLORS.PRIMARY }]}>
-                              Open in External Player
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </View>
@@ -1593,21 +1555,6 @@ const toggleControls = useCallback(() => {
     ]);
   }, [isSavedView, currentItem, savedItems, deleteFromSaved, items.length]);
 
-  // Layer 4 shortcut from the video action sidebar — opens the current video
-  // in the device's native video player app (MX Player, VLC, Google Photos,
-  // etc.) without going through the retry overlay. Works on 100% of Android
-  // devices since the OS provides the player.
-  const handleOpenNativePlayerFromSidebar = useCallback(async () => {
-    if (!currentItem || currentItem.type !== 'video') return;
-    const sourceUri = 'localUri' in currentItem
-      ? (currentItem as SavedItem).localUri
-      : (currentItem as StatusItem).uri;
-    try {
-      await runLayer4(sourceUri);
-    } catch (e) {
-      __DEV__ && console.log('[Viewer] Sidebar native player failed:', e);
-    }
-  }, [currentItem]);
 
   // Single source of truth for index changes: only onMomentumScrollEnd. The
   // previous version also fired from onScrollEndDrag → onScroll, which caused
@@ -1742,16 +1689,6 @@ const toggleControls = useCallback(() => {
             </View>
             <Text style={styles.reelsLabel}>WhatsApp</Text>
           </TouchableOpacity>
-
-          {/* Open in External Player (Layer 4 shortcut) */}
-          {Platform.OS === 'android' && (
-            <TouchableOpacity style={styles.reelsBtn} onPress={handleOpenNativePlayerFromSidebar}>
-              <View style={styles.reelsCircle}>
-                <Ionicons name="open-outline" size={24} color="#fff" />
-              </View>
-              <Text style={styles.reelsLabel}>External</Text>
-            </TouchableOpacity>
-          )}
 
           {/* Delete (saved view only) */}
           {isSavedView && (
@@ -1904,11 +1841,6 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
   },
-  videoRetryBtnSecondary: {
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderWidth: 1.5,
-    borderColor: COLORS.PRIMARY,
-  },
   videoRetryText: {
     color: '#FFFFFF',
     fontSize: FONT_SIZE.MD,
@@ -1924,16 +1856,6 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   videoRetryStack: {
     alignItems: 'center',
     gap: SPACING.MD,
-  },
-  videoNativeOpenedBox: {
-    alignItems: 'center',
-    gap: SPACING.SM,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: SPACING.XL,
-    paddingVertical: SPACING.LG,
-    borderRadius: RADIUS.LG,
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY + '55',
   },
   // Custom video controls overlay (FIX 2026-04-27 — replaces nativeControls).
   videoCustomControlsCenter: {
