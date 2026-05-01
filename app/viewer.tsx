@@ -86,6 +86,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [videoFallbackLayer, setVideoFallbackLayer] = useState<VideoLayer>(2);
   const [nativePlayerOpened, setNativePlayerOpened] = useState(false);
   const layer3TriedRef = useRef(false);
+  // HARDWARE DECODER STALL ESCALATION:
+  //   stallCountRef  — counts how many consecutive 2.5 s stall windows have
+  //     fired without currentTime advancing. Used to escalate the recovery
+  //     strategy: stall #1 → play(), stall #2 → pause+resume, stall #3+ →
+  //     auto-invoke the Layer 3 fallback chain.
+  //   stallAutoRetryFiredRef — latch so we only auto-trigger the fallback
+  //     chain ONCE per source (not on every subsequent 2.5 s interval tick).
+  const stallCountRef = useRef(0);
+  const stallAutoRetryFiredRef = useRef(false);
   // CUSTOM VIDEO CONTROLS (FIX 2026-04-27):
   //   ExoPlayer's nativeControls={true} overlay was unreliable on Android
   //   11/12 OEM builds — it auto-hid after ~1 s and refused to come back
@@ -398,9 +407,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const tryStartPlaybackRef = useRef(tryStartPlayback);
   const scheduleRevealRef = useRef(scheduleReveal);
   const clearRevealTimerRef = useRef(clearRevealTimer);
+  const handleVideoRetryRef = useRef(handleVideoRetry);
   useEffect(() => { tryStartPlaybackRef.current = tryStartPlayback; });
   useEffect(() => { scheduleRevealRef.current = scheduleReveal; });
   useEffect(() => { clearRevealTimerRef.current = clearRevealTimer; });
+  useEffect(() => { handleVideoRetryRef.current = handleVideoRetry; });
 
   // ── Status listener ──────────────────────────────────────────────────────
   // Attached once per player instance. Uses refs for callbacks so it always
@@ -498,6 +509,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     // gets a fresh wallclock window before any kick can fire.
     lastProgressTimeRef.current = 0;
     lastProgressMsRef.current = Date.now();
+    // Reset the hardware-decoder stall escalation state so each new source
+    // starts at stall #0 (no escalation pre-applied).
+    stallCountRef.current = 0;
+    stallAutoRetryFiredRef.current = false;
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -521,6 +536,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setVideoFallbackLayer(2);
     setNativePlayerOpened(false);
     layer3TriedRef.current = false;
+    stallCountRef.current = 0;
+    stallAutoRetryFiredRef.current = false;
   }, [item.id]);
 
   // Subscribe to playingChange: ONLY mirror state into React. Never call
@@ -629,11 +646,44 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // a real stall (no possible legitimate explanation).
         const stalledMs = Date.now() - lastProgressMsRef.current;
         if (stalledMs >= 2500) {
-          __DEV__ && console.log(`[Viewer] true stall detected for ${item.name} at ${currentSec.toFixed(2)}/${durationSec.toFixed(2)} (stalled ${stalledMs}ms) — kicking play()`);
-          try { player.play(); } catch {}
+          stallCountRef.current += 1;
+          const stallN = stallCountRef.current;
+
+          if (stallN === 1) {
+            // Stall #1 — simple play() kick. Covers transient ExoPlayer
+            // decoder hiccups that self-resolve with a nudge.
+            __DEV__ && console.log(`[Viewer] true stall #1 for ${item.name} at ${currentSec.toFixed(2)}/${durationSec.toFixed(2)} (stalled ${stalledMs}ms) — kicking play()`);
+            try { player.play(); } catch {}
+
+          } else if (stallN === 2) {
+            // Stall #2 — pause + 500 ms + play. Forces ExoPlayer to drain and
+            // refill its decoder buffer, clearing temporary codec resource
+            // contention (Samsung One UI, Xiaomi MIUI, Realme).
+            __DEV__ && console.log(`[Viewer] true stall #2 for ${item.name} — pause/resume cycle to clear decoder buffer`);
+            try {
+              player.pause();
+              setTimeout(() => {
+                if (!isActiveRef.current || userPausedRef.current) return;
+                try { player.play(); } catch {}
+              }, 500);
+            } catch {}
+
+          } else if (!stallAutoRetryFiredRef.current) {
+            // Stall #3+ — hardware decoder is genuinely stuck (H.264 High
+            // Profile / HEVC on limited OEM codec slots). play() and
+            // pause/resume have both failed. Auto-trigger the Layer 3 fallback
+            // (documentDirectory copy) which gives ExoPlayer a fresh file://
+            // path and typically causes it to allocate a new decoder instance.
+            // stallAutoRetryFiredRef latch ensures we only do this ONCE per
+            // source — not once per 2.5 s interval tick.
+            stallAutoRetryFiredRef.current = true;
+            __DEV__ && console.log(`[Viewer] true stall #${stallN} for ${item.name} — hardware decoder stuck, auto-triggering Layer 3 fallback`);
+            handleVideoRetryRef.current?.().catch?.(() => {});
+          }
+
           // Reset wallclock so the next check has a fresh window before
-          // firing again. If the kick worked, currentTime will advance and
-          // the regular branch above takes over.
+          // firing again. If the kick/recovery worked, currentTime will advance
+          // and the regular branch above takes over.
           lastProgressMsRef.current = Date.now();
         }
       } catch {}
