@@ -616,7 +616,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     lastProgressTimeRef.current = 0;
     lastProgressMsRef.current = Date.now();
 
-    const interval = setInterval(() => {
+    const interval = setInterval(() => {  // 500 ms — tighter poll so stalls are caught in ~1.5 s not ~3.5 s
       try {
         // Skip entirely while a cold restart is in progress — we don't want
         // the stall counter advancing during the replaceAsync(null)→wait→
@@ -654,10 +654,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           return;
         }
 
-        // No progress. If we've been here for 2.5 s of wallclock, this is
-        // a real stall (no possible legitimate explanation).
+        // No progress for 1.5 s → real stall. 1.5 s is long enough to avoid
+        // false-positives from legitimate I-frame decoding pauses (<200 ms)
+        // but short enough to recover before the user notices the freeze.
         const stalledMs = Date.now() - lastProgressMsRef.current;
-        if (stalledMs >= 2500) {
+        if (stalledMs >= 1500) {
           stallCountRef.current += 1;
           const stallN = stallCountRef.current;
 
@@ -687,8 +688,14 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             const seekTarget = currentSec + 0.5;
             __DEV__ && console.log(`[Viewer] stall #1 for ${item.name} at ${currentSec.toFixed(2)}s — seeking to ${seekTarget.toFixed(2)}s to skip stuck frame`);
             try {
+              // Reset the "first readyToPlay" latch BEFORE the seek so that
+              // when the seek triggers loading → readyToPlay, the status listener
+              // calls tryStartPlayback() → player.play() authoritatively.
+              // This is safer than calling player.play() here while the player
+              // is mid-seek (loading state), which ExoPlayer may silently ignore.
+              hasEverReachedReadyRef.current = false;
+              isReadyToPlayRef.current = false;
               (player as any).currentTime = seekTarget;
-              player.play();
               // Advance the watchdog baseline to the seek target so we don't
               // immediately re-trigger a stall on the very next tick.
               lastProgressTimeRef.current = seekTarget;
@@ -697,16 +704,29 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
           } else if (stallN === 2) {
             // Stall #2 — pause + 500 ms + play. Forces ExoPlayer to drain and
-            // refill its decoder buffer. Also reset the watchdog baseline so
-            // stall #3 doesn't fire immediately on the very next tick.
+            // refill its decoder buffer. Reset baseline so stall #3 doesn't
+            // fire immediately on the very next tick.
             __DEV__ && console.log(`[Viewer] stall #2 for ${item.name} — pause/resume cycle`);
-            lastProgressMsRef.current = Date.now(); // give 2.5 s for recovery
+            lastProgressMsRef.current = Date.now(); // give 1.5 s for recovery
             try {
               player.pause();
               setTimeout(() => {
                 if (!isActiveRef.current || userPausedRef.current) return;
-                try { player.play(); } catch {}
-              }, 500);
+                try {
+                  // Seek +0.5s again as part of the pause/resume cycle —
+                  // if the frame is genuinely stuck, seeking gives ExoPlayer
+                  // a fresh I-frame reference to decode from.
+                  const pos = (player as any).currentTime ?? lastProgressTimeRef.current;
+                  const target = pos + 0.5;
+                  hasEverReachedReadyRef.current = false;
+                  isReadyToPlayRef.current = false;
+                  (player as any).currentTime = target;
+                  lastProgressTimeRef.current = target;
+                  lastProgressMsRef.current = Date.now();
+                } catch {
+                  try { player.play(); } catch {}
+                }
+              }, 300);
             } catch {}
 
           } else if (stallN === 3 && !stallAutoRetryFiredRef.current) {
@@ -769,7 +789,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           lastProgressMsRef.current = Date.now();
         }
       } catch {}
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [player, item.type, item.name]);
