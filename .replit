@@ -46,10 +46,6 @@ args = "Start App"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Start Backend"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Start Frontend"
 
 [[workflows.workflow]]
@@ -64,19 +60,6 @@ args = "Start Backend"
 [[workflows.workflow.tasks]]
 task = "workflow.run"
 args = "Start Frontend"
-
-[[workflows.workflow]]
-name = "Start Backend"
-author = "agent"
-mode = "sequential"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run server:dev"
-waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Start Frontend"

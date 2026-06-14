@@ -79,6 +79,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   //     chain ONCE per source (not on every subsequent 2.5 s interval tick).
   const stallCountRef = useRef(0);
   const stallAutoRetryFiredRef = useRef(false);
+  // Counts how many cold restarts have been attempted for the current item.
+  // Unlike stallCountRef this is NOT reset when progress resumes — it persists
+  // across the full stall#1→#2→#3 escalation cycle so a second cold restart
+  // after an already-failed first one goes straight to the error overlay
+  // instead of looping forever.
+  const coldRestartCountRef = useRef(0);
   // CUSTOM VIDEO CONTROLS (FIX 2026-04-27):
   //   ExoPlayer's nativeControls={true} overlay was unreliable on Android
   //   11/12 OEM builds — it auto-hid after ~1 s and refused to come back
@@ -461,6 +467,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setVideoControlsVisible(false);
     stallCountRef.current = 0;
     stallAutoRetryFiredRef.current = false;
+    coldRestartCountRef.current = 0;
     isColdRestartingRef.current = false; // clear any in-flight restart for prev item
   }, [item.id]);
 
@@ -673,7 +680,19 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             // is critical — without it the OS hasn't returned the slot yet
             // when the second replaceAsync fires, so the same stuck decoder
             // gets reused and stalls again immediately.
+            //
+            // LOOP PREVENTION: coldRestartCountRef tracks cold restarts for
+            // the current item across all stall escalation cycles (unlike
+            // stallCountRef which resets when progress resumes). If a cold
+            // restart was already attempted and stalls continue, the decoder
+            // is pathologically stuck — skip straight to the error overlay
+            // rather than looping restart→stall#1→stall#2→stall#3 forever.
             stallAutoRetryFiredRef.current = true;
+
+            if (coldRestartCountRef.current >= 1) {
+              __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — cold restart already tried, showing error`);
+              setVideoError(true);
+            } else {
             isColdRestartingRef.current = true; // pause watchdog + playToEnd
             const uriToReload = displayUriRef.current;
             __DEV__ && console.log(`[Viewer] true stall #${stallN} for ${item.name} — cold-restarting decoder`);
@@ -690,6 +709,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 __DEV__ && console.log(`[Viewer] cold restart: reloading ${item.name}`);
                 lastReplacedSourceRef.current = uriToReload;
                 await player.replaceAsync(uriToReload);
+                // Increment cold restart count BEFORE resetting stallCount so
+                // if stalls resume after this restart we know not to retry again.
+                coldRestartCountRef.current += 1;
                 // Reset stall counter AFTER the new source is loaded so the
                 // watchdog gives the fresh decoder a clean slate.
                 stallCountRef.current = 0;
@@ -704,6 +726,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 isColdRestartingRef.current = false; // always re-enable watchdog
               }
             })();
+            }
           } else if (stallN === 4) {
             // Stall #4 — cold restart also failed (or stall happened before
             // cold restart had a chance due to a race). Show the error overlay
