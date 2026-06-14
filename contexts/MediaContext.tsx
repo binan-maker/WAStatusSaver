@@ -34,6 +34,7 @@ import { VIDEO_AD_FREQUENCY, IMAGE_SWIPE_AD_FREQUENCY, INTERSTITIAL_COOLDOWN_MS 
 import { getCachedShareLink, buildShareCaption } from '@/lib/share-link';
 import { ThumbnailCache } from '@/lib/thumbnail-cache';
 import { cleanupDocumentCache } from '@/lib/video-fallback';
+import * as SafReaderModule from '@/modules/saf-reader';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SAF latency mitigation primitives — used throughout this file to replace
@@ -1037,92 +1038,115 @@ const crawlStart = Date.now();
   }
 
   // Reads status files from a granted SAF directory URI.
-  // Strategy 1 (Immediate Hit): Checks if the granted URI itself is the .Statuses folder.
-  // Strategy 2 (Direct Probing): Tries to construct common child URIs for .Statuses.
-  // Strategy 3 (BFS): Recursively crawls visible subfolders to find .Statuses.
+  //
+  // PRIMARY PATH (custom dev-client / EAS build): delegates to SafReaderModule,
+  // a native Java module that runs the BFS + file listing entirely on a
+  // background ExecutorService thread using DocumentsContract batch queries.
+  // The JS thread is never blocked — no Binder-IPC stalls, no ANR risk.
+  //
+  // FALLBACK PATH (Expo Go / SafReaderModule not yet linked): uses the existing
+  // JS BFS implementation so the app still works during development.
   async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
-    const items: StatusItem[] = [];
-    __DEV__ && console.log(`[SAF] readFromSAF started for URI: ${safDirUri}`);
-    try {
-      let targetUri: string | null = resolvedUriCache.current.get(safDirUri) ?? null;
+    const decodedUri = decodeURIComponent(safDirUri).toLowerCase();
+    const source: StatusSource = forcedSource ||
+      (decodedUri.includes('w4b') || decodedUri.includes('business')
+        ? 'whatsapp_business'
+        : 'whatsapp');
 
-      if (!targetUri) {
-        __DEV__ && console.log('[SAF] Target URI not cached, resolving...');
-        // --- 1. Immediate Check: Are we already IN .Statuses? ---
-        if (safUriToFileName(safDirUri) === '.Statuses') {
-          targetUri = safDirUri;
-          __DEV__ && console.log('[SAF] Target matches granted URI (direct entry hit)');
+    // ── Native path ────────────────────────────────────────────────────────
+    if (SafReaderModule.isAvailable()) {
+      __DEV__ && console.log(`[SAF-Native] scanForStatuses starting for ${source}`);
+      try {
+        const files = await SafReaderModule.scanForStatuses(safDirUri);
+        __DEV__ && console.log(`[SAF-Native] returned ${files.length} files for ${source}`);
+
+        if (files.length === 0) return [];
+
+        const items: StatusItem[] = files.map(f => ({
+          id: getFileId(f.uri) + '_' + source,
+          uri: f.uri,
+          type: getMediaType(f.name),
+          name: f.name,
+          modTime: f.modTime,
+          size: f.size,
+          source,
+        }));
+
+        // Cache the resolved .Statuses URI so the next load skips BFS.
+        // The native module always returns document URIs whose tree root
+        // matches safDirUri, so we mark the tree as "resolved" for this
+        // session to keep the cache mechanics consistent with the JS path.
+        if (!resolvedUriCache.current.has(safDirUri)) {
+          resolvedUriCache.current.set(safDirUri, safDirUri + '/__native_resolved__');
+          persistResolvedUriCache();
         }
 
-        // --- 2. Advanced Direct Probing (Context-Aware) ---
+        return items;
+      } catch (e) {
+        __DEV__ && console.warn('[SAF-Native] scanForStatuses failed, falling back to JS:', e);
+        // Fall through to JS implementation below.
+      }
+    }
+
+    // ── JS fallback (Expo Go / module not linked) ──────────────────────────
+    __DEV__ && console.log(`[SAF-JS] readFromSAF fallback for ${source} (native not available)`);
+    return readFromSAFJsFallback(safDirUri, source);
+  }
+
+  // Original JS-based SAF reader — kept as fallback for Expo Go builds where
+  // the native module has not been compiled in yet.
+  async function readFromSAFJsFallback(safDirUri: string, source: StatusSource): Promise<StatusItem[]> {
+    const items: StatusItem[] = [];
+    try {
+      let targetUri: string | null = resolvedUriCache.current.get(safDirUri) ?? null;
+      if (targetUri?.endsWith('/__native_resolved__')) targetUri = null;
+
+      if (!targetUri) {
+        // 1. Immediate check: are we already IN .Statuses?
+        if (safUriToFileName(safDirUri) === '.Statuses') {
+          targetUri = safDirUri;
+        }
+
+        // 2. Direct probing with candidate paths.
         if (!targetUri) {
           const decoded = decodeURIComponent(safDirUri).toLowerCase();
-          __DEV__ && console.log(`[SAF] Probing via candidates. Base decoded: ${decoded}`);
           const candidatePaths = [
             '/.Statuses',
             '/Media/.Statuses',
             '/WhatsApp/Media/.Statuses',
             '/WhatsApp Business/Media/.Statuses',
           ];
-
-          // If granted Android/media, add deeper relative probes
           if (decoded.endsWith('android/media')) {
-            __DEV__ && console.log('[SAF] Android/media detected, adding deep probes');
             candidatePaths.push('/com.whatsapp/WhatsApp/Media/.Statuses');
             candidatePaths.push('/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses');
           }
-
           for (const rel of candidatePaths) {
             const uri = buildChildDocUri(safDirUri, rel);
             if (!uri) continue;
             try {
               await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
               targetUri = uri;
-              __DEV__ && console.log(`[SAF] Located target via probe: ${rel}`);
               break;
-            } catch {
-              // Path not found at this level
-            }
+            } catch {}
           }
         }
 
-        // --- 3. The Crawler (BFS with Hidden Probes) ---
+        // 3. BFS crawler.
         if (!targetUri) {
-          __DEV__ && console.log('[SAF] Direct probes failed, starting recursive crawler...');
           targetUri = await bfsFindStatuses(safDirUri, 0);
-          if (targetUri) __DEV__ && console.log(`[SAF] Crawler found .Statuses at: ${targetUri}`);
         }
 
-        if (!targetUri) {
-          __DEV__ && console.warn('[SAF] .Statuses folder could not be located in tree:', safDirUri);
-          return [];
-        }
-
-        // Cache success so future loads skip the search — both in-memory
-        // (instant for this session) AND on disk (so the next cold launch
-        // also skips the BFS crawl, saving 200-1500 ms on first paint).
+        if (!targetUri) return [];
         resolvedUriCache.current.set(safDirUri, targetUri);
         persistResolvedUriCache();
-      } else {
-        __DEV__ && console.log(`[SAF] Using cached target URI: ${targetUri}`);
       }
 
-      // ANR-PROOF: hard 3 s timeout on the final folder listing too. This
-      // is the call that returns the actual file URIs the grid will render,
-      // so timing out means an empty grid for one cycle (the user sees the
-      // cached snapshot from loadStatusesCache + can pull-to-refresh) rather
-      // than a frozen splash for 8+ seconds while the OEM indexer wakes up.
       const files = await withTimeout(
         FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri),
         3000,
         [] as string[],
         'SAF final readDirectoryAsync',
       );
-      __DEV__ && console.log(`[SAF] Target folder contains ${files.length} total files`);
-      
-      const decodedTarget = decodeURIComponent(targetUri).toLowerCase();
-      const source = forcedSource ||
-        (decodedTarget.includes('w4b') || decodedTarget.includes('business') ? 'whatsapp_business' : 'whatsapp');
 
       for (const fileUri of files) {
         const fileName = safUriToFileName(fileUri);
@@ -1135,11 +1159,9 @@ const crawlStart = Date.now();
           source,
         });
       }
-
-      __DEV__ && console.log(`[SAF] readFromSAF successfully loaded ${items.length} items from ${source}`);
       return items;
     } catch (e) {
-      console.error('[SAF] readFromSAF function failed:', e);
+      console.error('[SAF-JS] readFromSAFJsFallback failed:', e);
       return [];
     }
   }
@@ -1352,8 +1374,16 @@ const crawlStart = Date.now();
       // queue so concurrent saves never fight each other for I/O bandwidth.
       // On Android 11+ ContentResolver copies are throttled; running two
       // simultaneously makes BOTH slower than back-to-back.
+      // Native path: SafReaderModule.copyFileToCache runs on a Java background
+      // thread (64 KB buffer) so the JS thread is never blocked by the
+      // ContentProvider Binder IPC during the copy. Falls back to expo-file-system
+      // when the native module is not yet linked (Expo Go / first prebuild).
       __DEV__ && console.log(`[Media] Copying file from ${item.uri} to ${destUri}`);
-      await enqueueCopy(() => FileSystem.copyAsync({ from: item.uri, to: destUri }));
+      if (item.uri.startsWith('content://') && SafReaderModule.isAvailable()) {
+        await enqueueCopy(() => SafReaderModule.copyFileToCache(item.uri, destUri.replace('file://', '')));
+      } else {
+        await enqueueCopy(() => FileSystem.copyAsync({ from: item.uri, to: destUri }));
+      }
 
       // SAVE DELAY FIX — Step 3: Update app state IMMEDIATELY after the
       // file copy completes so the "Saved ✓" checkmark appears at once.
@@ -1677,11 +1707,21 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
     //   attempts fail, throw so the caller can show its retry UI
     //   instead of letting the player silently freeze on a content://
     //   URI we already know is unplayable.
+    // Use native Java copy when available — runs on a background thread so
+    // the JS thread is never blocked during the Binder IPC. Falls back to
+    // expo-file-system for Expo Go / non-native builds.
+    const rawDest = tempUri.replace('file://', '');
+    const useNativeCopy = item.uri.startsWith('content://') && SafReaderModule.isAvailable();
+
     return enqueueCopy(async () => {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          __DEV__ && console.log(`[Media] (queue) Copying ${item.name} to cache (attempt ${attempt})...`);
-          await FileSystem.copyAsync({ from: item.uri, to: tempUri });
+          __DEV__ && console.log(`[Media] (queue) Copying ${item.name} to cache (attempt ${attempt}, native=${useNativeCopy})...`);
+          if (useNativeCopy) {
+            await SafReaderModule.copyFileToCache(item.uri, rawDest);
+          } else {
+            await FileSystem.copyAsync({ from: item.uri, to: tempUri });
+          }
           const verify = await FileSystem.getInfoAsync(tempUri);
           const size = (verify as any).size ?? 0;
           if (verify.exists && size > 0) {
@@ -1696,8 +1736,7 @@ async function canPlaySafUri(uri: string): Promise<boolean> {
         }
       }
       // Both attempts failed. Throw so the viewer's pre-copy effect can
-      // catch it and surface the "Tap to retry" overlay. Returning the
-      // original content:// URI here would let the player silently freeze.
+      // catch it and surface the "Tap to retry" overlay.
       throw new Error(`Cache copy failed after retries for ${item.name}`);
     });
   }, []);
