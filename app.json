@@ -25,12 +25,6 @@
       "package": "com.binan.statussaver",
       "versionCode": 40,
       "softwareKeyboardLayoutMode": "pan",
-      "edgeToEdgeEnabled": false,
-      "StatusBar": {
-        "backgroundColor": "#000000",
-        "barStyle": "light-content",
-        "translucent": false
-      },
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
