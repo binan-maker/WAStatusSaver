@@ -31,9 +31,6 @@ import {
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 
-import { AdInterstitial } from '@/components/ads/AdInterstitial';
-import { AdBanner } from '@/components/ads/AdBanner';
-import { BannerAdSize } from 'react-native-google-mobile-ads';
 import { runLayer3, runLayer4, type VideoLayer } from '@/lib/video-fallback';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -1477,9 +1474,6 @@ export default function ViewerScreen() {
     deleteFromSaved,
     loadStatuses,
     hasPermission,
-    onImageSwipe,
-    dismissInterstitial,
-    showInterstitial,
     prepareStatusForViewing,
   } = useMedia();
 
@@ -1666,11 +1660,8 @@ const toggleControls = useCallback(() => {
     setCurrentIndex(index);
     setShowControls(true);
     controlsOpacity.setValue(1);
-    if (items[index]?.type === 'image') {
-      onImageSwipe();
-    }
     prevIndex.current = index;
-  }, [items, onImageSwipe, controlsOpacity]);
+  }, [items, controlsOpacity]);
 
   if (!currentItem) return null;
 
@@ -1798,15 +1789,11 @@ const toggleControls = useCallback(() => {
         </View>
       )}
 
-      {/* ── IMAGE: horizontal bottom bar with buttons + banner ad. Toggleable. ── */}
+      {/* ── IMAGE: horizontal bottom bar with buttons. Toggleable. ── */}
       {!isVideoItem && (
         <Animated.View
           style={[styles.bottomBar, { paddingBottom: insets.bottom + 16, opacity: controlsOpacity, pointerEvents: showControls ? 'auto' : 'none', zIndex: 150 }]}
         >
-          <View style={styles.viewerAdContainer}>
-            <AdBanner size={BannerAdSize.BANNER} style={{ height: 50 }} />
-          </View>
-
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
             onPress={handleSave}
@@ -1845,11 +1832,6 @@ const toggleControls = useCallback(() => {
         </Animated.View>
       )}
 
-      <AdInterstitial
-        visible={showInterstitial}
-        onClose={dismissInterstitial}
-        countdown={5}
-      />
     </View>
   );
 }

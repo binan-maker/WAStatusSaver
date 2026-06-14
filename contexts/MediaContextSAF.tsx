@@ -1,0 +1,971 @@
+/**
+ * MediaContextSAF — Android 11+ (API 30+) provider.
+ *
+ * Uses the Storage Access Framework (SAF) to read WhatsApp statuses.
+ * The user grants a folder URI once; the grant persists across reboots.
+ * A native Java module (SafReaderModule) handles the BFS + file listing
+ * on a background thread so the JS thread is never blocked by SAF I/O.
+ */
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  ReactNode,
+} from 'react';
+import { Platform, Alert, Linking, InteractionManager, AppState } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThumbnailCache } from '@/lib/thumbnail-cache';
+import { cleanupDocumentCache } from '@/lib/video-fallback';
+import * as SafReaderModule from '@/modules/saf-reader';
+import {
+  MediaContext,
+  MediaContextValue,
+  StatusItem,
+  SavedItem,
+  StatusSource,
+  AndroidStorageMethod,
+  STORAGE_KEYS,
+  PLAY_STORE_URL,
+  getFileId,
+  getMediaType,
+  isValidStatusFile,
+  withTimeout,
+  pollUntil,
+  enqueueCopy,
+} from './media/types';
+
+// ── Telemetry ─────────────────────────────────────────────────────────────
+const TELEMETRY_KEY = '@statusvault_telemetry';
+const TELEMETRY_MAX = 50;
+type TelemetrySnapshot = {
+  safMountTimesMs: number[];
+  directPlaySuccess: number;
+  fallbackCopyTriggered: number;
+  updatedAt: number;
+};
+const tel: TelemetrySnapshot = {
+  safMountTimesMs: [],
+  directPlaySuccess: 0,
+  fallbackCopyTriggered: 0,
+  updatedAt: 0,
+};
+let telHydrated = false;
+let telFlushTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleTelFlush() {
+  if (telFlushTimer) return;
+  telFlushTimer = setTimeout(() => {
+    telFlushTimer = null;
+    tel.updatedAt = Date.now();
+    AsyncStorage.setItem(TELEMETRY_KEY, JSON.stringify(tel)).catch(() => {});
+  }, 2000);
+}
+async function hydrateTel() {
+  if (telHydrated) return;
+  telHydrated = true;
+  try {
+    const raw = await AsyncStorage.getItem(TELEMETRY_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw) as Partial<TelemetrySnapshot>;
+    if (Array.isArray(p.safMountTimesMs))
+      tel.safMountTimesMs = p.safMountTimesMs.slice(-TELEMETRY_MAX);
+    if (typeof p.directPlaySuccess === 'number')
+      tel.directPlaySuccess = p.directPlaySuccess;
+    if (typeof p.fallbackCopyTriggered === 'number')
+      tel.fallbackCopyTriggered = p.fallbackCopyTriggered;
+  } catch {}
+}
+export function logSafMountTime(ms: number) {
+  if (!Number.isFinite(ms) || ms < 0) return;
+  tel.safMountTimesMs.push(Math.round(ms));
+  if (tel.safMountTimesMs.length > TELEMETRY_MAX)
+    tel.safMountTimesMs.splice(0, tel.safMountTimesMs.length - TELEMETRY_MAX);
+  scheduleTelFlush();
+}
+export function logDirectPlaySuccess() {
+  tel.directPlaySuccess += 1;
+  scheduleTelFlush();
+}
+export function logFallbackCopyTriggered() {
+  tel.fallbackCopyTriggered += 1;
+  scheduleTelFlush();
+}
+export function getTelemetrySnapshot(): TelemetrySnapshot {
+  const total = tel.directPlaySuccess + tel.fallbackCopyTriggered;
+  return {
+    safMountTimesMs: [...tel.safMountTimesMs],
+    directPlaySuccess: tel.directPlaySuccess,
+    fallbackCopyTriggered: tel.fallbackCopyTriggered,
+    updatedAt: tel.updatedAt,
+    // @ts-ignore
+    directPlaySuccessRate: total === 0 ? null : tel.directPlaySuccess / total,
+  };
+}
+
+// ── SAF constants ─────────────────────────────────────────────────────────
+const SAF_INITIAL_URIS: Record<StatusSource, string> = {
+  whatsapp:
+    'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
+  whatsapp_business:
+    'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
+};
+const SAF_KNOWN_INTERMEDIATE = new Set([
+  'android', 'media', 'com.whatsapp', 'com.whatsapp.w4b',
+  'whatsapp', 'whatsapp business',
+]);
+const SAF_BFS_MAX_DEPTH = 7;
+const RATING_TRIGGER_COUNT = 10;
+
+// ─────────────────────────────────────────────────────────────────────────
+export function MediaProviderSAF({ children }: { children: ReactNode }) {
+  const [statuses, setStatuses] = useState<StatusItem[]>([]);
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [hasPermission, setHasPermission] = useState(false);
+  const [safGranted, setSafGranted] = useState(false);
+  const [safUri, setSafUri] = useState<string | null>(null);
+  const [safUris, setSafUris] = useState<Partial<Record<StatusSource, string>>>({});
+  const [permissionStatus, setPermissionStatus] =
+    useState<MediaLibrary.PermissionStatus | null>(null);
+  const [isRequestingSAF, setIsRequestingSAF] = useState(false);
+  const [isGrantingAccess, setIsGrantingAccess] = useState(false);
+
+  // Refs that mirror state for stable callbacks
+  const savedItemsRef = useRef<SavedItem[]>([]);
+  const hasPermissionRef = useRef(false);
+  const safUrisRef = useRef<Partial<Record<StatusSource, string>>>({});
+  const safUriRef = useRef<string | null>(null);
+  const safGrantedRef = useRef(false);
+  const resolvedUriCache = useRef<Map<string, string>>(new Map());
+  const safRequestInFlight = useRef(false);
+  const isLoadingRef = useRef(false);
+  const loadStatusesRef = useRef<(silent?: boolean) => Promise<void>>(async () => {});
+  const cleanupCacheFilesRef = useRef<(maxAgeMs?: number) => Promise<void>>(async () => {});
+  const statusesRef = useRef<StatusItem[]>([]);
+
+  const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
+
+  savedItemsRef.current = savedItems;
+  hasPermissionRef.current = hasPermission;
+  safUrisRef.current = safUris;
+  safUriRef.current = safUri;
+  safGrantedRef.current = safGranted;
+  statusesRef.current = statuses;
+
+  const storageMethod: AndroidStorageMethod = useMemo(() => {
+    if (Platform.OS !== 'android') return 'unknown';
+    if (androidVersion >= 30) return safGranted ? 'saf' : 'scoped';
+    return 'scoped';
+  }, [androidVersion, safGranted]);
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      try {
+        await Promise.all([
+          withTimeout(checkExistingPermissions(), 2500, undefined, 'checkPerms'),
+          withTimeout(loadSAFUri(), 2500, undefined, 'loadSAFUri'),
+          withTimeout(loadSavedItems({ skipRescan: true }), 2500, undefined, 'loadSaved'),
+          withTimeout(loadResolvedUriCache(), 2500, undefined, 'loadResolvedURI'),
+          withTimeout(loadStatusesCache(mounted), 2500, undefined, 'loadCache'),
+        ]);
+      } finally {
+        if (mounted) setIsInitializing(false);
+      }
+      InteractionManager.runAfterInteractions(() => {
+        if (!mounted) return;
+        hydrateTel().catch(() => {});
+        ThumbnailCache.init().catch(() => {});
+      });
+    };
+    init();
+    const rescanTimer = setTimeout(() => {
+      InteractionManager.runAfterInteractions(() => {
+        if (!mounted || AppState.currentState !== 'active') return;
+        rescanGalleryAlbum(savedItemsRef.current).then(rescanned => {
+          if (!mounted || !rescanned) return;
+          setSavedItems(rescanned);
+          AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(rescanned)).catch(() => {});
+        }).catch(() => {});
+      });
+    }, 3000);
+    return () => {
+      mounted = false;
+      clearTimeout(rescanTimer);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── SAF URI loading ──────────────────────────────────────────────────────
+  async function loadSAFUri() {
+    try {
+      const [storedMap, storedLegacy] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.SAF_URIS),
+        AsyncStorage.getItem(STORAGE_KEYS.SAF_URI),
+      ]);
+      let parsed: Partial<Record<StatusSource, string>> = {};
+      if (storedMap) {
+        parsed = JSON.parse(storedMap);
+      } else if (storedLegacy) {
+        parsed = { whatsapp: storedLegacy };
+        await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(parsed));
+      }
+      if (parsed.whatsapp || parsed.whatsapp_business) {
+        setSafUris(parsed);
+        setSafUri(parsed.whatsapp || parsed.whatsapp_business || null);
+        setSafGranted(true);
+      }
+    } catch {}
+  }
+
+  async function loadResolvedUriCache() {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.RESOLVED_URIS);
+      if (!raw) return;
+      const map = JSON.parse(raw) as Record<string, string>;
+      Object.entries(map).forEach(([k, v]) => {
+        if (typeof k === 'string' && typeof v === 'string')
+          resolvedUriCache.current.set(k, v);
+      });
+    } catch {}
+  }
+
+  function persistResolvedUriCache() {
+    try {
+      const obj: Record<string, string> = {};
+      resolvedUriCache.current.forEach((v, k) => { obj[k] = v; });
+      AsyncStorage.setItem(STORAGE_KEYS.RESOLVED_URIS, JSON.stringify(obj)).catch(() => {});
+    } catch {}
+  }
+
+  // ── Statuses cache ───────────────────────────────────────────────────────
+  async function loadStatusesCache(mounted: boolean) {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.STATUSES_CACHE);
+      if (!raw || !mounted) return;
+      const cached = JSON.parse(raw) as StatusItem[];
+      if (!Array.isArray(cached) || cached.length === 0) return;
+      setStatuses(cached);
+      InteractionManager.runAfterInteractions(() => {
+        setTimeout(async () => {
+          if (!mounted) return;
+          const current = statusesRef.current;
+          if (
+            current.length !== cached.length ||
+            (current[0] && cached[0] && current[0].id !== cached[0].id)
+          ) return;
+          const valid: StatusItem[] = [];
+          for (const it of cached) {
+            try {
+              if (!it.uri.startsWith('content://') && !it.uri.startsWith('file://')) {
+                valid.push(it); continue;
+              }
+              const info = await FileSystem.getInfoAsync(it.uri);
+              if (info.exists && (info as any).size !== 0) valid.push(it);
+            } catch {}
+            if (!mounted) return;
+          }
+          if (!mounted || valid.length === cached.length) return;
+          const stillMatches =
+            statusesRef.current.length === cached.length &&
+            statusesRef.current[0]?.id === cached[0]?.id;
+          if (!stillMatches) return;
+          setStatuses(valid);
+        }, 1500);
+      });
+    } catch {}
+  }
+
+  function persistStatusesCache(items: StatusItem[]) {
+    try {
+      AsyncStorage.setItem(STORAGE_KEYS.STATUSES_CACHE, JSON.stringify(items.slice(0, 200))).catch(() => {});
+    } catch {}
+  }
+
+  // ── Saved items ───────────────────────────────────────────────────────────
+  async function rescanGalleryAlbum(currentValid: SavedItem[]): Promise<SavedItem[] | null> {
+    try {
+      const perm: any = await MediaLibrary.getPermissionsAsync();
+      if (perm?.status !== 'granted') return null;
+      if (perm?.accessPrivileges === 'none') return null;
+      const album = await MediaLibrary.getAlbumAsync('StatusVault');
+      if (!album) return null;
+      const valid = [...currentValid];
+      const knownUris = new Set(valid.map(v => v.localUri));
+      const knownNames = new Set(valid.map(v => v.name));
+      let after: string | undefined;
+      let pageGuard = 0;
+      let added = false;
+      while (pageGuard < 20) {
+        pageGuard += 1;
+        const page = await MediaLibrary.getAssetsAsync({
+          album: album.id,
+          mediaType: ['photo', 'video'],
+          first: 100,
+          ...(after ? { after } : {}),
+          sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+        });
+        for (const asset of page.assets) {
+          if (knownUris.has(asset.uri) || knownNames.has(asset.filename)) continue;
+          valid.push({
+            id: `restored-${asset.id}`,
+            uri: asset.uri,
+            localUri: asset.uri,
+            name: asset.filename,
+            type: asset.mediaType === MediaLibrary.MediaType.video ? 'video' : 'image',
+            source: 'whatsapp',
+            savedAt: Math.floor(asset.creationTime || Date.now()),
+          });
+          knownUris.add(asset.uri);
+          knownNames.add(asset.filename);
+          added = true;
+        }
+        if (!page.hasNextPage || !page.endCursor) break;
+        after = page.endCursor;
+      }
+      return added ? valid : null;
+    } catch (e: any) {
+      const msg: string = typeof e?.message === 'string' ? e.message : '';
+      if (msg.includes('MEDIA_LIBRARY permissions') || msg.includes('Missing MEDIA_LIBRARY')) return null;
+      return null;
+    }
+  }
+
+  async function loadSavedItems(opts: { skipRescan?: boolean } = {}) {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_ITEMS);
+      const items: SavedItem[] = stored ? JSON.parse(stored) : [];
+      const checks = await Promise.allSettled(items.map(item => FileSystem.getInfoAsync(item.localUri)));
+      const valid: SavedItem[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const c = checks[i];
+        if (c.status === 'fulfilled' && (c.value as any).exists) valid.push(items[i]);
+      }
+      setSavedItems(valid);
+      if (valid.length !== items.length)
+        await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(valid));
+      if (opts.skipRescan) return;
+      const rescanned = await rescanGalleryAlbum(valid);
+      if (rescanned) {
+        setSavedItems(rescanned);
+        await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(rescanned));
+      }
+    } catch {}
+  }
+
+  // ── Permissions ───────────────────────────────────────────────────────────
+  async function checkExistingPermissions(): Promise<boolean> {
+    try {
+      const { status } = await MediaLibrary.getPermissionsAsync(true);
+      const granted = status === 'granted';
+      setPermissionStatus(prev => prev !== status ? status : prev);
+      setHasPermission(prev => prev !== granted ? granted : prev);
+      return granted;
+    } catch { return false; }
+  }
+
+  const requestPermissions = useCallback(async (): Promise<boolean> => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync(true);
+      setPermissionStatus(status);
+      const granted = status === 'granted';
+      setHasPermission(granted);
+      return granted;
+    } catch { return false; }
+  }, []);
+
+  // ── SAF request ───────────────────────────────────────────────────────────
+  const requestSAF = useCallback(async (source: StatusSource = 'whatsapp', manual = false) => {
+    if (Platform.OS !== 'android') return;
+    if (safRequestInFlight.current) return;
+    safRequestInFlight.current = true;
+    const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
+    setIsRequestingSAF(true);
+    try {
+      await new Promise<void>(resolve => InteractionManager.runAfterInteractions(() => resolve()));
+      let result: { granted: boolean; directoryUri: string };
+      try {
+        result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+          initialUri ?? null,
+        );
+      } catch (e) {
+        console.error('[SAF] requestDirectoryPermissionsAsync failed:', e);
+        setIsRequestingSAF(false);
+        safRequestInFlight.current = false;
+        return;
+      }
+      setIsRequestingSAF(false);
+      if (!result.granted) { safRequestInFlight.current = false; return; }
+
+      const nextSafUris = { ...safUrisRef.current, [source]: result.directoryUri };
+      await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
+      await AsyncStorage.setItem(STORAGE_KEYS.SAF_URI, result.directoryUri);
+      setSafUris(nextSafUris);
+      setSafUri(result.directoryUri);
+      setSafGranted(true);
+      setIsGrantingAccess(true);
+      setIsLoading(true);
+      resolvedUriCache.current.delete(result.directoryUri);
+      try {
+        const readAll = async () => {
+          const entries = Object.entries(nextSafUris) as [StatusSource, string][];
+          const results = await Promise.all(entries.map(([s, u]) => readFromSAF(u, s)));
+          return results.flat().sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+        };
+        const mountStart = Date.now();
+        const items = await pollUntil(
+          readAll,
+          list => list.length > 0,
+          { maxMs: 4000, initialDelay: 250, backoff: 1.5, maxDelay: 1200 },
+        );
+        logSafMountTime(Date.now() - mountStart);
+        setStatuses(items);
+        if (items.length > 0) persistStatusesCache(items);
+      } finally {
+        setIsLoading(false);
+        setIsGrantingAccess(false);
+        safRequestInFlight.current = false;
+      }
+    } catch (e) {
+      console.error('[SAF] requestSAF error:', e);
+      setIsRequestingSAF(false);
+      setIsGrantingAccess(false);
+      safRequestInFlight.current = false;
+    }
+  }, []);
+
+  // ── SAF readers ───────────────────────────────────────────────────────────
+  function buildChildDocUri(treeUri: string, childRelativePath: string): string | null {
+    try {
+      const match = treeUri.match(/^(content:\/\/[^/]+\/tree\/)(.+)$/);
+      if (!match) return null;
+      const prefix = match[1];
+      const treeDocId = match[2];
+      const decodedTree = decodeURIComponent(treeDocId);
+      const childDocId = decodedTree + childRelativePath;
+      return `${prefix}${treeDocId}/document/${encodeURIComponent(childDocId)}`;
+    } catch { return null; }
+  }
+
+  function safUriToFileName(uri: string): string {
+    try {
+      return decodeURIComponent(uri.split('/').pop() || '').split('/').pop() || '';
+    } catch { return ''; }
+  }
+
+  const BFS_TIMEOUT_MS = 3000;
+  const crawlStart = Date.now();
+  async function bfsFindStatuses(uri: string, depth: number): Promise<string | null> {
+    if (Date.now() - crawlStart > BFS_TIMEOUT_MS) return null;
+    if (depth > SAF_BFS_MAX_DEPTH) return null;
+    let entries: string[];
+    try {
+      entries = await withTimeout(
+        FileSystem.StorageAccessFramework.readDirectoryAsync(uri),
+        1500,
+        [] as string[],
+        `BFS depth=${depth}`,
+      );
+    } catch { return null; }
+    for (const entry of entries) {
+      const name = safUriToFileName(entry);
+      if (name === '.Statuses') return entry;
+      if (SAF_KNOWN_INTERMEDIATE.has(name.toLowerCase())) {
+        const found = await bfsFindStatuses(entry, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  async function readFromSAF(safDirUri: string, forcedSource?: StatusSource): Promise<StatusItem[]> {
+    const decodedUri = decodeURIComponent(safDirUri).toLowerCase();
+    const source: StatusSource =
+      forcedSource ||
+      (decodedUri.includes('w4b') || decodedUri.includes('business')
+        ? 'whatsapp_business'
+        : 'whatsapp');
+
+    // Native path (EAS / custom build)
+    if (SafReaderModule.isAvailable()) {
+      try {
+        const files = await SafReaderModule.scanForStatuses(safDirUri);
+        if (files.length === 0) return [];
+        const items: StatusItem[] = files.map(f => ({
+          id: getFileId(f.uri) + '_' + source,
+          uri: f.uri,
+          type: getMediaType(f.name),
+          name: f.name,
+          modTime: f.modTime,
+          size: f.size,
+          source,
+        }));
+        if (!resolvedUriCache.current.has(safDirUri)) {
+          resolvedUriCache.current.set(safDirUri, safDirUri + '/__native_resolved__');
+          persistResolvedUriCache();
+        }
+        return items;
+      } catch (e) {
+        __DEV__ && console.warn('[SAF-Native] failed, falling back to JS:', e);
+      }
+    }
+
+    // JS fallback (Expo Go)
+    return readFromSAFJsFallback(safDirUri, source);
+  }
+
+  async function readFromSAFJsFallback(safDirUri: string, source: StatusSource): Promise<StatusItem[]> {
+    const items: StatusItem[] = [];
+    try {
+      let targetUri: string | null = resolvedUriCache.current.get(safDirUri) ?? null;
+      if (targetUri?.endsWith('/__native_resolved__')) targetUri = null;
+
+      if (!targetUri) {
+        if (safUriToFileName(safDirUri) === '.Statuses') {
+          targetUri = safDirUri;
+        }
+        if (!targetUri) {
+          const decoded = decodeURIComponent(safDirUri).toLowerCase();
+          const candidates = [
+            '/.Statuses', '/Media/.Statuses',
+            '/WhatsApp/Media/.Statuses', '/WhatsApp Business/Media/.Statuses',
+          ];
+          if (decoded.endsWith('android/media')) {
+            candidates.push('/com.whatsapp/WhatsApp/Media/.Statuses');
+            candidates.push('/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses');
+          }
+          for (const rel of candidates) {
+            const uri = buildChildDocUri(safDirUri, rel);
+            if (!uri) continue;
+            try {
+              await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
+              targetUri = uri; break;
+            } catch {}
+          }
+        }
+        if (!targetUri) targetUri = await bfsFindStatuses(safDirUri, 0);
+        if (!targetUri) return [];
+        resolvedUriCache.current.set(safDirUri, targetUri);
+        persistResolvedUriCache();
+      }
+
+      const files = await withTimeout(
+        FileSystem.StorageAccessFramework.readDirectoryAsync(targetUri),
+        3000,
+        [] as string[],
+        'SAF readDirectoryAsync',
+      );
+      for (const fileUri of files) {
+        const fileName = safUriToFileName(fileUri);
+        if (!isValidStatusFile(fileName)) continue;
+        items.push({
+          id: getFileId(fileUri) + '_' + source,
+          uri: fileUri,
+          type: getMediaType(fileName),
+          name: fileName,
+          source,
+        });
+      }
+      return items;
+    } catch (e) {
+      console.error('[SAF-JS] readFromSAFJsFallback failed:', e);
+      return [];
+    }
+  }
+
+  // ── Load statuses (SAF path) ──────────────────────────────────────────────
+  const loadStatuses = useCallback(async (silent = false) => {
+    if (isLoadingRef.current) return;
+    if (!safGrantedRef.current) return;
+    isLoadingRef.current = true;
+    if (!silent) setIsLoading(true);
+    try {
+      let items: StatusItem[] = [];
+      const safEntries = Object.entries(safUrisRef.current) as [StatusSource, string][];
+      if (safEntries.length > 0) {
+        const mountStart = Date.now();
+        const readAllSequential = async (): Promise<StatusItem[]> => {
+          const results: StatusItem[] = [];
+          for (const [source, uri] of safEntries) {
+            try {
+              const list = await readFromSAF(uri, source);
+              results.push(...list);
+              if (safEntries.length > 1) await new Promise(r => setTimeout(r, 50));
+            } catch (e) {
+              __DEV__ && console.warn(`[SAF] Failed to read ${source}:`, e);
+            }
+          }
+          return results;
+        };
+        items = await readAllSequential();
+        if (items.length === 0) {
+          resolvedUriCache.current.clear();
+          items = await pollUntil(
+            readAllSequential,
+            list => list.length > 0,
+            { maxMs: 2500, initialDelay: 300, backoff: 1.5, maxDelay: 800 },
+          );
+        }
+        logSafMountTime(Date.now() - mountStart);
+      } else if (safUriRef.current) {
+        items = await readFromSAF(safUriRef.current);
+      }
+
+      items.sort((a, b) => (b.modTime || 0) - (a.modTime || 0));
+      setStatuses(prev => {
+        if (prev.length === 0) return items;
+        const prevById = new Map(prev.map(p => [p.id, p]));
+        let changed = items.length !== prev.length;
+        const merged = items.map(item => {
+          const existing = prevById.get(item.id);
+          if (existing && existing.modTime === item.modTime && existing.size === item.size)
+            return existing;
+          changed = true;
+          return item;
+        });
+        if (!changed) {
+          for (let i = 0; i < merged.length; i++) {
+            if (merged[i] !== prev[i]) { changed = true; break; }
+          }
+        }
+        return changed ? merged : prev;
+      });
+      if (items.length > 0) {
+        persistStatusesCache(items);
+        const queueItems = items.map(it => ({ id: it.id, uri: it.uri, type: it.type }));
+        const currentIds = new Set(items.map(it => it.id));
+        InteractionManager.runAfterInteractions(() => {
+          setTimeout(() => {
+            ThumbnailCache.prune(currentIds).catch(() => {});
+            ThumbnailCache.enqueue(queueItems);
+          }, 600);
+        });
+      }
+    } catch (e) {
+      console.error('[Loader] Error loading statuses:', e);
+    } finally {
+      setIsLoading(false);
+      isLoadingRef.current = false;
+    }
+  }, []);
+
+  loadStatusesRef.current = loadStatuses;
+
+  const refresh = useCallback(async (silent = true) => {
+    resolvedUriCache.current.clear();
+    setIsRefreshing(true);
+    await loadStatusesRef.current(silent);
+    await loadSavedItems();
+    setIsRefreshing(false);
+  }, []);
+
+  // ── Rating prompt ─────────────────────────────────────────────────────────
+  async function maybeShowRatingPrompt() {
+    try {
+      const dismissed = await AsyncStorage.getItem(STORAGE_KEYS.RATING_PROMPTED);
+      if (dismissed === 'never') return;
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.TOTAL_SAVES);
+      const count = raw ? parseInt(raw, 10) : 0;
+      const newCount = count + 1;
+      await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_SAVES, String(newCount));
+      if (newCount % RATING_TRIGGER_COUNT === 0) {
+        Alert.alert(
+          '⭐ Enjoying StatusVault?',
+          `You've saved ${newCount} statuses! A quick rating helps us grow and keeps the app free.`,
+          [
+            { text: 'Rate Now', onPress: () => Linking.openURL(PLAY_STORE_URL).catch(() => {}) },
+            { text: 'Maybe Later', style: 'cancel' },
+            {
+              text: 'Never', style: 'destructive',
+              onPress: async () => {
+                await AsyncStorage.setItem(STORAGE_KEYS.RATING_PROMPTED, 'never');
+              },
+            },
+          ],
+        );
+      }
+    } catch {}
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  const saveStatus = useCallback(async (item: StatusItem): Promise<boolean> => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      const savedDir = `${FileSystem.documentDirectory}saved/`;
+      const dirInfo = await FileSystem.getInfoAsync(savedDir);
+      if (!dirInfo.exists)
+        await FileSystem.makeDirectoryAsync(savedDir, { intermediates: true });
+
+      const duplicate = savedItemsRef.current.find(s => s.id === item.id || s.name === item.name);
+      if (duplicate) {
+        try {
+          const dupInfo = await FileSystem.getInfoAsync(duplicate.localUri);
+          if (dupInfo.exists) return true;
+        } catch {}
+      }
+
+      const ext = item.name.split('.').pop() || 'jpg';
+      const filename = `status_${Date.now()}.${ext}`;
+      const destUri = `${savedDir}${filename}`;
+
+      if (item.uri.startsWith('content://') && SafReaderModule.isAvailable()) {
+        await enqueueCopy(() => SafReaderModule.copyFileToCache(item.uri, destUri.replace('file://', '')));
+      } else {
+        await enqueueCopy(() => FileSystem.copyAsync({ from: item.uri, to: destUri }));
+      }
+
+      const newSaved: SavedItem = { ...item, localUri: destUri, savedAt: Date.now() };
+      const updated = [newSaved, ...savedItemsRef.current.filter(s => s.id !== item.id)];
+      setSavedItems(updated);
+      await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
+
+      InteractionManager.runAfterInteractions(() => {
+        MediaLibrary.createAssetAsync(destUri)
+          .then(asset => MediaLibrary.createAlbumAsync('StatusVault', asset, false))
+          .catch(() => {});
+      });
+
+      maybeShowRatingPrompt();
+      return true;
+    } catch (e) {
+      console.error('[Media] saveStatus failed:', e);
+      return false;
+    }
+  }, []);
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const deleteFromSaved = useCallback(async (item: SavedItem) => {
+    try { await FileSystem.deleteAsync(item.localUri, { idempotent: true }); } catch {}
+    const updated = savedItemsRef.current.filter(s => s.id !== item.id);
+    setSavedItems(updated);
+    await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
+  }, []);
+
+  // ── Share (simplified — no Firebase referral link) ────────────────────────
+  const shareStatus = useCallback(async (item: StatusItem | SavedItem) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      let shareUri: string;
+      if ('localUri' in item) {
+        shareUri = (item as SavedItem).localUri;
+      } else if (!item.uri.startsWith('content://')) {
+        shareUri = item.uri;
+      } else {
+        shareUri = await prepareStatusForViewingFn(item as StatusItem, { forShare: true });
+        if (shareUri === item.uri) {
+          const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
+          const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
+          const shareFile = `${FileSystem.cacheDirectory}share_${safeId}.${ext}`;
+          const shareInfo = await FileSystem.getInfoAsync(shareFile);
+          if (!shareInfo.exists) {
+            try { await FileSystem.copyAsync({ from: item.uri, to: shareFile }); } catch {}
+          }
+          shareUri = shareFile;
+        }
+      }
+      await Sharing.shareAsync(shareUri);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (typeof shareUri === 'string' && shareUri.includes('/share_')) {
+        setTimeout(() => {
+          FileSystem.deleteAsync(shareUri, { idempotent: true }).catch(() => {});
+        }, 5000);
+      }
+    } catch (e) {
+      console.error('Share error:', e);
+    }
+  }, []);
+
+  const isStatusSaved = useCallback((id: string): boolean => {
+    return savedItemsRef.current.some(s => s.id === id);
+  }, []);
+
+  // ── Prepare for viewing ───────────────────────────────────────────────────
+  async function canPlaySafUri(uri: string): Promise<boolean> {
+    try {
+      const info = await FileSystem.getInfoAsync(uri);
+      return info.exists && (info as any).size > 0;
+    } catch { return false; }
+  }
+
+  async function prepareStatusForViewingFn(
+    item: StatusItem,
+    opts?: { forShare?: boolean; forPlayback?: boolean },
+  ): Promise<string> {
+    if (!item.uri.startsWith('content://')) return item.uri;
+    if (!opts?.forShare) {
+      if (opts?.forPlayback) {
+        const accessible = await canPlaySafUri(item.uri);
+        if (!accessible) { logFallbackCopyTriggered(); }
+        else { logDirectPlaySuccess(); return item.uri; }
+      }
+      return item.uri;
+    }
+    const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
+    const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
+    const tempUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
+    try {
+      const info = await FileSystem.getInfoAsync(tempUri);
+      if (info.exists && (info as any).size > 0) return tempUri;
+    } catch {}
+    const rawDest = tempUri.replace('file://', '');
+    const useNativeCopy = item.uri.startsWith('content://') && SafReaderModule.isAvailable();
+    return enqueueCopy(async () => {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          if (useNativeCopy) {
+            await SafReaderModule.copyFileToCache(item.uri, rawDest);
+          } else {
+            await FileSystem.copyAsync({ from: item.uri, to: tempUri });
+          }
+          const verify = await FileSystem.getInfoAsync(tempUri);
+          if (verify.exists && (verify as any).size > 0) return tempUri;
+          try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
+        } catch (e) {
+          try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
+        }
+      }
+      throw new Error(`Cache copy failed for ${item.name}`);
+    });
+  }
+
+  const prepareStatusForViewing = useCallback(
+    (item: StatusItem, opts?: { forShare?: boolean; forPlayback?: boolean }) =>
+      prepareStatusForViewingFn(item, opts),
+    [],
+  );
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+  const cleanupCacheFiles = useCallback(async (maxAgeMs = 4 * 60 * 60 * 1000) => {
+    try {
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) return;
+      const files = await FileSystem.readDirectoryAsync(cacheDir);
+      const now = Date.now();
+      for (const file of files) {
+        if (!file.startsWith('view_') && !file.startsWith('share_')) continue;
+        const fileUri = `${cacheDir}${file}`;
+        try {
+          const info = await FileSystem.getInfoAsync(fileUri);
+          const fileAge = info.modificationTime
+            ? now - info.modificationTime * 1000
+            : now - 1000000;
+          if (fileAge > maxAgeMs) await FileSystem.deleteAsync(fileUri, { idempotent: true });
+        } catch {}
+      }
+    } catch {}
+  }, []);
+
+  cleanupCacheFilesRef.current = cleanupCacheFiles;
+
+  useEffect(() => {
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      const t = setTimeout(() => {
+        if (!cancelled) {
+          cleanupCacheFiles().catch(() => {});
+          setTimeout(() => { if (!cancelled) cleanupDocumentCache().catch(() => {}); }, 1000);
+        }
+      }, 3000);
+      return () => clearTimeout(t);
+    });
+    return () => {
+      cancelled = true;
+      // @ts-ignore
+      handle?.cancel?.();
+    };
+  }, [cleanupCacheFiles]);
+
+  // ── Foreground: SAF revocation check + cache sweep ────────────────────────
+  const lastForegroundSweepRef = useRef<number>(0);
+  useEffect(() => {
+    let prevAppState = AppState.currentState;
+    const sub = AppState.addEventListener('change', nextState => {
+      const wasBackground = prevAppState === 'background';
+      prevAppState = nextState;
+      if (nextState !== 'active' || !wasBackground) return;
+      const now = Date.now();
+      const sinceLastSweep = now - lastForegroundSweepRef.current;
+      InteractionManager.runAfterInteractions(async () => {
+        const uris = safUrisRef.current;
+        if (uris.whatsapp || uris.whatsapp_business) {
+          let anyRevoked = false;
+          const stillValid: Partial<Record<StatusSource, string>> = {};
+          for (const src of ['whatsapp', 'whatsapp_business'] as StatusSource[]) {
+            const uri = uris[src];
+            if (!uri) continue;
+            try {
+              await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
+              stillValid[src] = uri;
+            } catch {
+              anyRevoked = true;
+              resolvedUriCache.current.delete(uri);
+            }
+          }
+          if (anyRevoked) {
+            const hasAny = Object.keys(stillValid).length > 0;
+            setSafUris(stillValid);
+            setSafUri(stillValid.whatsapp || stillValid.whatsapp_business || null);
+            setSafGranted(hasAny);
+            try {
+              if (hasAny) {
+                await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(stillValid));
+              } else {
+                await AsyncStorage.multiRemove([STORAGE_KEYS.SAF_URIS, STORAGE_KEYS.SAF_URI]);
+                await AsyncStorage.removeItem(STORAGE_KEYS.RESOLVED_URIS);
+              }
+            } catch {}
+          }
+        }
+        if (sinceLastSweep > 30 * 60 * 1000) {
+          lastForegroundSweepRef.current = now;
+          cleanupCacheFilesRef.current(2 * 60 * 60 * 1000).catch(() => {});
+        }
+      });
+    });
+    return () => sub.remove();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Context value ─────────────────────────────────────────────────────────
+  const value: MediaContextValue = useMemo(() => ({
+    statuses,
+    savedItems,
+    isLoading,
+    isRefreshing,
+    isInitializing,
+    isRequestingSAF,
+    isGrantingAccess,
+    hasPermission,
+    safGranted,
+    safUri,
+    safUris,
+    androidVersion,
+    storageMethod,
+    permissionStatus,
+    requestPermissions,
+    requestSAF,
+    loadStatuses,
+    refresh,
+    saveStatus,
+    deleteFromSaved,
+    shareStatus,
+    isStatusSaved,
+    prepareStatusForViewing,
+    cleanupCacheFiles,
+  }), [
+    statuses, savedItems, isLoading, isRefreshing, isInitializing,
+    isRequestingSAF, isGrantingAccess, hasPermission, safGranted,
+    safUri, safUris, androidVersion, storageMethod, permissionStatus,
+    requestPermissions, requestSAF, loadStatuses, refresh,
+    saveStatus, deleteFromSaved, shareStatus, isStatusSaved,
+    prepareStatusForViewing, cleanupCacheFiles,
+  ]);
+
+  return <MediaContext.Provider value={value}>{children}</MediaContext.Provider>;
+}

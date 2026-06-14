@@ -1,5 +1,4 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -14,32 +13,16 @@ import {
   Nunito_800ExtraBold,
 } from '@expo-google-fonts/nunito';
 import * as NavigationBar from 'expo-navigation-bar';
-import  mobileAds  from 'react-native-google-mobile-ads';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { queryClient } from '@/lib/query-client';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
-import { AuthProvider, useFirebaseAuth } from '@/contexts/AuthContext';
-import { PaymentProviderRoot } from '@/payment-providers';
 import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
-import { GoogleSignInModal } from '@/components/auth/GoogleSignInModal';
-import { useAppOpenAd } from '@/hooks/ads/useAppOpenAd';
-import { useInterstitialAd } from '@/components/ads/AdInterstitial';
-import { useFreeAdsState } from '@/hooks/ads/useFreeAdsState';
 import { useStatusReminder } from '@/hooks/media/useStatusReminder';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
-import { usePendingReferralAttribution } from '@/hooks/referral/usePendingReferralAttribution';
 
 // ── Production console hygiene ───────────────────────────────────────────
-// In release builds we redirect verbose log levels to no-ops so that:
-//  • Sensitive debug strings (URI paths, user IDs) never appear in Logcat
-//  • The JS engine skips the cost of object serialisation for each call
-//  • We avoid the rare MIUI/HyperOS "log buffer full" bridge stall
-// console.error is kept alive so that crash-reporting SDKs (Sentry /
-// Crashlytics) that monkey-patch it still receive uncaught errors.
 if (!__DEV__) {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   const noop = () => {};
   console.log   = noop;
   console.debug = noop;
@@ -49,27 +32,6 @@ if (!__DEV__) {
 
 SplashScreen.preventAutoHideAsync();
 
-// PERF: AdMob's native initialize() does heavy work on the JS+native bridge
-// (mediation adapter discovery, consent state, etc). Running it at module
-// load — before React even mounts — was contributing to the cold-launch
-// freeze on Android 11+. We schedule it AFTER first paint and a short
-// idle window so the user never waits on it.
-let __adsInitStarted = false;
-function initMobileAdsDeferred() {
-  if (__adsInitStarted || Platform.OS === 'web') return;
-  __adsInitStarted = true;
-  InteractionManager.runAfterInteractions(() => {
-    setTimeout(() => {
-      mobileAds()
-        .initialize()
-        .then((adapterStatuses) => {
-          __DEV__ && console.log('Ads initialized:', adapterStatuses);
-        })
-        .catch((e) => __DEV__ && console.log('Google Mobile Ads initialization error:', e));
-    }, 1500);
-  });
-}
-
 async function applyImmersiveMode(bg: string, isDark: boolean) {
   if (Platform.OS !== 'android') return;
   try {
@@ -78,9 +40,6 @@ async function applyImmersiveMode(bg: string, isDark: boolean) {
       await NavigationBar.setVisibilityAsync('visible');
     }
     await NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
-    // Android 15 (API 35+) enforces edge-to-edge regardless of app settings.
-    // setBackgroundColorAsync and setBehaviorAsync are no-ops and emit warnings
-    // on those devices — skip them to keep logs clean.
     if (sdkVersion < 35) {
       await NavigationBar.setBackgroundColorAsync(bg);
       await NavigationBar.setBehaviorAsync('inset-swipe');
@@ -88,41 +47,17 @@ async function applyImmersiveMode(bg: string, isDark: boolean) {
   } catch {}
 }
 
-function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
-  const { user, loading, configured } = useFirebaseAuth();
+function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
   const { colors: COLORS } = useTheme();
   const router = useRouter();
-  const segments = useSegments();
-  // Tracks whether we already pushed the user to /onboarding this session so
-  // subsequent segment changes (after the user completes onboarding and lands
-  // on the tabs) don't re-trigger the redirect and loop them back.
   const onboardingNavigatedRef = useRef(false);
 
   useEffect(() => {
-    if (loading) return;
-
-    const inAuthGroup = segments[0] === 'signin';
-    const inOnboarding = segments[0] === 'onboarding';
-
-    // CASE 1: Fresh install / reinstall — take the user straight to onboarding
-    // with zero friction. No Google sign-in required. The old flow required the
-    // user to hit the signin screen first, which acted as an unintended gate.
-    if (showOnboarding && !inOnboarding && !onboardingNavigatedRef.current) {
+    if (showOnboarding && !onboardingNavigatedRef.current) {
       onboardingNavigatedRef.current = true;
       router.replace('/onboarding');
-      return;
     }
-
-    // CASE 2: User signed in via the signin screen (e.g. from Settings →
-    // account section). Redirect to the appropriate destination.
-    if (user && inAuthGroup) {
-      if (showOnboarding) {
-        router.replace('/onboarding');
-      } else {
-        router.replace('/(tabs)');
-      }
-    }
-  }, [user, loading, configured, segments, showOnboarding]);
+  }, [showOnboarding]);
 
   return (
     <Stack
@@ -139,7 +74,6 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="signin" options={{ headerShown: false, animation: 'fade' }} />
       {showOnboarding && <Stack.Screen name="onboarding" options={{ headerShown: false }} />}
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
@@ -152,63 +86,50 @@ function AuthGate({ showOnboarding }: { showOnboarding: boolean }) {
       />
       <Stack.Screen
         name="guide"
-        options={{
-          title: 'Setup Guide',
-          headerStyle: { backgroundColor: COLORS.SURFACE },
-        }}
+        options={{ title: 'Setup Guide', headerStyle: { backgroundColor: COLORS.SURFACE } }}
       />
       <Stack.Screen
         name="privacy"
-        options={{
-          title: 'Privacy',
-          headerStyle: { backgroundColor: COLORS.SURFACE },
-        }}
+        options={{ title: 'Privacy', headerStyle: { backgroundColor: COLORS.SURFACE } }}
       />
-      <Stack.Screen
-        name="permissions"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="subscription"
-        options={{
-          title: 'Choose Subscription',
-          headerStyle: { backgroundColor: COLORS.SURFACE },
-        }}
-      />
-      <Stack.Screen
-        name="invite"
-        options={{
-          title: 'Invite & Earn',
-          headerStyle: { backgroundColor: COLORS.SURFACE },
-        }}
-      />
-      <Stack.Screen
-        name="contact"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="terms"
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="languages"
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="permissions" options={{ headerShown: false }} />
+      <Stack.Screen name="languages" options={{ headerShown: false }} />
+      <Stack.Screen name="terms" options={{ headerShown: false }} />
     </Stack>
   );
 }
 
+function DeferredStartupTasks() {
+  useStatusReminder();
+  return null;
+}
+
+function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
+  const { colors, resolved } = useTheme();
+
+  useStableStatusBar({
+    backgroundColor: resolved === 'dark' ? '#05070A' : '#FFFFFF',
+    barStyle: resolved === 'dark' ? 'light-content' : 'dark-content',
+    translucent: false,
+  });
+
+  useEffect(() => {
+    applyImmersiveMode(colors.BACKGROUND, resolved === 'dark');
+  }, [colors, resolved]);
+
+  return (
+    <MediaProvider>
+      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
+      <AppNavigator showOnboarding={showOnboarding} />
+    </MediaProvider>
+  );
+}
+
 function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
-  // PERF: Defer all non-critical mount-time work until AFTER first paint and
-  // user-interaction settle. AdMob init, AppOpen-ad load, notification setup,
-  // and referral attribution were ALL kicking off in the same render tick on
-  // Android 11+, saturating the JS+native bridges and causing the device to
-  // feel frozen for 2-4 seconds during cold launch. We gate them behind a
-  // small "ready" flag that flips on after the first interactive frame.
   const [deferredReady, setDeferredReady] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
-    initMobileAdsDeferred();
     const handle = InteractionManager.runAfterInteractions(() => {
       const t = setTimeout(() => {
         if (!cancelled) setDeferredReady(true);
@@ -217,7 +138,7 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
     });
     return () => {
       cancelled = true;
-      // @ts-ignore Cancellable
+      // @ts-ignore
       handle?.cancel?.();
     };
   }, []);
@@ -227,83 +148,6 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
       <AppContentBody showOnboarding={showOnboarding} />
       {deferredReady && <DeferredStartupTasks />}
     </>
-  );
-}
-
-// All non-critical hooks live here, mounted only AFTER first paint.
-function DeferredStartupTasks() {
-  useAppOpenAd();
-  useStatusReminder();
-  usePendingReferralAttribution();
-  return null;
-}
-
-function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
-  const { colors, resolved } = useTheme();
-  const { showAd: showInterstitial } = useInterstitialAd();
-
-  // Keep the status bar locked to a solid, theme-matching color so it never
-  // hides or flickers — regardless of which screen is active.
-  useStableStatusBar({
-    backgroundColor: resolved === 'dark' ? '#05070A' : '#FFFFFF',
-    barStyle: resolved === 'dark' ? 'light-content' : 'dark-content',
-    translucent: false,
-  });
-
-  // Re-apply Android nav bar background whenever the theme changes.
-  useEffect(() => {
-    applyImmersiveMode(colors.BACKGROUND, resolved === 'dark');
-  }, [colors, resolved]);
-
-  const [interstitialShown, setInterstitialShown] = useState(false);
-  const { user, loading, signingIn } = useFirebaseAuth();
-  const { isFreeAds, loading: adsLoading } = useFreeAdsState();
-
-  const prevSigningInRef = useRef(false);
-  const justSignedInRef = useRef(false);
-  const prevUserIdRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (prevSigningInRef.current && !signingIn && user) {
-      justSignedInRef.current = true;
-    }
-    prevSigningInRef.current = signingIn;
-  }, [signingIn, user]);
-
-  useEffect(() => {
-    const prevId = prevUserIdRef.current;
-    const currId = user?.uid ?? null;
-
-    if (prevId !== undefined && prevId !== null && currId !== null && prevId !== currId) {
-      justSignedInRef.current = true;
-    }
-
-    prevUserIdRef.current = currId;
-
-    if (!user) {
-      setInterstitialShown(false);
-      justSignedInRef.current = false;
-    }
-  }, [user]);
-
-  // Neutralized: we no longer auto-show an interstitial right after sign-in
-  // or on app entry. Interstitials are now driven only by deep usage triggers
-  // (video opens / image swipes) and respect a 3-minute cooldown.
-  useEffect(() => {
-    if (justSignedInRef.current) {
-      justSignedInRef.current = false;
-    }
-    if (!user) {
-      setInterstitialShown(false);
-    }
-  }, [loading, adsLoading, user, interstitialShown, isFreeAds]);
-
-  return (
-    <MediaProvider>
-      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
-      <AuthGate showOnboarding={showOnboarding} />
-      <GoogleSignInModal visible={signingIn} />
-    </MediaProvider>
   );
 }
 
@@ -328,29 +172,17 @@ const RootLayout = () => {
 
   useEffect(() => {
     checkOnboarding();
-
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       appState.current = next;
     });
-
     return () => sub.remove();
   }, []);
 
   const checkOnboarding = async () => {
     try {
-      // The AppLoadingScreen takes ~2.5 s minimum, so AsyncStorage will always
-      // resolve well before the loading animation finishes. The old approach
-      // raced AsyncStorage against a 1.5 s timeout and treated a slow read the
-      // same as "already completed onboarding" — silently skipping onboarding
-      // on first launch on slow devices. Removed. If the read throws for any
-      // reason we default to SHOWING onboarding (safe: better to see it once
-      // extra than to never see it on a genuine fresh install).
       const completed = await AsyncStorage.getItem('onboarding_completed');
-      if (completed === null) {
-        setShowOnboarding(true);
-      }
+      if (completed === null) setShowOnboarding(true);
     } catch {
-      // Storage read failed (extremely rare) — show onboarding as safe default.
       setShowOnboarding(true);
     }
   };
@@ -370,19 +202,13 @@ const RootLayout = () => {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <ThemeProvider>
-            <LanguageProvider>
-              <AuthProvider>
-                <PaymentProviderRoot>
-                  <AppContent showOnboarding={showOnboarding} />
-                </PaymentProviderRoot>
-              </AuthProvider>
-            </LanguageProvider>
-          </ThemeProvider>
-        </GestureHandlerRootView>
-      </QueryClientProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AppContent showOnboarding={showOnboarding} />
+          </LanguageProvider>
+        </ThemeProvider>
+      </GestureHandlerRootView>
     </ErrorBoundary>
   );
 };

@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { AdBanner } from '@/components/ads/AdBanner';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
 import { LANGUAGES } from '@/lib/i18n';
@@ -28,7 +27,6 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { language, setLanguage } = useLanguage();
   const [selectedLang, setSelectedLang] = useState(language);
-  const [showAd, setShowAd] = useState(true);
 
   const handleContinue = async () => {
     await setLanguage(selectedLang);
@@ -89,7 +87,6 @@ export default function OnboardingScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.LG }]}>
-        {showAd && <AdBanner />}
         <TouchableOpacity
           style={styles.continueBtn}
           onPress={handleContinue}

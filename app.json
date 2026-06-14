@@ -40,7 +40,6 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "com.android.vending.BILLING",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO"
       ],
@@ -78,15 +77,6 @@
           "defaultChannel": "status-reminders"
         }
       ],
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-2087467559495393~8299473677",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
-          "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
-          "androidAdvertisingIdPermission": true
-        }
-      ],
       "expo-font",
       [
         "expo-video",
@@ -104,8 +94,6 @@
         }
       ],
       "expo-web-browser",
-      "@react-native-google-signin/google-signin",
-      "react-native-iap",
       "./plugins/with-saf-reader",
       [
         "expo-media-library",

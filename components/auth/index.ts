@@ -1,1 +1,0 @@
-export { GoogleSignInModal } from './GoogleSignInModal';

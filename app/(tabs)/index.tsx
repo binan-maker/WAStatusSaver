@@ -24,14 +24,11 @@ import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
 import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
 import { MediaCard } from '@/components/media/MediaCard';
-import { AdBanner, GridAd } from '@/components/ads/AdBanner';
-import { AdInterstitial } from '@/components/ads/AdInterstitial';
 import { EmptyState } from '@/components/media/EmptyState';
 import { LoadingShimmer } from '@/components/media/LoadingShimmer';
-import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
-import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, ADMOB, RADIUS } from '@/constants/theme';
+import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, RADIUS } from '@/constants/theme';
 import { runLayer4 } from '@/lib/video-fallback';
 
 // Per-screen error boundary: a crash on this tab shows a recovery UI
@@ -54,7 +51,7 @@ const PREFETCH_THROTTLE_MS = 200; // Min gap between prefetches
 type TabType = 'images' | 'videos';
 
 const TAB_BAR_APPROX = 60;
-const BANNER_HEIGHT = ADMOB.BANNER_HEIGHT;
+const BANNER_HEIGHT = 60;
 
 const STATUS_SOURCE_OPTIONS: { value: StatusSource; label: string; sublabel: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
   {
@@ -275,9 +272,6 @@ export default function StatusesScreen() {
     saveStatus,
     shareStatus,
     isStatusSaved,
-    onVideoOpen,
-    showInterstitial,
-    dismissInterstitial,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -393,29 +387,14 @@ export default function StatusesScreen() {
     // This avoids all ExoPlayer hardware-decoder issues on API 30+ devices.
     if (item.type === 'video' && Platform.OS === 'android' && (Platform.Version as number) >= 30) {
       runLayer4(item.uri).catch(() => {});
-      setTimeout(() => onVideoOpen(item.uri), 0);
       return;
     }
 
-    // ANDROID 11 FIX: Navigate FIRST, synchronously, before ANY state updates.
-    // Calling onImageSwipe/onVideoOpen before router.push mutates MediaContext
-    // state mid-touch on Android 11, which causes the FlashList to re-render
-    // and drop the in-flight touch event — forcing the user to tap 2-3 times.
-    // router.push must be the first action (after the synchronous prefetch
-    // kickoff above, which doesn't await or mutate state).
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
     });
-
-    // Defer video side effects (ad scheduling) until after navigation
-    // transaction is queued and the touch event is fully consumed.
-    // onImageSwipe is intentionally NOT called here — it tracks swipes
-    // inside the viewer pager, not thumbnail taps on the home grid.
-    if (item.type === 'video') {
-      setTimeout(() => onVideoOpen(item.uri), 0);
-    }
-  }, [onVideoOpen]);
+  }, []);
 
   // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
   // signature. handlePress is already an (item: StatusItem) => void closure

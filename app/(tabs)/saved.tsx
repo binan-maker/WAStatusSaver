@@ -20,11 +20,9 @@ import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/media/MediaCard';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
 import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
-import { AdBanner, GridAd } from '@/components/ads/AdBanner';
 import { EmptyState } from '@/components/media/EmptyState';
-import { RewardAdButton } from '@/components/ads/RewardAdButton';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
-import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE, ADMOB } from '@/constants/theme';
+import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE } from '@/constants/theme';
 import { runLayer4 } from '@/lib/video-fallback';
 
 // Per-screen error boundary: a crash on this tab shows a recovery UI
@@ -50,7 +48,6 @@ export default function SavedScreen() {
     refresh,
     deleteFromSaved,
     shareStatus,
-    onVideoOpen,
   } = useMedia();
   const shareRating = useMilestoneRating('share');
   const insets = useSafeAreaInsets();
@@ -73,16 +70,14 @@ export default function SavedScreen() {
     // the in-app viewer entirely to avoid ExoPlayer decoder pool issues.
     if (item.type === 'video' && Platform.OS === 'android' && (Platform.Version as number) >= 30) {
       runLayer4(item.localUri).catch(() => {});
-      onVideoOpen(item.localUri);
       return;
     }
 
-    if (item.type === 'video') onVideoOpen(item.localUri);
     router.push({
       pathname: '/viewer',
       params: { id: item.id, isSaved: '1' },
     });
-  }, [onVideoOpen]);
+  }, []);
 
   const handleDelete = useCallback((item: SavedItem) => {
     Alert.alert(
@@ -224,7 +219,6 @@ export default function SavedScreen() {
         />
         </>
       )}
-      <AdBanner />
       <MilestoneRatingCard
         visible={shareRating.showCard}
         type="share"
