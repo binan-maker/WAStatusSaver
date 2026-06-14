@@ -23,8 +23,6 @@ import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
 import { EmptyState } from '@/components/media/EmptyState';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE } from '@/constants/theme';
-import { runLayer4 } from '@/lib/video-fallback';
-
 // Per-screen error boundary: a crash on this tab shows a recovery UI
 // instead of white-screening the whole app.
 export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
@@ -65,13 +63,6 @@ export default function SavedScreen() {
     const lastPress = lastPressRef.current.get(item.id) || 0;
     if (now - lastPress < 300) return;
     lastPressRef.current.set(item.id, now);
-
-    // Android 11+ videos: open directly in the system native player — skip
-    // the in-app viewer entirely to avoid ExoPlayer decoder pool issues.
-    if (item.type === 'video' && Platform.OS === 'android' && (Platform.Version as number) >= 30) {
-      runLayer4(item.localUri).catch(() => {});
-      return;
-    }
 
     router.push({
       pathname: '/viewer',

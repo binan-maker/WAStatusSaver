@@ -25,23 +25,11 @@ import {
   useMedia,
   StatusItem,
   SavedItem,
-  logDirectPlaySuccess,
-  logFallbackCopyTriggered,
 } from '@/contexts/MediaContext';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 
-import { runLayer3, runLayer4, type VideoLayer } from '@/lib/video-fallback';
-
 const { width: SW, height: SH } = Dimensions.get('window');
-
-// On Android 11+ (API 30+) the hardware MediaCodec pool is exhausted by
-// ExoPlayer on many OEM builds (Samsung One UI, Xiaomi MIUI, Realme, Oppo).
-// We disable ALL in-app video playback on these devices — videos are opened
-// directly in the system native player (MX Player, VLC, Google Photos, etc.)
-// via Layer 4. This eliminates the entire class of decoder-stall bugs.
-const IS_ANDROID_11_PLUS =
-  Platform.OS === 'android' && (Platform.Version as number) >= 30;
 
 interface ViewerItemProps {
   item: StatusItem | SavedItem;
@@ -78,17 +66,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [imageLoaded, setImageLoaded] = useState(false);
   // OEM-resilience: when ExoPlayer reports `error` on a content:// URI we
   // surface a "Tap to retry" overlay instead of leaving the user staring
-  // at a frozen thumbnail. The retry handler forces a SAF→cache copy and
-  // re-feeds the player from file://, which recovers on every device we've
-  // seen (Samsung One UI, Xiaomi MIUI, Realme, stock Android).
+  // at a frozen thumbnail. The retry handler does a cold decoder restart
+  // which recovers on every device we've seen.
   const [videoError, setVideoError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
-  // FALLBACK TRACKING:
-  //   videoFallbackLayer — which layer the current source was loaded from
-  //     (2=cacheDir copy, 3=documentDir copy)
-  //   layer3Tried — latch so the retry handler knows Layer 3 was already auto-attempted
-  const [videoFallbackLayer, setVideoFallbackLayer] = useState<VideoLayer>(2);
-  const layer3TriedRef = useRef(false);
   // HARDWARE DECODER STALL ESCALATION:
   //   stallCountRef  — counts how many consecutive 2.5 s stall windows have
   //     fired without currentTime advancing. Used to escalate the recovery
@@ -113,12 +94,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const [videoDuration, setVideoDuration] = useState(0);
   const userPausedRef = useRef(false);
   const controlsHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Module-level telemetry latches (per source). directPlayLoggedRef ensures
-  // we only count ONE success per content:// URI even if statusChange fires
-  // 'readyToPlay' multiple times across re-buffers. fallbackLoggedRef does the
-  // same for the watchdog so a single video stall doesn't get double-counted.
-  const directPlayLoggedRef = useRef(false);
-  const fallbackLoggedRef = useRef(false);
   // TRUE-STALL DETECTION (FIX U):
   //   The only ground truth for "is the video actually playing" is whether
   //   currentTime is advancing. expo-video on Android emits `playingChange=false`
@@ -301,7 +276,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const tryStartPlayback = useCallback(() => {
     if (
       item.type !== 'video' ||
-      IS_ANDROID_11_PLUS ||
       !displayUri ||
       !isReadyToPlayRef.current ||  // set false before replaceAsync, true only on readyToPlay
       !isActiveRef.current
@@ -317,19 +291,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   // Manual retry handler — called by the "Retry" button in the error overlay.
   //
-  // Root cause of video stalls (confirmed by logs): ExoPlayer hardware decoder
-  // exhaustion on Android 11+ OEM devices. The stall occurs regardless of the
-  // URI format (cacheDir, documentDir, DCIM — all stall identically). This
-  // proves the problem is the DECODER, not the file. Cycling through different
-  // URI layers does nothing useful.
-  //
-  // The fix is a COLD DECODER RESTART:
+  // COLD DECODER RESTART:
   //   1. replaceAsync(null) — fully releases the hardware codec slot
   //   2. 1 second wait      — lets the Android codec pool reclaim the slot
   //   3. replaceAsync(uri)  — allocates a fresh decoder for the same file
-  //
-  // If no displayUri is available (initial Layer 2+3 failure), we try Layer 3
-  // (documentDirectory copy) first to get a file:// URI to restart with.
   const handleVideoRetry = useCallback(async () => {
     if (item.type !== 'video') return;
     setIsRetrying(true);
@@ -340,55 +305,28 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     stallAutoRetryFiredRef.current = false;
 
     try {
-      const currentUri = displayUriRef.current;
-
-      if (currentUri) {
-        // Cold restart: fully release the hardware decoder, wait, then reallocate.
-        __DEV__ && console.log(`[Viewer] Manual retry: cold-restarting decoder for ${item.name}`);
-        isColdRestartingRef.current = true; // pause watchdog + playToEnd
-        isReadyToPlayRef.current = false;
-        hasEverReachedReadyRef.current = false;
-        lastReplacedSourceRef.current = null;
-        await player.replaceAsync(null);
-        await new Promise(r => setTimeout(r, 1000));
-        if (!isActiveRef.current) {
-          isColdRestartingRef.current = false;
-          return;
-        }
-        lastReplacedSourceRef.current = currentUri;
-        await player.replaceAsync(currentUri);
-        // Reset stall state so watchdog gives the fresh decoder a clean slate.
-        stallCountRef.current = 0;
-        stallAutoRetryFiredRef.current = false;
-        lastProgressTimeRef.current = 0;
-        lastProgressMsRef.current = Date.now();
+      const currentUri = displayUriRef.current || initialSource;
+      // Cold restart: fully release the hardware decoder, wait, then reallocate.
+      __DEV__ && console.log(`[Viewer] Manual retry: cold-restarting decoder for ${item.name}`);
+      isColdRestartingRef.current = true; // pause watchdog + playToEnd
+      isReadyToPlayRef.current = false;
+      hasEverReachedReadyRef.current = false;
+      lastReplacedSourceRef.current = null;
+      await player.replaceAsync(null);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!isActiveRef.current) {
         isColdRestartingRef.current = false;
-        // play() fires from statusChange readyToPlay — do NOT call here.
-      } else {
-        // Initial load completely failed (no URI yet) — try Layer 3 as
-        // a last resort to obtain a file:// URI we can cold-restart with.
-        const sourceUri = ('localUri' in item)
-          ? (item as SavedItem).localUri
-          : (item as StatusItem).uri;
-        __DEV__ && console.log(`[Viewer] Manual retry: no URI, attempting Layer 3 for ${item.name}`);
-        const l3Uri = await runLayer3(sourceUri, item.id, item.name, item.type);
-        if (l3Uri) {
-          setVideoFallbackLayer(3);
-          isReadyToPlayRef.current = false;
-          hasEverReachedReadyRef.current = false;
-          lastProgressTimeRef.current = 0;
-          lastProgressMsRef.current = Date.now();
-          lastReplacedSourceRef.current = l3Uri;
-          await player.replaceAsync(l3Uri);
-          setDisplayUri(l3Uri);
-          if (!fallbackLoggedRef.current) {
-            fallbackLoggedRef.current = true;
-            logFallbackCopyTriggered();
-          }
-        } else {
-          setVideoError(true);
-        }
+        return;
       }
+      lastReplacedSourceRef.current = currentUri;
+      await player.replaceAsync(currentUri);
+      // Reset stall state so watchdog gives the fresh decoder a clean slate.
+      stallCountRef.current = 0;
+      stallAutoRetryFiredRef.current = false;
+      lastProgressTimeRef.current = 0;
+      lastProgressMsRef.current = Date.now();
+      isColdRestartingRef.current = false;
+      // play() fires from statusChange readyToPlay — do NOT call here.
     } catch (err) {
       console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
       isColdRestartingRef.current = false; // always re-enable watchdog
@@ -396,7 +334,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     } finally {
       setIsRetrying(false);
     }
-  }, [item, player]);
+  }, [item, player, initialSource]);
 
   // ── Callback refs for the stable status listener ──────────────────────────
   // The status listener is attached once per player instance and must never be
@@ -418,7 +356,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // addListener in a try/catch: on Android 11 the native bridge can be
   // uninitialized on the very first render, making addListener undefined.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
+    if (item.type !== 'video') return;
     if (!player || typeof player.addListener !== 'function') return;
     let subscription: { remove: () => void } | null = null;
     try {
@@ -436,15 +374,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // stuck on a frozen thumbnail.
         if (status === 'error') {
           setVideoError(true);
-        }
-
-        // ── Telemetry: count ONE direct-play success per content:// source ──
-        // We only credit the FIRST readyToPlay event per source so re-buffers
-        // mid-playback don't inflate the success rate. file:// URIs aren't
-        // counted (they're already-cached fallbacks, not direct SAF playback).
-        if (ready && !directPlayLoggedRef.current && displayUri && displayUri.startsWith('content://')) {
-          directPlayLoggedRef.current = true;
-          logDirectPlaySuccess();
         }
 
         if (ready) {
@@ -502,8 +431,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     // watchdog can do its job for the new source if needed. NOT reset on
     // mid-playback re-buffers — those don't change displayUri.
     hasEverReachedReadyRef.current = false;
-    directPlayLoggedRef.current = false;
-    fallbackLoggedRef.current = false;
     // Reset the true-stall watchdog's progress trackers so the new source
     // gets a fresh wallclock window before any kick can fire.
     lastProgressTimeRef.current = 0;
@@ -532,8 +459,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     setCurrentTime(0);
     setVideoDuration(0);
     setVideoControlsVisible(false);
-    setVideoFallbackLayer(2);
-    layer3TriedRef.current = false;
     stallCountRef.current = 0;
     stallAutoRetryFiredRef.current = false;
     isColdRestartingRef.current = false; // clear any in-flight restart for prev item
@@ -552,7 +477,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // lives in the `currentTime`-progress watchdog below — that is the only
   // ground truth we trust.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || typeof player.addListener !== 'function') return;
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
     try {
       sub = player.addListener('playingChange', (payload: any) => {
@@ -571,7 +496,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // delay. This replaces what `player.loop = true` was supposed to do
   // natively but doesn't, reliably, on Android OEM ExoPlayer builds.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || typeof player.addListener !== 'function') return;
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     let sub: { remove: () => void } | null = null;
     try {
       sub = player.addListener('playToEnd', () => {
@@ -617,7 +542,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   //   • We only fire ONE play() per stall (we update lastProgressMsRef
   //     after kicking, so the next check has a fresh 2.5 s window).
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player) return;
+    if (item.type !== 'video' || !player) return;
     // Initialize on attach.
     lastProgressTimeRef.current = 0;
     lastProgressMsRef.current = Date.now();
@@ -803,7 +728,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Subscribe to timeUpdate. Throttled to 4 Hz — enough for a smooth
   // progress bar without burning CPU on the JS thread.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || typeof player.addListener !== 'function') return;
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     try { (player as any).timeUpdateEventInterval = 0.25; } catch {}
     let sub: { remove: () => void } | null = null;
     try {
@@ -819,7 +744,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // each time isVideoReady flips so a re-buffer that bumps the duration
   // (rare but possible for variable-bitrate clips) updates the progress bar.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player) return;
+    if (item.type !== 'video' || !player) return;
     if (!isVideoReady) return;
     try {
       const d = (player as any).duration;
@@ -833,7 +758,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // so the user immediately knows they CAN tap to interact. Hides on the
   // standard 3.5 s timer afterwards.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
+    if (item.type !== 'video') return;
     if (isActive && isVideoVisible) {
       showVideoControls();
     }
@@ -859,7 +784,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // and keep the thumbnail up until we KNOW frames are rendering (200 ms post-
   // readyToPlay). This eliminates the black screen unconditionally on all devices.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || !displayUri) return;
+    if (item.type !== 'video' || !player || !displayUri) return;
     // Only the ACTIVE slot allocates a
     // decoder via replaceAsync. Pre/next slots stay sourceless so the system
     // codec pool never runs out. We hand the URI directly to ExoPlayer
@@ -945,13 +870,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               // happily playing.
               if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
               if (cached && cached !== displayUri) {
-                // Telemetry: count this watchdog→fallback cycle ONCE per
-                // source so we can spot devices/installs that hit it
-                // chronically (= we should pre-copy upfront for them).
-                if (!fallbackLoggedRef.current) {
-                  fallbackLoggedRef.current = true;
-                  logFallbackCopyTriggered();
-                }
                 isLoadingSource.current = true;
                 // Mark BEFORE the setDisplayUri() below so when the source-
                 // loading effect re-runs with displayUri = cached, the dedupe
@@ -1005,7 +923,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   //    that resolves before the first render's useEffect can run).
   // Both cases are caught by reacting to BOTH isActive and isVideoReady changes.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
+    if (item.type !== 'video') return;
     if (isActive && isVideoReady && !isVideoVisible) {
       scheduleRevealRef.current(80);
     }
@@ -1015,7 +933,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // Separate from the reveal effect so changes to isVideoReady don't
   // accidentally re-run the cleanup path.
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS) return;
+    if (item.type !== 'video') return;
     if (!isActive) {
       setIsVideoVisible(false);
       clearRevealTimerRef.current();
@@ -1024,7 +942,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
   // ── Active / inactive sync ───────────────────────────────────────────────
   useEffect(() => {
-    if (item.type !== 'video' || IS_ANDROID_11_PLUS || !player || isLoadingSource.current) return;
+    if (item.type !== 'video' || !player || isLoadingSource.current) return;
     try {
       if (isActive) {
         // Use ref so we always call the latest tryStartPlayback without this
@@ -1088,7 +1006,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // DO NOT call replaceAsync(null) here — the active/inactive sync effect
         // handles that. Calling it from two effects simultaneously causes a race
         // that corrupts the player state and produces black screen on Android 11.
-        if (item.type === 'video' && !IS_ANDROID_11_PLUS && player) {
+        if (item.type === 'video' && player) {
           isReadyToPlayRef.current = false;
           try { player.pause(); } catch {}
         }
@@ -1098,77 +1016,10 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     if (displayUri) return; // already prepared for this slot
 
-    // Android 11+ videos: skip all SAF copy machinery — the viewer shows
-    // a static thumbnail and "Open in Native Player" button instead.
-    if (item.type === 'video' && IS_ANDROID_11_PLUS) return;
-
-    // Non-video OR non-content URI → use immediately, no copy needed.
-    if (item.type !== 'video' || !initialSource.startsWith('content://')) {
-      setDisplayUri(initialSource);
-      return;
-    }
-
-    // Video + content:// → 2-stage automatic fallback:
-    //   Stage A (Layer 2): Try SAF → cacheDirectory copy (serialized queue).
-    //   Stage B (Layer 3): If Layer 2 fails, automatically try SAF →
-    //     documentDirectory copy (a completely different filesystem path —
-    //     survives cache clears, handles OEMs where /cache is on a
-    //     restricted partition).
-    // Only if BOTH fail do we surface the retry overlay. At that point the
-    // user can manually trigger Layer 4 (native intent) or Layer 5 (MediaLibrary).
-    let cancelled = false;
-    (async () => {
-      // ── Stage A: Layer 2 (cacheDirectory) ────────────────────────────
-      try {
-        const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
-        if (cancelled) return;
-        if (cached && cached.startsWith('file://')) {
-          setVideoFallbackLayer(2);
-          setDisplayUri(cached);
-          return;
-        }
-        // Non-file URI from prepareStatusForViewing is unexpected — fall through to Layer 3.
-        __DEV__ && console.warn(`[Viewer] Layer 2 returned unexpected URI for ${item.name}: ${cached}`);
-      } catch (e) {
-        if (cancelled) return;
-        __DEV__ && console.warn(`[Viewer] Layer 2 failed for ${item.name}, auto-trying Layer 3:`, e);
-      }
-
-      // ── Stage B: Layer 3 (documentDirectory) ─────────────────────────
-      // Only run if not already cancelled (user swiped away).
-      if (cancelled) return;
-      layer3TriedRef.current = true;
-      try {
-        const l3Uri = await runLayer3(
-          (item as StatusItem).uri,
-          item.id,
-          item.name,
-          item.type,
-        );
-        if (cancelled) return;
-
-        if (l3Uri) {
-          setVideoFallbackLayer(3);
-          setDisplayUri(l3Uri);
-          logFallbackCopyTriggered();
-          return;
-        }
-      } catch (e) {
-        if (cancelled) return;
-        __DEV__ && console.warn(`[Viewer] Layer 3 also failed for ${item.name}:`, e);
-      }
-
-      // Layers 2 and 3 both failed — surface the retry overlay so the
-      // user can manually trigger a cold decoder restart.
-      if (!cancelled) {
-        console.error(`[Viewer] Layers 2+3 failed for ${item.name} — surfacing retry overlay`);
-        setVideoFallbackLayer(3);
-        setVideoError(true);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [initialSource, item, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Feed the URI directly to ExoPlayer — content:// URIs from SAF work
+    // natively with ExoPlayer. Saved items already have a file:// URI.
+    setDisplayUri(initialSource);
+  }, [initialSource, item, isNearActive, isActive, player]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
 
@@ -1351,37 +1202,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             )}
           </Reanimated.View>
         </GestureDetector>
-      ) : IS_ANDROID_11_PLUS ? (
-        // Android 11+: no in-app video playback — show thumbnail and open
-        // the video in the system native player (MX Player, VLC, etc.).
-        <View style={StyleSheet.absoluteFill}>
-          <View style={styles.videoWrap}>
-            <Image
-              source={{ uri: initialSource }}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              transition={0}
-              recyclingKey={item.id}
-              videoTimestamp={500}
-            />
-            {isActive && (
-              <View style={styles.videoRetryOverlay} pointerEvents="box-none">
-                <View style={styles.videoRetryStack}>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => { runLayer4(initialSource).catch(() => {}); }}
-                    style={styles.videoRetryBtn}
-                    accessibilityLabel="Open video in native player"
-                  >
-                    <Ionicons name="play-circle" size={32} color="#FFFFFF" />
-                    <Text style={styles.videoRetryText}>Open in Player</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
       ) : (
           <View style={StyleSheet.absoluteFill}>
             <View style={styles.videoWrap}>
