@@ -79,7 +79,7 @@ function MediaCardInner({
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        activeOpacity={0.82}
+        activeOpacity={1}
         onPress={handlePress}
         style={styles.touchable}
         // ANDROID 11+ TOUCH-DROP FIX: pressRetentionOffset keeps the touch

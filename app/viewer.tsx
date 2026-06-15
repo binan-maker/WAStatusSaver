@@ -26,7 +26,8 @@ import {
   StatusItem,
   SavedItem,
 } from '@/contexts/MediaContext';
-import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
+import { useTheme, useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
+import * as NavigationBar from 'expo-navigation-bar';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -63,7 +64,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // SurfaceView. It lags behind isVideoReady by 200 ms so the thumbnail never
   // disappears before ExoPlayer has pushed pixels to the screen.
   const [isVideoVisible, setIsVideoVisible] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   // OEM-resilience: when ExoPlayer reports `error` on a content:// URI we
   // surface a "Tap to retry" overlay instead of leaving the user staring
   // at a frozen thumbnail. The retry handler does a cold decoder restart
@@ -1007,10 +1007,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     savedTranslateY.value = 0;
   }, [item.id, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset image-loaded only on item id change (not on every active toggle).
-  useEffect(() => {
-    setImageLoaded(false);
-  }, [item.id]);
 
   // ── Image gesture handlers ────────────────────────────────────────────────
   const pinchGesture = Gesture.Pinch()
@@ -1149,27 +1145,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               style={styles.image}
               contentFit="contain"
               cachePolicy="memory-disk"
-              transition={0}
+              transition={150}
               priority={isActive ? 'high' : 'low'}
               recyclingKey={item.id}
               allowDownscaling
               decodeFormat="rgb"
               placeholder={VIEWER_PLACEHOLDER}
               placeholderContentFit="cover"
-              onLoadStart={() => setImageLoaded(false)}
-              onLoad={() => setImageLoaded(true)}
               onError={(e) => {
                 console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
               }}
             />
-            {/* Spinner overlay only while the SAF stream is being opened.
-                Once the placeholder is on screen there is no black void,
-                so we skip the heavy shimmer and just show a soft indicator. */}
-            {!imageLoaded && (
-              <View style={styles.imageSpinnerOverlay} pointerEvents="none">
-                <ActivityIndicator color={COLORS.PRIMARY} size="large" />
-              </View>
-            )}
           </Reanimated.View>
         </GestureDetector>
       ) : (
@@ -1249,8 +1235,31 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 }
 
 export default function ViewerScreen() {
-  const COLORS = useThemeColors();
+  const { colors: COLORS, resolved } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+
+  // Force dark nav bar and status bar while inside the viewer.
+  // Full-screen media always looks best against black chrome — regardless of
+  // whether the OS is in light or dark mode. Restore the theme-appropriate
+  // colours when the viewer is dismissed.
+  const themeRestoreRef = useRef({ resolved, bg: COLORS.BACKGROUND });
+  useEffect(() => { themeRestoreRef.current = { resolved, bg: COLORS.BACKGROUND }; }, [resolved, COLORS.BACKGROUND]);
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sdkVersion = Platform.Version as number;
+    NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    if (sdkVersion < 35) {
+      NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
+    }
+    return () => {
+      const { resolved: r, bg } = themeRestoreRef.current;
+      NavigationBar.setButtonStyleAsync(r === 'dark' ? 'light' : 'dark').catch(() => {});
+      if (sdkVersion < 35) {
+        NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
   const { id, isSaved: isSavedParam } = params;
   
