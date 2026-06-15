@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   StatusBar,
+  AppState,
   Alert,
   Platform,
   ActivityIndicator,
@@ -1238,22 +1239,57 @@ export default function ViewerScreen() {
   const { colors: COLORS, resolved } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
 
-  // Force dark nav bar and status bar while inside the viewer.
-  // Full-screen media always looks best against black chrome — regardless of
-  // whether the OS is in light or dark mode. Restore the theme-appropriate
-  // colours when the viewer is dismissed.
+  // ── Always-black system bars in the viewer ──────────────────────────────
+  // Status bar (battery/clock area) and nav bar (back/home buttons) are
+  // permanently forced to black with light icons while this screen is
+  // mounted — regardless of OS light/dark mode. This avoids the jarring
+  // colour flip that happens when a light-theme user opens a dark viewer.
+  //
+  // Two reliability layers:
+  //  1. applyDarkBars() is called on mount AND every time the app returns
+  //     to the foreground (AppState listener). This covers the case where
+  //     Android briefly restores the global theme colours after an
+  //     app-switch, which made nav bar buttons disappear on some OEMs
+  //     (dark buttons on dark background = invisible).
+  //  2. On unmount the cleanup restores the exact theme colours that were
+  //     active when the user entered the viewer, so the rest of the app
+  //     looks correct immediately after the back-navigation.
   const themeRestoreRef = useRef({ resolved, bg: COLORS.BACKGROUND });
   useEffect(() => { themeRestoreRef.current = { resolved, bg: COLORS.BACKGROUND }; }, [resolved, COLORS.BACKGROUND]);
+
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const sdkVersion = Platform.Version as number;
-    NavigationBar.setButtonStyleAsync('light').catch(() => {});
-    if (sdkVersion < 35) {
-      NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
-    }
+
+    const applyDarkBars = () => {
+      // Status bar — black background, white icons
+      StatusBar.setHidden(false, 'none');
+      StatusBar.setTranslucent(false);
+      StatusBar.setBarStyle('light-content', true);
+      StatusBar.setBackgroundColor('#000000', true);
+      // Nav bar — black background, white/light gesture indicators
+      // Always set button style BEFORE background so icons are never
+      // dark-on-dark for even a single frame (the invisible-buttons bug).
+      NavigationBar.setButtonStyleAsync('light').catch(() => {});
+      if (sdkVersion < 35) {
+        NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
+      }
+    };
+
+    applyDarkBars();
+
+    // Re-apply whenever the user alt-tabs back into the app while in viewer.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') applyDarkBars();
+    });
+
     return () => {
+      sub.remove();
       const { resolved: r, bg } = themeRestoreRef.current;
-      NavigationBar.setButtonStyleAsync(r === 'dark' ? 'light' : 'dark').catch(() => {});
+      const isDark = r === 'dark';
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+      StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
       if (sdkVersion < 35) {
         NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
       }
@@ -1468,7 +1504,9 @@ const toggleControls = useCallback(() => {
 
   return (
     <View style={styles.root}>
-      <StatusBar hidden />
+      {/* Status bar is controlled imperatively in the useEffect above.
+          No component override here — avoids fighting with the layout's
+          expo-status-bar and causing one-frame flickers on navigation. */}
 
       <FlatList
         ref={flatListRef}
