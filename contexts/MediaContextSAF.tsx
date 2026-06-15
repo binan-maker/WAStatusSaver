@@ -108,15 +108,31 @@ export function getTelemetrySnapshot(): TelemetrySnapshot {
 }
 
 // ── SAF constants ─────────────────────────────────────────────────────────
+//
+// GRANT STRATEGY — Android/media root (recommended by Android docs):
+//   Asking for Android/media in one click covers every WhatsApp variant
+//   (WA, WA Business, GB WA, WA Plus, etc.) because they all store their
+//   media under Android/media/<package>/. The app then crawls subdirs itself.
+//   This is the approach used by top-rated status-saver apps on the Play Store.
+//
+const ANDROID_MEDIA_URI =
+  'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia';
+
+// Deep fallback URIs — only used when the user taps "Browse manually" or when
+// we need to re-prompt after an OEM picker that ignored EXTRA_INITIAL_URI.
 const SAF_INITIAL_URIS: Record<StatusSource, string> = {
   whatsapp:
     'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
   whatsapp_business:
     'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
 };
+// SAF_KNOWN_INTERMEDIATE: folder names the BFS is allowed to descend into.
+// "com.whatsapp*" packages are handled separately by prefix check in bfsFindStatuses.
 const SAF_KNOWN_INTERMEDIATE = new Set([
-  'android', 'media', 'com.whatsapp', 'com.whatsapp.w4b',
+  'android', 'media',
+  'com.whatsapp', 'com.whatsapp.w4b',
   'whatsapp', 'whatsapp business',
+  'media', // WhatsApp/Media
 ]);
 const SAF_BFS_MAX_DEPTH = 7;
 const RATING_TRIGGER_COUNT = 10;
@@ -151,6 +167,25 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
   const statusesRef = useRef<StatusItem[]>([]);
 
   const androidVersion = Platform.OS === 'android' ? (Platform.Version as number) : 0;
+
+  // ── Source detection helper ───────────────────────────────────────────────
+  // Detects WhatsApp variant from any SAF URI (grant URI or individual file URI).
+  // Works for com.whatsapp, com.whatsapp.w4b, com.gbwhatsapp, com.whatsapp.plus, etc.
+  function getSourceFromUri(uri: string): StatusSource {
+    const decoded = decodeURIComponent(uri).toLowerCase();
+    if (decoded.includes('w4b') || decoded.includes('business')) return 'whatsapp_business';
+    return 'whatsapp';
+  }
+
+  // ── Checks if a granted URI is a valid Android/media or WhatsApp grant ─────
+  function isValidSafGrant(uri: string): boolean {
+    const decoded = decodeURIComponent(uri).toLowerCase();
+    return (
+      decoded.includes('android/media') ||
+      decoded.includes('com.whatsapp') ||
+      decoded.includes('.statuses')
+    );
+  }
 
   savedItemsRef.current = savedItems;
   hasPermissionRef.current = hasPermission;
@@ -386,7 +421,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     if (Platform.OS !== 'android') return;
     if (safRequestInFlight.current) return;
     safRequestInFlight.current = true;
-    const initialUri = manual ? undefined : SAF_INITIAL_URIS[source];
+
+    // Always open the picker at Android/media so the user sees ONE folder
+    // that covers all WhatsApp variants. Only fall back to the deep WA path
+    // when the user explicitly chooses "Browse manually".
+    const initialUri = manual ? SAF_INITIAL_URIS[source] : ANDROID_MEDIA_URI;
+
     setIsRequestingSAF(true);
     try {
       await new Promise<void>(resolve => InteractionManager.runAfterInteractions(() => resolve()));
@@ -403,6 +443,23 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
       }
       setIsRequestingSAF(false);
       if (!result.granted) { safRequestInFlight.current = false; return; }
+
+      // ── OEM validation ────────────────────────────────────────────────────
+      // Some OEM pickers (older MIUI, Samsung OneUI < 5) ignore EXTRA_INITIAL_URI
+      // and land the user at the root storage. If the user confirmed the root or
+      // a completely unrelated folder, the grant won't contain anything useful.
+      if (!isValidSafGrant(result.directoryUri)) {
+        Alert.alert(
+          'Wrong Folder Selected',
+          'Please select the "Android" → "media" folder.\n\nWhen the picker opens, navigate to:\nInternal Storage → Android → media\n\nThen tap "Use this folder" and "Allow".',
+          [{ text: 'Try Again', onPress: () => {
+            safRequestInFlight.current = false;
+            requestSAF(source, manual);
+          }},
+          { text: 'Cancel', style: 'cancel', onPress: () => { safRequestInFlight.current = false; } }],
+        );
+        return;
+      }
 
       const nextSafUris = { ...safUrisRef.current, [source]: result.directoryUri };
       await AsyncStorage.setItem(STORAGE_KEYS.SAF_URIS, JSON.stringify(nextSafUris));
@@ -460,7 +517,7 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     } catch { return ''; }
   }
 
-  const BFS_TIMEOUT_MS = 3000;
+  const BFS_TIMEOUT_MS = 4000;
   const crawlStart = Date.now();
   async function bfsFindStatuses(uri: string, depth: number): Promise<string | null> {
     if (Date.now() - crawlStart > BFS_TIMEOUT_MS) return null;
@@ -476,8 +533,11 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     } catch { return null; }
     for (const entry of entries) {
       const name = safUriToFileName(entry);
+      const nameLower = name.toLowerCase();
       if (name === '.Statuses') return entry;
-      if (SAF_KNOWN_INTERMEDIATE.has(name.toLowerCase())) {
+      // Descend into known intermediate folders OR any com.whatsapp* package
+      // (covers WA, WA Business, GB WhatsApp, WhatsApp Plus, etc.)
+      if (SAF_KNOWN_INTERMEDIATE.has(nameLower) || nameLower.startsWith('com.whatsapp')) {
         const found = await bfsFindStatuses(entry, depth + 1);
         if (found) return found;
       }
@@ -498,15 +558,20 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
       try {
         const files = await SafReaderModule.scanForStatuses(safDirUri);
         if (files.length === 0) return [];
-        const items: StatusItem[] = files.map(f => ({
-          id: getFileId(f.uri) + '_' + source,
-          uri: f.uri,
-          type: getMediaType(f.name),
-          name: f.name,
-          modTime: f.modTime,
-          size: f.size,
-          source,
-        }));
+        const items: StatusItem[] = files.map(f => {
+          // Detect source per-file so that an android/media root grant correctly
+          // tags WA Business files as 'whatsapp_business' and regular WA as 'whatsapp'.
+          const fileSource = forcedSource ?? getSourceFromUri(f.uri);
+          return {
+            id: getFileId(f.uri) + '_' + fileSource,
+            uri: f.uri,
+            type: getMediaType(f.name),
+            name: f.name,
+            modTime: f.modTime,
+            size: f.size,
+            source: fileSource,
+          };
+        });
         if (!resolvedUriCache.current.has(safDirUri)) {
           resolvedUriCache.current.set(safDirUri, safDirUri + '/__native_resolved__');
           persistResolvedUriCache();
@@ -524,23 +589,120 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
   async function readFromSAFJsFallback(safDirUri: string, source: StatusSource): Promise<StatusItem[]> {
     const items: StatusItem[] = [];
     try {
+      const decoded = decodeURIComponent(safDirUri).toLowerCase();
+
+      // ── Android/media root grant path ─────────────────────────────────────
+      // When the user granted Android/media (the recommended flow), enumerate
+      // all com.whatsapp* subdirectories and scan each one independently.
+      // This automatically covers WA, WA Business, GB WhatsApp, WA Plus, etc.
+      if (decoded.endsWith('android/media')) {
+        let mediaSubdirs: string[] = [];
+        try {
+          mediaSubdirs = await withTimeout(
+            FileSystem.StorageAccessFramework.readDirectoryAsync(safDirUri),
+            2000, [] as string[], 'android/media subdir list',
+          );
+        } catch {}
+
+        const waSubdirs = mediaSubdirs.filter(d =>
+          safUriToFileName(d).toLowerCase().startsWith('com.whatsapp'),
+        );
+
+        for (const waSubdir of waSubdirs) {
+          const subdirName = safUriToFileName(waSubdir).toLowerCase();
+          const waSource: StatusSource =
+            subdirName.includes('w4b') || subdirName.includes('business')
+              ? 'whatsapp_business'
+              : 'whatsapp';
+
+          // Navigate into <WA-package>/<AppName>/Media/.Statuses
+          // Try listing the WA package dir to find its app folder
+          let appFolders: string[] = [];
+          try {
+            appFolders = await withTimeout(
+              FileSystem.StorageAccessFramework.readDirectoryAsync(waSubdir),
+              1500, [] as string[], `list ${subdirName}`,
+            );
+          } catch { continue; }
+
+          for (const appFolder of appFolders) {
+            const appFolderName = safUriToFileName(appFolder).toLowerCase();
+            if (!appFolderName.startsWith('whatsapp')) continue;
+
+            // Navigate into AppFolder/Media
+            let mediaFolders: string[] = [];
+            try {
+              mediaFolders = await withTimeout(
+                FileSystem.StorageAccessFramework.readDirectoryAsync(appFolder),
+                1500, [] as string[], `list ${appFolderName}`,
+              );
+            } catch { continue; }
+
+            const mediaDir = mediaFolders.find(f =>
+              safUriToFileName(f).toLowerCase() === 'media',
+            );
+            if (!mediaDir) continue;
+
+            // Navigate into Media/.Statuses
+            let mediaSubs: string[] = [];
+            try {
+              mediaSubs = await withTimeout(
+                FileSystem.StorageAccessFramework.readDirectoryAsync(mediaDir),
+                1500, [] as string[], 'list Media',
+              );
+            } catch { continue; }
+
+            const statusesDir = mediaSubs.find(f => safUriToFileName(f) === '.Statuses');
+            if (!statusesDir) continue;
+
+            // Read files from .Statuses
+            try {
+              const files = await withTimeout(
+                FileSystem.StorageAccessFramework.readDirectoryAsync(statusesDir),
+                2500, [] as string[], 'read .Statuses',
+              );
+              for (const fileUri of files) {
+                const fileName = safUriToFileName(fileUri);
+                if (!isValidStatusFile(fileName)) continue;
+                items.push({
+                  id: getFileId(fileUri) + '_' + waSource,
+                  uri: fileUri,
+                  type: getMediaType(fileName),
+                  name: fileName,
+                  source: waSource,
+                });
+              }
+            } catch {}
+            break; // found .Statuses for this WA package, move to next
+          }
+        }
+
+        if (items.length > 0) {
+          // Cache as a special sentinel — android/media grants don't have a single targetUri
+          resolvedUriCache.current.set(safDirUri, safDirUri + '/__media_root__');
+          persistResolvedUriCache();
+          return items;
+        }
+        // If dynamic enumeration found nothing (WA not installed yet, or no statuses viewed),
+        // fall through to the BFS which will try harder.
+      }
+
+      // ── Specific folder grant path (deep WA path or legacy) ───────────────
       let targetUri: string | null = resolvedUriCache.current.get(safDirUri) ?? null;
-      if (targetUri?.endsWith('/__native_resolved__')) targetUri = null;
+      if (
+        targetUri?.endsWith('/__native_resolved__') ||
+        targetUri?.endsWith('/__media_root__')
+      ) targetUri = null;
 
       if (!targetUri) {
         if (safUriToFileName(safDirUri) === '.Statuses') {
           targetUri = safDirUri;
         }
         if (!targetUri) {
-          const decoded = decodeURIComponent(safDirUri).toLowerCase();
           const candidates = [
             '/.Statuses', '/Media/.Statuses',
             '/WhatsApp/Media/.Statuses', '/WhatsApp Business/Media/.Statuses',
           ];
-          if (decoded.endsWith('android/media')) {
-            candidates.push('/com.whatsapp/WhatsApp/Media/.Statuses');
-            candidates.push('/com.whatsapp.w4b/WhatsApp Business/Media/.Statuses');
-          }
           for (const rel of candidates) {
             const uri = buildChildDocUri(safDirUri, rel);
             if (!uri) continue;

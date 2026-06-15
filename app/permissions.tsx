@@ -147,12 +147,12 @@ export default function PermissionsScreen() {
                   icon={safGranted ? 'folder-open' : 'folder-outline'}
                   title="WhatsApp Folder Access"
                   desc={safGranted
-                    ? 'WhatsApp Status folder access granted.'
-                    : 'A folder picker will open directly at your WhatsApp Status folder.\n\n1. Press "Use this folder" at the bottom\n2. Tap "Allow" to confirm\n\nThat\'s it — StatusVault will automatically scan your statuses.'}
+                    ? 'Android/media folder access granted — all WhatsApp variants covered.'
+                    : 'A folder picker will open at the Android\u200b/\u200bmedia folder.\n\n1. The picker opens inside the "media" folder\n2. Tap "Use this folder" at the bottom\n3. Tap "Allow" to confirm\n\nOne grant covers WhatsApp, WhatsApp Business, and other variants automatically.'}
                   done={safGranted}
                   action={!safGranted
                     ? {
-                      label: 'Grant Status Folder Access',
+                      label: 'Grant Folder Access',
                       onPress: () => requestSAF('whatsapp', false),
                     }
                     : undefined}
@@ -165,7 +165,7 @@ export default function PermissionsScreen() {
                   >
                     <Ionicons name="folder-open-outline" size={15} color={COLORS.TEXT_SECONDARY} />
                     <Text style={styles.manualBrowseText}>
-                      Using dual WhatsApp or Work Profile? Browse manually
+                      Picker opened at wrong folder? Try manual browse
                     </Text>
                     <Ionicons name="chevron-forward" size={14} color={COLORS.TEXT_SECONDARY} />
                   </TouchableOpacity>
