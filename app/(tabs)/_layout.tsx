@@ -1,10 +1,12 @@
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Tabs, useFocusEffect } from 'expo-router';
+import { Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCallback, useMemo } from 'react';
+import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from 'expo-system-ui';
 
 function TabBarIcon({ name, color, size }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number }) {
   return <Ionicons name={name} size={size} color={color} />;
@@ -39,6 +41,31 @@ export default function TabLayout() {
   const isAndroid = Platform.OS === 'android';
   const isWeb = Platform.OS === 'web';
   const isIOS = Platform.OS === 'ios';
+
+  // Re-apply the correct status bar + nav bar every time the tabs screen comes
+  // back into focus — this fires after the viewer modal fully dismisses and
+  // ensures the bars are always in sync with the active theme (light or dark).
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const isDark = resolved === 'dark';
+      const bg = COLORS.BACKGROUND;
+      const sdkVersion = Platform.Version as number;
+
+      StatusBar.setHidden(false, 'none');
+      StatusBar.setTranslucent(false);
+      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+      StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
+
+      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+      if (sdkVersion < 35) {
+        NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
+        NavigationBar.setBehaviorAsync('inset-swipe').catch(() => {});
+      }
+
+      SystemUI.setBackgroundColorAsync(isDark ? '#05070A' : '#FFFFFF').catch(() => {});
+    }, [resolved, COLORS.BACKGROUND])
+  );
 
   const TAB_HEIGHT = 64;
   const tabBarHeight = isWeb ? 84 : TAB_HEIGHT + bottom;
