@@ -1,0 +1,340 @@
+ LOG  [Viewer] Waiting for animations before load: f687bcc0665e4b8caaf8d65720a07d89.mp4
+ LOG  [Viewer] Calling replaceAsync for f687bcc0665e4b8caaf8d65720a07d89.mp4 (9ms)
+ LOG  [Viewer] playToEnd for f687bcc0665e4b8caaf8d65720a07d89.mp4 — restarting loop
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] replaceAsync complete for f687bcc0665e4b8caaf8d65720a07d89.mp4 (2171ms)
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] REVEALING video surface for f687bcc0665e4b8caaf8d65720a07d89.mp4
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 1.98s — seeking to 2.48s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 3.08s — seeking to 3.58s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 3.94s — seeking to 4.44s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 4.56s — seeking to 5.06s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 5.23s — seeking to 5.73s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 6.12s — seeking to 6.62s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 6.92s — seeking to 7.42s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 7.47s — seeking to 7.97s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 8.27s — seeking to 8.77s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 8.90s — seeking to 9.40s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 9.80s — seeking to 10.30s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 10.97s — seeking to 11.47s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 11.64s — seeking to 12.14s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 12.21s — seeking to 12.71s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 13.17s — seeking to 13.67s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 13.93s — seeking to 14.43s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 15.29s — seeking to 15.79s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 16.05s — seeking to 16.55s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 16.75s — seeking to 17.25s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 17.66s — seeking to 18.16s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 18.49s — seeking to 18.99s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 19.88s — seeking to 20.38s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 20.83s — seeking to 21.33s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 22.14s — seeking to 22.64s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 23.37s — seeking to 23.87s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 23.92s — seeking to 24.42s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 24.85s — seeking to 25.35s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 25.81s — seeking to 26.31s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 26.68s — seeking to 27.18s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 28.13s — seeking to 28.63s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 28.69s — seeking to 29.19s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 29.51s — seeking to 30.01s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] true stall #3 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — cold-restarting decoder
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: idle
+ LOG  [Viewer] cold restart: reloading f687bcc0665e4b8caaf8d65720a07d89.mp4
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 0.08s — seeking to 0.58s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 0.91s — seeking to 1.41s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 1.79s — seeking to 2.29s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 2.47s — seeking to 2.97s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 3.41s — seeking to 3.91s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 4.20s — seeking to 4.70s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 4.97s — seeking to 5.47s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 5.89s — seeking to 6.39s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 6.77s — seeking to 7.27s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 7.39s — seeking to 7.89s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 8.07s — seeking to 8.57s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 8.96s — seeking to 9.46s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 9.90s — seeking to 10.40s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 10.91s — seeking to 11.41s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 11.59s — seeking to 12.09s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 12.56s — seeking to 13.06s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 13.90s — seeking to 14.40s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 15.18s — seeking to 15.68s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 16.14s — seeking to 16.64s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 16.81s — seeking to 17.31s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 17.53s — seeking to 18.03s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 18.21s — seeking to 18.71s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 19.72s — seeking to 20.22s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 20.74s — seeking to 21.24s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 21.49s — seeking to 21.99s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 22.18s — seeking to 22.68s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 23.59s — seeking to 24.09s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 24.47s — seeking to 24.97s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 25.15s — seeking to 25.65s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 25.99s — seeking to 26.49s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 26.64s — seeking to 27.14s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 27.37s — seeking to 27.87s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 28.22s — seeking to 28.72s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 29.45s — seeking to 29.95s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 30.33s — seeking to 30.83s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 31.21s — seeking to 31.71s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 32.07s — seeking to 32.57s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 32.94s — seeking to 33.44s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 33.54s — seeking to 34.04s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 34.33s — seeking to 34.83s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #3 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — cold restart already tried, showing error
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 35.60s — seeking to 36.10s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 36.39s — seeking to 36.89s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 37.11s — seeking to 37.61s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 38.04s — seeking to 38.54s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 39.12s — seeking to 39.62s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 39.87s — seeking to 40.37s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 40.59s — seeking to 41.09s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 41.53s — seeking to 42.03s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 42.43s — seeking to 42.93s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 43.96s — seeking to 44.46s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 44.84s — seeking to 45.34s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 45.46s — seeking to 45.96s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 46.40s — seeking to 46.90s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 47.23s — seeking to 47.73s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 48.18s — seeking to 48.68s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 49.11s — seeking to 49.61s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 50.52s — seeking to 51.02s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 51.82s — seeking to 52.32s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #1 for f687bcc0665e4b8caaf8d65720a07d89.mp4 at 52.39s — seeking to 52.89s to skip stuck frame
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #2 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — pause/resume cycle
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: loading
+ LOG  [Viewer] Player status for f687bcc0665e4b8caaf8d65720a07d89.mp4: readyToPlay
+ LOG  [Viewer] stall #3 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — cold restart already tried, showing error
+ LOG  [Viewer] stall #4 for f687bcc0665e4b8caaf8d65720a07d89.mp4 — cold restart did not recover, showing error
+ now there anlazye entire source code fix it prroperly and fix it entirelly ok fix this ook lets do it 
