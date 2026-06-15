@@ -1,0 +1,88 @@
+WARN  Layout children must be of type Screen, all other children are ignored. To use custom children, create a custom <Layout />. Update Layout Route at: "app/_layout"
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.
+ WARN  The `allowsFullscreen` prop is deprecated and will be removed in a future release. Use `fullscreenOptions` prop instead.
+ LOG  [Viewer] Pre-copying SAF video to file:// for 17a6e234d34b4c48b293f49645f8550f.mp4
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] playToEnd for 17a6e234d34b4c48b293f49645f8550f.mp4 — restarting loop
+ LOG  [Viewer] Calling replaceAsync for 17a6e234d34b4c48b293f49645f8550f.mp4 (0ms)
+ LOG  [Viewer] Player status for 17a6e234d34b4c48b293f49645f8550f.mp4: loading
+ LOG  [Viewer] replaceAsync complete for 17a6e234d34b4c48b293f49645f8550f.mp4 (1579ms)
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] Pre-copying SAF video to file:// for 3041a584c54b45089620c526031050d8.mp4
+ LOG  [Viewer] Pre-copying SAF video to file:// for 48c4123cb90e4e44a9a87beb41cb4af0.mp4
+ LOG  [Viewer] Player status for 17a6e234d34b4c48b293f49645f8550f.mp4: readyToPlay
+ LOG  [Viewer] REVEALING video surface for 17a6e234d34b4c48b293f49645f8550f.mp4
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] stall #1 for 17a6e234d34b4c48b293f49645f8550f.mp4 at 0.70s — play() kick
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] stall #1 for 17a6e234d34b4c48b293f49645f8550f.mp4 at 0.83s — play() kick
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] stall #1 for 17a6e234d34b4c48b293f49645f8550f.mp4 at 1.33s — play() kick
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] stall #1 for 17a6e234d34b4c48b293f49645f8550f.mp4 at 1.58s — play() kick
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] stall #1 for 17a6e234d34b4c48b293f49645f8550f.mp4 at 1.77s — play() kick
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ LOG  [Viewer] stall #1 for 17a6e234d34b4c48b293f49645f8550f.mp4 at 1.90s — play() kick
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBackgroundColorAsync` is not supported with edge-to-edge enabled.
+ WARN  `setBehaviorAsync` is not supported with edge-to-edge enabled.

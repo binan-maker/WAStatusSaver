@@ -57,12 +57,9 @@ export default function TabLayout() {
       StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
       StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
 
+      // setBackgroundColorAsync / setBehaviorAsync are no-ops in edge-to-edge
+      // mode and generate WARN spam — button style is sufficient.
       NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
-      if (sdkVersion < 35) {
-        NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
-        NavigationBar.setBehaviorAsync('inset-swipe').catch(() => {});
-      }
-
       SystemUI.setBackgroundColorAsync(isDark ? '#05070A' : '#FFFFFF').catch(() => {});
     }, [resolved, COLORS.BACKGROUND])
   );

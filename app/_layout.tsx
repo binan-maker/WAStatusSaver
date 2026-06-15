@@ -32,18 +32,17 @@ if (!__DEV__) {
 
 SplashScreen.preventAutoHideAsync();
 
-async function applyImmersiveMode(bg: string, isDark: boolean) {
+async function applyImmersiveMode(isDark: boolean) {
   if (Platform.OS !== 'android') return;
   try {
     const sdkVersion = Platform.Version as number;
     if (sdkVersion < 30) {
       await NavigationBar.setVisibilityAsync('visible');
     }
+    // setBackgroundColorAsync / setBehaviorAsync are no-ops when edge-to-edge
+    // is enabled (they generate WARN spam). Button style still works and is
+    // the only thing that matters for icon visibility.
     await NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
-    if (sdkVersion < 35) {
-      await NavigationBar.setBackgroundColorAsync(bg);
-      await NavigationBar.setBehaviorAsync('inset-swipe');
-    }
   } catch {}
 }
 
@@ -114,7 +113,7 @@ function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
   });
 
   useEffect(() => {
-    applyImmersiveMode(colors.BACKGROUND, resolved === 'dark');
+    applyImmersiveMode(resolved === 'dark');
   }, [colors, resolved]);
 
   return (

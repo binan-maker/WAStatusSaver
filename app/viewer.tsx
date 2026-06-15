@@ -534,34 +534,35 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   }, [player, item.type, item.name]);
 
   // ── TRUE-STALL WATCHDOG (currentTime progress check) ────────────────
-  // The only stall-recovery mechanism in the entire viewer. It runs on a
-  // 1 s interval and uses ACTUAL playback progress as the trigger:
-  //   • read player.currentTime
-  //   • compare to lastProgressTimeRef (the last value we saw advance)
-  //   • if it's grown by > 0.05 s, update both refs and bail (still playing)
-  //   • if it hasn't advanced in 2.5 s of wallclock AND we're active AND
-  //     not user-paused AND not at end-of-clip → call play() once
+  // Stall watchdog: polls every 500 ms and declares a true stall when
+  // currentTime hasn't advanced by at least 0.5 s in a 4 s window.
   //
-  // Why this is structurally immune to the previous bugs:
-  //   • Trigger is forward progress (objective), not playingChange events
-  //     (noisy on Android). We CAN'T misfire during normal playback because
-  //     normal playback advances currentTime at 1x.
-  //   • 2.5 s threshold is far longer than any legitimate ExoPlayer self-
-  //     recovery window (~50-300 ms), so we never race with the decoder.
-  //   • We only fire ONE play() per stall (we update lastProgressMsRef
-  //     after kicking, so the next check has a fresh 2.5 s window).
+  // WHY 0.5 s (not 0.05 s):
+  //   The old 0.05 s threshold let the former play() kick create an infinite
+  //   loop. The kick nudged ExoPlayer just enough (+0.1–0.5 s) to cross 0.05 s,
+  //   which reset stallCountRef to 0 — so escalation to cold restart NEVER
+  //   happened. The video crawled forward at ~0.03× speed forever. 0.5 s means
+  //   the video must advance at least half a second every 4 s wallclock to be
+  //   considered "playing". Any lower and OEM micro-stall nudges fool the check.
+  //
+  // WHY no play() kick:
+  //   play() on an already-playing-but-hardware-stalled ExoPlayer is a no-op
+  //   at best; at worst it causes a transient decoder pause that advances
+  //   currentTime by a tiny amount, resetting the stall counter and creating
+  //   exactly the infinite loop described above. Removed entirely.
+  //
+  // RECOVERY STRATEGY (straight to cold restart):
+  //   Stall #1 → cold-restart the decoder (replaceAsync(null) + 1 s + replaceAsync(uri)).
+  //             This is the only fix that reliably unsticks a hardware decoder
+  //             that has stalled mid-bitstream on Android 11+ OEM builds.
+  //   Stall #2 → show error overlay (cold restart already tried; give up).
   useEffect(() => {
     if (item.type !== 'video' || !player) return;
-    // Initialize on attach.
     lastProgressTimeRef.current = 0;
     lastProgressMsRef.current = Date.now();
 
-    const interval = setInterval(() => {  // 500 ms — tighter poll so stalls are caught in ~1.5 s not ~3.5 s
+    const interval = setInterval(() => {
       try {
-        // Skip entirely while a cold restart is in progress — we don't want
-        // the stall counter advancing during the replaceAsync(null)→wait→
-        // replaceAsync(uri) window, as that would trigger stall #4+ the moment
-        // the fresh decoder reaches readyToPlay.
         if (isColdRestartingRef.current) return;
         if (!isActiveRef.current) return;
         if (userPausedRef.current) return;
@@ -570,21 +571,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         const currentSec = (player as any).currentTime ?? 0;
         const durationSec = (player as any).duration ?? 0;
 
-        // End-of-clip → playToEnd handles. We track progress against the
-        // restart but don't fire play() here.
+        // End-of-clip — playToEnd loop handles the restart.
         if (durationSec > 0 && currentSec >= durationSec - 0.5) {
           lastProgressTimeRef.current = currentSec;
           lastProgressMsRef.current = Date.now();
           return;
         }
 
-        // currentTime advanced — playback is healthy.
-        // Also reset the stall counter so each distinct stall event gets
-        // its own fresh 3-level recovery chain (seek → pause/resume → cold
-        // restart). Without this, a video that temporarily stalls, recovers,
-        // then stalls later at a different position would jump straight to
-        // cold restart on its second stall.
-        if (currentSec > lastProgressTimeRef.current + 0.05) {
+        // Playback is healthy: video advanced ≥0.5 s since last check.
+        // Reset stall counter so a later distinct stall starts fresh at #1.
+        if (currentSec > lastProgressTimeRef.current + 0.5) {
           lastProgressTimeRef.current = currentSec;
           lastProgressMsRef.current = Date.now();
           if (stallCountRef.current > 0) {
@@ -594,39 +590,22 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           return;
         }
 
-        // No progress for 4 s → real stall. 4 s avoids false-positives from
-        // legitimate decoder pauses (up to ~1.2 s on Android 11 OEM builds).
-        // Note: if the pre-copy fix is working, this watchdog should rarely
-        // fire — file:// URIs don't suffer SAF stream starvation.
+        // True stall: no meaningful progress for 4 s.
         const stalledMs = Date.now() - lastProgressMsRef.current;
         if (stalledMs >= 4000) {
           stallCountRef.current += 1;
           const stallN = stallCountRef.current;
 
-          // Stall #1 — simple play() kick. With a file:// URI this can
-          // recover a transient OEM decoder hiccup. We no longer seek
-          // forward (stall #1 old behaviour) because seeking on a stalled
-          // decoder triggers loading→readyToPlay cycles that reset the stall
-          // counter and create the seek-stall-seek infinite loop seen in logs.
-          if (stallN === 1) {
-            __DEV__ && console.log(`[Viewer] stall #1 for ${item.name} at ${currentSec.toFixed(2)}s — play() kick`);
-            lastProgressMsRef.current = Date.now();
-            try { player.play(); } catch {}
-
-          } else if (stallN === 2 && !stallAutoRetryFiredRef.current) {
-            // Stall #2 — play() didn't recover; cold-restart the decoder.
-            // This is the old stall #3 path, now promoted to #2 because the
-            // seek (#1 old) and pause/resume (#2 old) were actively harmful:
-            // they constantly restarted decode without fixing the SAF starvation.
+          if (stallN === 1 && !stallAutoRetryFiredRef.current) {
             stallAutoRetryFiredRef.current = true;
 
             if (coldRestartCountRef.current >= 1) {
-              __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — cold restart already tried, showing error`);
+              // Already cold-restarted once — nothing more to try.
               setVideoError(true);
             } else {
               isColdRestartingRef.current = true;
               const uriToReload = displayUriRef.current;
-              __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — cold-restarting decoder`);
+              __DEV__ && console.log(`[Viewer] stall detected for ${item.name} at ${currentSec.toFixed(2)}s — cold-restarting decoder`);
               (async () => {
                 try {
                   isReadyToPlayRef.current = false;
@@ -637,7 +616,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     isColdRestartingRef.current = false;
                     return;
                   }
-                  __DEV__ && console.log(`[Viewer] cold restart: reloading ${item.name}`);
                   lastReplacedSourceRef.current = uriToReload;
                   await player.replaceAsync(uriToReload);
                   coldRestartCountRef.current += 1;
@@ -645,22 +623,18 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   stallAutoRetryFiredRef.current = false;
                   lastProgressTimeRef.current = 0;
                   lastProgressMsRef.current = Date.now();
-                } catch (e) {
-                  __DEV__ && console.log(`[Viewer] cold restart failed for ${item.name}:`, e);
+                } catch {
                   setVideoError(true);
                 } finally {
                   isColdRestartingRef.current = false;
                 }
               })();
             }
-          } else if (stallN === 3) {
-            __DEV__ && console.log(`[Viewer] stall #3 for ${item.name} — cold restart did not recover, showing error`);
+          } else if (stallN >= 2) {
+            // Cold restart did not recover — show error overlay.
             setVideoError(true);
           }
 
-          // Reset wallclock so the next check has a fresh window before
-          // firing again. If the kick/recovery worked, currentTime will advance
-          // and the regular branch above takes over.
           lastProgressMsRef.current = Date.now();
         }
       } catch {}
@@ -1277,16 +1251,11 @@ export default function ViewerScreen() {
         // Nav bar button style — white gesture indicators on black.
         // Always set button style BEFORE background so icons are never
         // dark-on-dark for even a single frame (the invisible-buttons bug).
+        // setBackgroundColorAsync is a no-op in edge-to-edge mode.
+        // SystemUI is what controls the colour that shows through transparent
+        // bars — set it black so both status bar and nav bar appear black.
         NavigationBar.setButtonStyleAsync('light').catch(() => {});
-        // In edge-to-edge mode setBackgroundColorAsync is a no-op, so we
-        // also set the root SystemUI background — that IS the colour that
-        // shows through the transparent status bar and nav bar when
-        // edge-to-edge is active.  Without this the white app background
-        // bleeds through both bars even though the viewer content is black.
         SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
-        if (sdkVersion < 35) {
-          NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
-        }
       };
 
       applyDarkBars();
@@ -1303,12 +1272,7 @@ export default function ViewerScreen() {
         StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
         StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
         NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
-        // Restore root SystemUI background so transparent bars show the correct
-        // theme colour (white in light, near-black in dark) after leaving viewer.
         SystemUI.setBackgroundColorAsync(isDark ? '#05070A' : '#FFFFFF').catch(() => {});
-        if (sdkVersion < 35) {
-          NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
-        }
       };
     // themeRestoreRef is a ref — safe to omit from deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
