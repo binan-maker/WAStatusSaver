@@ -29,6 +29,7 @@ import {
 } from '@/contexts/MediaContext';
 import { useTheme, useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SystemUI from 'expo-system-ui';
 import { FONT_SIZE, SPACING, RADIUS } from '@/constants/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -1273,10 +1274,16 @@ export default function ViewerScreen() {
         StatusBar.setTranslucent(false);
         StatusBar.setBarStyle('light-content', true);
         StatusBar.setBackgroundColor('#000000', true);
-        // Nav bar — black background, white/light gesture indicators
+        // Nav bar button style — white gesture indicators on black.
         // Always set button style BEFORE background so icons are never
         // dark-on-dark for even a single frame (the invisible-buttons bug).
         NavigationBar.setButtonStyleAsync('light').catch(() => {});
+        // In edge-to-edge mode setBackgroundColorAsync is a no-op, so we
+        // also set the root SystemUI background — that IS the colour that
+        // shows through the transparent status bar and nav bar when
+        // edge-to-edge is active.  Without this the white app background
+        // bleeds through both bars even though the viewer content is black.
+        SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
         if (sdkVersion < 35) {
           NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
         }
@@ -1296,6 +1303,9 @@ export default function ViewerScreen() {
         StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
         StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
         NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+        // Restore root SystemUI background so transparent bars show the correct
+        // theme colour (white in light, near-black in dark) after leaving viewer.
+        SystemUI.setBackgroundColorAsync(isDark ? '#05070A' : '#FFFFFF').catch(() => {});
         if (sdkVersion < 35) {
           NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
         }
