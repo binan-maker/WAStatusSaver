@@ -592,148 +592,67 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           return;
         }
 
-        // No progress for 1.5 s → real stall. 1.5 s is long enough to avoid
-        // false-positives from legitimate I-frame decoding pauses (<200 ms)
-        // but short enough to recover before the user notices the freeze.
+        // No progress for 4 s → real stall. 4 s avoids false-positives from
+        // legitimate decoder pauses (up to ~1.2 s on Android 11 OEM builds).
+        // Note: if the pre-copy fix is working, this watchdog should rarely
+        // fire — file:// URIs don't suffer SAF stream starvation.
         const stalledMs = Date.now() - lastProgressMsRef.current;
-        if (stalledMs >= 1500) {
+        if (stalledMs >= 4000) {
           stallCountRef.current += 1;
           const stallN = stallCountRef.current;
 
+          // Stall #1 — simple play() kick. With a file:// URI this can
+          // recover a transient OEM decoder hiccup. We no longer seek
+          // forward (stall #1 old behaviour) because seeking on a stalled
+          // decoder triggers loading→readyToPlay cycles that reset the stall
+          // counter and create the seek-stall-seek infinite loop seen in logs.
           if (stallN === 1) {
-            // Stall #1 — seek forward 0.5 s past the stuck frame, then play().
-            //
-            // ROOT CAUSE (Android 11+ ExoPlayer): the hardware MediaCodec
-            // stops delivering output buffers at a specific inter-frame
-            // position (typically ~0.4 s on WhatsApp status videos). The
-            // decoder is not exhausted — it is stuck on a particular P-frame
-            // or B-frame that references a frame the codec has already
-            // discarded from its output queue. This happens because Android
-            // 11+ (API 30+) defaulted ExoPlayer to asynchronous MediaCodec
-            // mode (MediaCodecAsyncCallback), and some OEM implementations
-            // never deliver the `onOutputBufferAvailable` callback for that
-            // specific buffer index.
-            //
-            // A plain play() call cannot unstick this because the codec's
-            // output pipeline is already blocked — the renderer is waiting
-            // forever for a buffer that will never arrive.
-            //
-            // seekTo(stuck + 0.5s) forces ExoPlayer to flush its decoder
-            // queue, seek the extractor to the next keyframe at or after the
-            // target position, and restart the decode pipeline from a clean
-            // I-frame. This is the minimal disruptive fix that avoids
-            // destroying and reallocating the hardware decoder (cold restart).
-            const seekTarget = currentSec + 0.5;
-            __DEV__ && console.log(`[Viewer] stall #1 for ${item.name} at ${currentSec.toFixed(2)}s — seeking to ${seekTarget.toFixed(2)}s to skip stuck frame`);
-            try {
-              // Reset the "first readyToPlay" latch BEFORE the seek so that
-              // when the seek triggers loading → readyToPlay, the status listener
-              // calls tryStartPlayback() → player.play() authoritatively.
-              // This is safer than calling player.play() here while the player
-              // is mid-seek (loading state), which ExoPlayer may silently ignore.
-              hasEverReachedReadyRef.current = false;
-              isReadyToPlayRef.current = false;
-              (player as any).currentTime = seekTarget;
-              // Advance the watchdog baseline to the seek target so we don't
-              // immediately re-trigger a stall on the very next tick.
-              lastProgressTimeRef.current = seekTarget;
-              lastProgressMsRef.current = Date.now();
-            } catch {}
+            __DEV__ && console.log(`[Viewer] stall #1 for ${item.name} at ${currentSec.toFixed(2)}s — play() kick`);
+            lastProgressMsRef.current = Date.now();
+            try { player.play(); } catch {}
 
-          } else if (stallN === 2) {
-            // Stall #2 — pause + 500 ms + play. Forces ExoPlayer to drain and
-            // refill its decoder buffer. Reset baseline so stall #3 doesn't
-            // fire immediately on the very next tick.
-            __DEV__ && console.log(`[Viewer] stall #2 for ${item.name} — pause/resume cycle`);
-            lastProgressMsRef.current = Date.now(); // give 1.5 s for recovery
-            try {
-              player.pause();
-              setTimeout(() => {
-                if (!isActiveRef.current || userPausedRef.current) return;
-                try {
-                  // Seek +0.5s again as part of the pause/resume cycle —
-                  // if the frame is genuinely stuck, seeking gives ExoPlayer
-                  // a fresh I-frame reference to decode from.
-                  const pos = (player as any).currentTime ?? lastProgressTimeRef.current;
-                  const target = pos + 0.5;
-                  hasEverReachedReadyRef.current = false;
-                  isReadyToPlayRef.current = false;
-                  (player as any).currentTime = target;
-                  lastProgressTimeRef.current = target;
-                  lastProgressMsRef.current = Date.now();
-                } catch {
-                  try { player.play(); } catch {}
-                }
-              }, 300);
-            } catch {}
-
-          } else if (stallN === 3 && !stallAutoRetryFiredRef.current) {
-            // Stall #3 — hardware decoder is genuinely stuck (H.264 High
-            // Profile / HEVC on limited OEM codec slots). play() and
-            // pause/resume have both failed. Cycling to a different file URI
-            // also fails (logs confirm all URI formats stall identically).
-            //
-            // COLD DECODER RESTART:
-            //   replaceAsync(null) → 1 s wait → replaceAsync(same URI)
-            // This forces the Android codec pool to fully release the slot
-            // and allocate a fresh hardware decoder instance. The 1 s wait
-            // is critical — without it the OS hasn't returned the slot yet
-            // when the second replaceAsync fires, so the same stuck decoder
-            // gets reused and stalls again immediately.
-            //
-            // LOOP PREVENTION: coldRestartCountRef tracks cold restarts for
-            // the current item across all stall escalation cycles (unlike
-            // stallCountRef which resets when progress resumes). If a cold
-            // restart was already attempted and stalls continue, the decoder
-            // is pathologically stuck — skip straight to the error overlay
-            // rather than looping restart→stall#1→stall#2→stall#3 forever.
+          } else if (stallN === 2 && !stallAutoRetryFiredRef.current) {
+            // Stall #2 — play() didn't recover; cold-restart the decoder.
+            // This is the old stall #3 path, now promoted to #2 because the
+            // seek (#1 old) and pause/resume (#2 old) were actively harmful:
+            // they constantly restarted decode without fixing the SAF starvation.
             stallAutoRetryFiredRef.current = true;
 
             if (coldRestartCountRef.current >= 1) {
               __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — cold restart already tried, showing error`);
               setVideoError(true);
             } else {
-            isColdRestartingRef.current = true; // pause watchdog + playToEnd
-            const uriToReload = displayUriRef.current;
-            __DEV__ && console.log(`[Viewer] true stall #${stallN} for ${item.name} — cold-restarting decoder`);
-            (async () => {
-              try {
-                isReadyToPlayRef.current = false;
-                hasEverReachedReadyRef.current = false;
-                await player.replaceAsync(null);
-                await new Promise(r => setTimeout(r, 1000));
-                if (!isActiveRef.current || userPausedRef.current || !uriToReload) {
+              isColdRestartingRef.current = true;
+              const uriToReload = displayUriRef.current;
+              __DEV__ && console.log(`[Viewer] stall #${stallN} for ${item.name} — cold-restarting decoder`);
+              (async () => {
+                try {
+                  isReadyToPlayRef.current = false;
+                  hasEverReachedReadyRef.current = false;
+                  await player.replaceAsync(null);
+                  await new Promise(r => setTimeout(r, 1000));
+                  if (!isActiveRef.current || userPausedRef.current || !uriToReload) {
+                    isColdRestartingRef.current = false;
+                    return;
+                  }
+                  __DEV__ && console.log(`[Viewer] cold restart: reloading ${item.name}`);
+                  lastReplacedSourceRef.current = uriToReload;
+                  await player.replaceAsync(uriToReload);
+                  coldRestartCountRef.current += 1;
+                  stallCountRef.current = 0;
+                  stallAutoRetryFiredRef.current = false;
+                  lastProgressTimeRef.current = 0;
+                  lastProgressMsRef.current = Date.now();
+                } catch (e) {
+                  __DEV__ && console.log(`[Viewer] cold restart failed for ${item.name}:`, e);
+                  setVideoError(true);
+                } finally {
                   isColdRestartingRef.current = false;
-                  return;
                 }
-                __DEV__ && console.log(`[Viewer] cold restart: reloading ${item.name}`);
-                lastReplacedSourceRef.current = uriToReload;
-                await player.replaceAsync(uriToReload);
-                // Increment cold restart count BEFORE resetting stallCount so
-                // if stalls resume after this restart we know not to retry again.
-                coldRestartCountRef.current += 1;
-                // Reset stall counter AFTER the new source is loaded so the
-                // watchdog gives the fresh decoder a clean slate.
-                stallCountRef.current = 0;
-                stallAutoRetryFiredRef.current = false;
-                lastProgressTimeRef.current = 0;
-                lastProgressMsRef.current = Date.now();
-                // play() fires from statusChange readyToPlay automatically.
-              } catch (e) {
-                __DEV__ && console.log(`[Viewer] cold restart failed for ${item.name}:`, e);
-                setVideoError(true);
-              } finally {
-                isColdRestartingRef.current = false; // always re-enable watchdog
-              }
-            })();
+              })();
             }
-          } else if (stallN === 4) {
-            // Stall #4 — cold restart also failed (or stall happened before
-            // cold restart had a chance due to a race). Show the error overlay
-            // so the user can manually trigger another cold restart.
-            // Only fire once (stallN === 4) — subsequent ticks still increment
-            // stallCountRef but we don't log or call setState again.
-            __DEV__ && console.log(`[Viewer] stall #4 for ${item.name} — cold restart did not recover, showing error`);
+          } else if (stallN === 3) {
+            __DEV__ && console.log(`[Viewer] stall #3 for ${item.name} — cold restart did not recover, showing error`);
             setVideoError(true);
           }
 
@@ -1039,9 +958,37 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     if (displayUri) return; // already prepared for this slot
 
-    // Feed the URI directly to ExoPlayer — content:// URIs from SAF work
-    // natively with ExoPlayer. Saved items already have a file:// URI.
-    setDisplayUri(initialSource);
+    // ANDROID 11+ SAF PRE-COPY FIX (root cause fix):
+    //   content:// SAF URIs cause ExoPlayer's buffer to starve mid-stream
+    //   (the SAF DocumentProvider is slow to deliver bytes on Android 11+
+    //   OEM builds). This manifests as the seek-stall-seek infinite loop
+    //   seen in logs: readyToPlay → stall → seek → readyToPlay → stall …
+    //
+    //   The ONLY reliable fix is to copy the file to the local cache
+    //   directory BEFORE ExoPlayer ever sees the URI. A file:// URI gives
+    //   ExoPlayer a real seekable file descriptor with no streaming
+    //   bottleneck. Trade-off: +200-700 ms on first open; cache hits are
+    //   ~10 ms. Broken playback is strictly worse than slightly slower open.
+    //
+    //   Saved items already have file:// URIs — they bypass this entirely.
+    //   Images use content:// directly — expo-image handles SAF fine.
+    if (item.type === 'video' && initialSource.startsWith('content://')) {
+      (async () => {
+        try {
+          __DEV__ && console.log(`[Viewer] Pre-copying SAF video to file:// for ${item.name}`);
+          const cached = await prepareStatusForViewing(
+            item as StatusItem,
+            { forShare: true }
+          );
+          setDisplayUri(cached ?? initialSource);
+        } catch {
+          // Copy failed — fall back to content:// and let the watchdog handle it.
+          setDisplayUri(initialSource);
+        }
+      })();
+    } else {
+      setDisplayUri(initialSource);
+    }
   }, [initialSource, item, isNearActive, isActive, player]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
@@ -1234,7 +1181,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   player={player}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
-                  nativeControls={true}
+                  nativeControls={false}
                   allowsFullscreen
                 />
               )}
