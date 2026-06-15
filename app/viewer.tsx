@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Reanimated, { useSharedValue, useAnimatedStyle, withSpring, withDecay, runOnJS } from 'react-native-reanimated';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -1257,45 +1257,53 @@ export default function ViewerScreen() {
   const themeRestoreRef = useRef({ resolved, bg: COLORS.BACKGROUND });
   useEffect(() => { themeRestoreRef.current = { resolved, bg: COLORS.BACKGROUND }; }, [resolved, COLORS.BACKGROUND]);
 
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    const sdkVersion = Platform.Version as number;
+  // useFocusEffect (not useEffect) so the dark-bar setup fires AFTER the
+  // navigation animation completes and the viewer is truly focused. Using
+  // useEffect([]) fired during the opening animation while the tabs screen
+  // was still focused, so the tabs useFocusEffect restoration ran AFTER
+  // and overrode the dark bars with light-theme colors.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const sdkVersion = Platform.Version as number;
 
-    const applyDarkBars = () => {
-      // Status bar — black background, white icons
-      StatusBar.setHidden(false, 'none');
-      StatusBar.setTranslucent(false);
-      StatusBar.setBarStyle('light-content', true);
-      StatusBar.setBackgroundColor('#000000', true);
-      // Nav bar — black background, white/light gesture indicators
-      // Always set button style BEFORE background so icons are never
-      // dark-on-dark for even a single frame (the invisible-buttons bug).
-      NavigationBar.setButtonStyleAsync('light').catch(() => {});
-      if (sdkVersion < 35) {
-        NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
-      }
-    };
+      const applyDarkBars = () => {
+        // Status bar — black background, white icons
+        StatusBar.setHidden(false, 'none');
+        StatusBar.setTranslucent(false);
+        StatusBar.setBarStyle('light-content', true);
+        StatusBar.setBackgroundColor('#000000', true);
+        // Nav bar — black background, white/light gesture indicators
+        // Always set button style BEFORE background so icons are never
+        // dark-on-dark for even a single frame (the invisible-buttons bug).
+        NavigationBar.setButtonStyleAsync('light').catch(() => {});
+        if (sdkVersion < 35) {
+          NavigationBar.setBackgroundColorAsync('#000000').catch(() => {});
+        }
+      };
 
-    applyDarkBars();
+      applyDarkBars();
 
-    // Re-apply whenever the user alt-tabs back into the app while in viewer.
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') applyDarkBars();
-    });
+      // Re-apply whenever the user alt-tabs back into the app while in viewer.
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') applyDarkBars();
+      });
 
-    return () => {
-      sub.remove();
-      const { resolved: r, bg } = themeRestoreRef.current;
-      const isDark = r === 'dark';
-      StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
-      StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
-      NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
-      if (sdkVersion < 35) {
-        NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      return () => {
+        sub.remove();
+        const { resolved: r, bg } = themeRestoreRef.current;
+        const isDark = r === 'dark';
+        StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+        StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
+        NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+        if (sdkVersion < 35) {
+          NavigationBar.setBackgroundColorAsync(bg).catch(() => {});
+        }
+      };
+    // themeRestoreRef is a ref — safe to omit from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
   const { id, isSaved: isSavedParam } = params;
   
