@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ExoPlayerView } from '@/modules/exo-player';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
+import { useThumbnail } from '@/hooks/media/useThumbnail';
 import { createStyles, SW, SH } from './viewerStyles';
 
 const VIEWER_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
@@ -43,6 +44,9 @@ export function ViewerItem({
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { prepareStatusForViewing } = useMedia();
+
+  // Pre-generated file:// JPG thumbnail — used as poster while video prepares.
+  const cachedThumb = useThumbnail(item.id);
 
   // displayUri is always file:// for videos — never content://
   const [displayUri, setDisplayUri] = useState<string | null>(null);
@@ -355,18 +359,22 @@ export function ViewerItem({
             )}
 
             {/* Thumbnail poster — shown on top until video is visible.
-                For non-SAF sources videoTimestamp gives a fast frame grab;
-                skip it for SAF content:// to avoid heavy IO on cheap devices. */}
+                Policy: Video thumbnails are ALWAYS file:// JPGs from
+                ThumbnailCache — never videoTimestamp on any URI (SAF or
+                file://). If the JPG isn't cached yet, show the blurhash
+                placeholder (source={null}) until the background queue
+                finishes. No content:// ever reaches this Image. */}
             {(!isActive || !isVideoVisible) && (
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 <Image
-                  source={{ uri: initialSource }}
+                  source={cachedThumb ? { uri: cachedThumb } : null}
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
                   cachePolicy="memory-disk"
                   transition={0}
                   recyclingKey={item.id}
-                  {...(!isSAF ? { videoTimestamp: 500 } : {})}
+                  placeholder={VIEWER_PLACEHOLDER}
+                  placeholderContentFit="cover"
                 />
                 {isActive && !isVideoReady && !isPreparing && !videoError && (
                   <View style={styles.videoPlayBadge} pointerEvents="none">

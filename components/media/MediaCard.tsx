@@ -45,8 +45,6 @@ function MediaCardInner({
 
   const cachedThumb = useThumbnail(item.id);
   const isVideo = item.type === 'video';
-  const displayUri = cachedThumb || originalUri;
-  const useVideoFallback = isVideo && !cachedThumb;
 
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
   const handleSave = useCallback(() => onSave?.(item), [onSave, item]);
@@ -63,36 +61,24 @@ function MediaCardInner({
       >
         {isVideo ? (
           <View style={styles.image}>
-            {useVideoFallback ? (
-              <Image
-                source={{ uri: displayUri }}
-                style={styles.image}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                recyclingKey={item.id}
-                videoTimestamp={0}
-                priority="low"
-                allowDownscaling
-                decodeFormat="rgb"
-                transition={0}
-                placeholder={THUMB_PLACEHOLDER}
-                placeholderContentFit="cover"
-              />
-            ) : (
-              <Image
-                source={{ uri: displayUri }}
-                style={styles.image}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                recyclingKey={item.id}
-                priority="normal"
-                allowDownscaling
-                decodeFormat="rgb"
-                transition={0}
-                placeholder={THUMB_PLACEHOLDER}
-                placeholderContentFit="cover"
-              />
-            )}
+            {/* Video thumbnails are ALWAYS pre-generated file:// JPGs from the
+                background queue (ThumbnailCache). Never use videoTimestamp on a
+                content:// URI — that forces a SAF round-trip per card and
+                destroys scroll smoothness on Android 11+. Until the JPG is
+                ready, show only the blurhash placeholder (source={null}). */}
+            <Image
+              source={cachedThumb ? { uri: cachedThumb } : null}
+              style={styles.image}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={item.id}
+              priority="normal"
+              allowDownscaling
+              decodeFormat="rgb"
+              transition={0}
+              placeholder={THUMB_PLACEHOLDER}
+              placeholderContentFit="cover"
+            />
             <View style={styles.videoOverlay}>
               <View style={styles.playButton}>
                 <Ionicons name="play" size={16} color="#fff" />
@@ -100,8 +86,10 @@ function MediaCardInner({
             </View>
           </View>
         ) : (
+          /* Images: content:// is fine — expo-image caches the decode result
+             on first render, so subsequent scrolls hit the disk cache. */
           <Image
-            source={{ uri: displayUri }}
+            source={{ uri: originalUri }}
             style={styles.image}
             contentFit="cover"
             cachePolicy="memory-disk"
