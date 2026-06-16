@@ -139,9 +139,49 @@ export async function pollUntil<T>(
   return last;
 }
 
-let copyQueue: Promise<unknown> = Promise.resolve();
-export function enqueueCopy<T>(fn: () => Promise<T>): Promise<T> {
-  const next = copyQueue.then(() => fn(), () => fn());
-  copyQueue = next.catch(() => undefined);
-  return next as Promise<T>;
+// ── CRITICAL FIX: Limited Copy Queue (Max 2 Parallel, with Playback Timeout) ──
+// Replaces the old serial queue that caused 10+ second freezes
+let activeCopies = 0;
+const MAX_PARALLEL_COPIES = 2;
+const copyWaitingList: (() => Promise<unknown>)[] = [];
+
+async function runCopy<T>(
+  fn: () => Promise<T>,
+  timeoutMs: number = 30000,
+): Promise<T> {
+  activeCopies++;
+  try {
+    return await withTimeout(fn(), timeoutMs, undefined as any, 'Copy operation');
+  } finally {
+    activeCopies--;
+    if (copyWaitingList.length > 0) {
+      const next = copyWaitingList.shift();
+      if (next) runCopy(next, timeoutMs);
+    }
+  }
+}
+
+export function enqueueCopy<T>(
+  fn: () => Promise<T>,
+  opts?: { timeoutMs?: number; isPlayback?: boolean },
+): Promise<T> {
+  // Playback copies timeout faster (8s) to fallback to direct SAF play
+  const timeoutMs = opts?.isPlayback ? 8000 : (opts?.timeoutMs ?? 30000);
+
+  // If under limit, run immediately (parallel up to 2)
+  if (activeCopies < MAX_PARALLEL_COPIES) {
+    return runCopy(fn, timeoutMs);
+  }
+
+  // Otherwise queue it
+  return new Promise<T>((resolve, reject) => {
+    copyWaitingList.push(async () => {
+      try {
+        const result = await runCopy(fn, timeoutMs);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
 }
