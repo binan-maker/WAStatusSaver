@@ -374,7 +374,7 @@ export default function StatusesScreen() {
       pathname: '/viewer',
       params: { id: item.id },
     });
-  }, [prepareStatusForViewing]);
+  }, []);
 
   // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
   // signature. handlePress is already an (item: StatusItem) => void closure
