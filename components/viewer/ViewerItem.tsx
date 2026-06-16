@@ -17,9 +17,8 @@ import Reanimated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
-import { ExoPlayerView } from '@/modules/exo-player';
-import { ExoPlayerBoundary } from './ExoPlayerBoundary';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { useThumbnail } from '@/hooks/media/useThumbnail';
@@ -59,10 +58,18 @@ export function ViewerItem({
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
-  // Cancel token for any in-flight SAF copy
   const prepareCancelRef = useRef(false);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRevealedOnceRef = useRef(false);
+
+  // ── expo-video player (unconditional — hook rules) ─────────────────────────
+  // expo-video uses ExoPlayer under the hood and is Fabric-compatible.
+  // All videos arrive here as file:// URIs (SAF content:// is always copied
+  // to file:// by prepareStatusForViewing before this point).
+  const videoPlayer = useVideoPlayer(null, (player) => {
+    player.loop = true;
+    player.muted = false;
+  });
 
   // ── Raw source (may be content:// on Android 11+) ──────────────────────────
   const initialSource = useMemo(() => {
@@ -104,10 +111,67 @@ export function ViewerItem({
     prepareCancelRef.current = false;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Cleanup reveal timer on unmount ───────────────────────────────────────
+  // ── Cleanup reveal timer on unmount ────────────────────────────────────────
   useEffect(() => () => clearRevealTimer(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Hide video overlay when this slide becomes inactive ───────────────────
+  // ── Release player on unmount ──────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      try { videoPlayer.release(); } catch {}
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Load video source when displayUri is ready ─────────────────────────────
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    if (displayUri) {
+      try {
+        videoPlayer.replace({ uri: displayUri });
+      } catch {}
+    }
+  }, [displayUri, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Play / pause based on active state ─────────────────────────────────────
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    try {
+      if (isActive && displayUri) {
+        videoPlayer.play();
+      } else {
+        videoPlayer.pause();
+      }
+    } catch {}
+  }, [isActive, displayUri, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Status listener ────────────────────────────────────────────────────────
+  const handlePlayerReady = useCallback(() => {
+    setIsVideoReady(true);
+    setVideoError(null);
+    if (!hasRevealedOnceRef.current) {
+      scheduleReveal(80);
+    }
+  }, [scheduleReveal]);
+
+  const handlePlayerError = useCallback((error: string) => {
+    setVideoError('Tap to retry');
+    setIsVideoReady(false);
+  }, []);
+
+  useEffect(() => {
+    if (item.type !== 'video') return;
+    const sub = videoPlayer.addListener('statusChange', (event) => {
+      if (event.status === 'readyToPlay') {
+        handlePlayerReady();
+      } else if (event.status === 'error') {
+        handlePlayerError(
+          (event as any).error?.message ?? 'Playback error',
+        );
+      }
+    });
+    return () => sub.remove();
+  }, [videoPlayer, item.type, handlePlayerReady, handlePlayerError]);
+
+  // ── Hide video overlay when this slide becomes inactive ────────────────────
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
@@ -116,7 +180,7 @@ export function ViewerItem({
     }
   }, [isActive, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Re-schedule reveal when returning to an already-ready slide ───────────
+  // ── Re-schedule reveal when returning to an already-ready slide ────────────
   useEffect(() => {
     if (item.type !== 'video') return;
     if (isActive && isVideoReady && !isVideoVisible) {
@@ -125,12 +189,8 @@ export function ViewerItem({
   }, [isActive, isVideoReady, isVideoVisible, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── CRITICAL: Prepare URI — copy SAF content:// → file:// before playback ──
-  // Images: content:// is fine for expo-image (single-shot decode, no buffering).
-  // Videos: MUST be a file:// URI before handing to ExoPlayer — ExoPlayer
-  //   buffer-starves on SAF URIs. No content:// fallback; show error instead.
   useEffect(() => {
     if (!isNearActive) {
-      // Far from viewport — release resources
       if (!isActive) {
         setDisplayUri(null);
         setIsVideoReady(false);
@@ -140,23 +200,20 @@ export function ViewerItem({
       return;
     }
 
-    if (displayUri) return; // already prepared
+    if (displayUri) return;
 
     if (item.type === 'image') {
-      setDisplayUri(initialSource); // content:// fine for expo-image
-      return;
-    }
-
-    // ── Video path ────────────────────────────────────────────────────────────
-    if (!isActive) return; // only prepare the active video
-
-    if (!isSAF) {
-      // Already a file:// URI (saved gallery item) — feed directly
       setDisplayUri(initialSource);
       return;
     }
 
-    // SAF content:// video: copy to file:// cache first — no exceptions
+    if (!isActive) return;
+
+    if (!isSAF) {
+      setDisplayUri(initialSource);
+      return;
+    }
+
     setIsPreparing(true);
     setVideoError(null);
     prepareCancelRef.current = false;
@@ -169,8 +226,6 @@ export function ViewerItem({
       })
       .catch(() => {
         if (prepareCancelRef.current) return;
-        // Copy failed — never fall back to content://. Show the error overlay
-        // so the user can tap retry (which re-queues the copy).
         setVideoError('Could not load video — tap to retry');
         setIsPreparing(false);
       });
@@ -178,25 +233,10 @@ export function ViewerItem({
     return () => { prepareCancelRef.current = true; };
   }, [initialSource, isSAF, item, isNearActive, isActive, displayUri, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Manual retry: clear error + displayUri to re-trigger prepare ──────────
+  // ── Manual retry ───────────────────────────────────────────────────────────
   const handleRetry = useCallback(() => {
     setVideoError(null);
     setDisplayUri(null);
-  }, []);
-
-  // ── ExoPlayer callbacks ───────────────────────────────────────────────────
-
-  const handlePlayerReady = useCallback(() => {
-    setIsVideoReady(true);
-    setVideoError(null);
-    if (!hasRevealedOnceRef.current) {
-      scheduleReveal(80);
-    }
-  }, [scheduleReveal]);
-
-  const handlePlayerError = useCallback((error: string) => {
-    setVideoError('Tap to retry');
-    setIsVideoReady(false);
   }, []);
 
   const mediaUri = displayUri || initialSource;
@@ -344,34 +384,22 @@ export function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* ExoPlayer — only mounted when active AND we have a file:// URI.
-                Wrapped in ExoPlayerBoundary which catches Fabric's render-time
-                "View config not found" if the native module is not yet compiled
-                into the APK, routing it to handlePlayerError (retry overlay)
-                instead of crashing the whole screen. */}
+            {/* expo-video VideoView — mounts when active AND file:// URI is ready.
+                All SAF content:// URIs are copied to file:// by
+                prepareStatusForViewing before displayUri is ever set.
+                expo-video wraps ExoPlayer natively and is Fabric-compatible. */}
             {isActive && displayUri && !isPreparing && (
-              <ExoPlayerBoundary
-                resetKey={`${item.id}-${displayUri}`}
-                onError={handlePlayerError}
-              >
-                <ExoPlayerView
-                  key={`${item.id}-${displayUri}`}
-                  fileUri={displayUri}
-                  paused={false}
-                  muted={false}
-                  style={StyleSheet.absoluteFill}
-                  onPlayerReady={handlePlayerReady}
-                  onPlayerError={handlePlayerError}
-                />
-              </ExoPlayerBoundary>
+              <VideoView
+                player={videoPlayer}
+                style={StyleSheet.absoluteFill}
+                nativeControls={false}
+                contentFit="contain"
+              />
             )}
 
-            {/* Thumbnail poster — shown on top until video is visible.
-                Policy: Video thumbnails are ALWAYS file:// JPGs from
-                ThumbnailCache — never videoTimestamp on any URI (SAF or
-                file://). If the JPG isn't cached yet, show the blurhash
-                placeholder (source={null}) until the background queue
-                finishes. No content:// ever reaches this Image. */}
+            {/* Thumbnail poster — shown until video is playing.
+                Policy: always a pre-generated file:// JPG from ThumbnailCache.
+                No videoTimestamp on any URI — blurhash placeholder until ready. */}
             {(!isActive || !isVideoVisible) && (
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 <Image
@@ -394,7 +422,7 @@ export function ViewerItem({
               </View>
             )}
 
-            {/* Spinner while copying SAF → cache */}
+            {/* Spinner while copying SAF → file:// cache */}
             {isPreparing && (
               <View style={styles.videoSpinnerWrap} pointerEvents="none">
                 <ActivityIndicator color="#fff" size="large" />
