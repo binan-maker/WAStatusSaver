@@ -270,6 +270,7 @@ export default function StatusesScreen() {
     refresh,
     saveStatus,
     shareStatus,
+    prepareStatusForViewing,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -350,19 +351,10 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-    // PERF: Fire-and-forget prefetch on tap.
-    // - For VIDEOS: NO upfront copy — the viewer feeds the content:// URI
-    //   straight to ExoPlayer (the watchdog rescues the rare device where
-    //   that doesn't work). Eliminates the 200 ms-2 s SAF copy that used
-    //   to run synchronously before the viewer could even start loading.
-    // - For IMAGE URIs (incl. SAF content://): prefetch into expo-image's
-    //   memory-disk cache. On Android 11 the first decode of a content://
-    //   image goes through ContentResolver and can take 800 ms-2 s; doing
-    //   it here in parallel with the navigation animation means the
-    //   viewer's <Image> resolves nearly instantly from cache instead of
-    //   staring at the skeleton shimmer for 1-2 seconds. Throttled +
-    //   deduped so repeated taps never queue a flood of decodes.
     if (item.type === 'image') {
+      // For images: prefetch into expo-image's memory-disk cache so the
+      // viewer's <Image> resolves from cache instead of waiting for the
+      // ContentResolver decode (800 ms–2 s on Android 11+).
       const uri = item.uri;
       const t = Date.now();
       if (
@@ -374,18 +366,26 @@ export default function StatusesScreen() {
         ExpoImage.prefetch(uri, 'memory-disk')
           .catch(() => {})
           .finally(() => {
-            // Free the slot after a short window so a re-tap can re-queue
-            // if the cache was evicted in the meantime.
             setTimeout(() => prefetchedTapUris.delete(uri), 30000);
           });
       }
+    } else if (item.type === 'video' && item.uri.startsWith('content://')) {
+      // For SAF videos: kick off the file:// cache copy THE INSTANT the user
+      // taps. The viewer's URI-prep effect calls prepareStatusForViewing too,
+      // but because copyInFlight deduplicates concurrent calls, both callers
+      // share the same copy promise — no wasted double-copy. By the time the
+      // viewer finishes mounting and its effect runs, the copy has a head-
+      // start (or is already done on fast devices), so ExoPlayer gets a
+      // file:// URI almost immediately instead of waiting for the full copy
+      // to complete from a cold start.
+      prepareStatusForViewing(item, { forShare: true }).catch(() => {});
     }
 
     router.push({
       pathname: '/viewer',
       params: { id: item.id },
     });
-  }, []);
+  }, [prepareStatusForViewing]);
 
   // PERF: Cast handlers to (item) => void for the MediaCard's stable-handler
   // signature. handlePress is already an (item: StatusItem) => void closure

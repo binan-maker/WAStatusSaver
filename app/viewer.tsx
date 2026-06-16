@@ -309,7 +309,20 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     stallAutoRetryFiredRef.current = false;
 
     try {
-      const currentUri = displayUriRef.current || initialSource;
+      // If displayUri is null or still a content:// URI it means the initial
+      // pre-copy failed (or hasn't finished yet). Retry the copy rather than
+      // falling back to content:// streaming which always freezes on Android 11+.
+      let currentUri = displayUriRef.current;
+      if (!currentUri || currentUri.startsWith('content://')) {
+        try {
+          currentUri = await prepareStatusForViewing(item as StatusItem, { forShare: true });
+          setDisplayUri(currentUri);
+        } catch {
+          setVideoError(true);
+          setIsRetrying(false);
+          return;
+        }
+      }
       // Cold restart: fully release the hardware decoder, wait, then reallocate.
       isColdRestartingRef.current = true; // pause watchdog + playToEnd
       isReadyToPlayRef.current = false;
@@ -709,15 +722,11 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     if (!isActive) return;
 
     let cancelled = false;
-    let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
     // ── DEDUPE GUARD ────────────────────────────────────────────────────────
     // If we've already handed this exact URI to ExoPlayer for this item,
-    // don't replace it again. The watchdog used to set displayUri to the
-    // cached file AFTER it had already called replaceAsync(cached) itself,
-    // causing a duplicate replaceAsync that wasted 100-300 ms of native work
-    // and briefly stalled playback on Android 11. With this short-circuit
-    // the second pass is a no-op.
+    // don't replace it again. This guards against double-replaceAsync races
+    // that waste 100–300 ms of native decoder work on Android 11.
     if (lastReplacedSourceRef.current === displayUri) {
       return;
     }
@@ -756,49 +765,13 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // already playing → second play() interrupts the decoder). Let the event
         // listener be the single source of play() calls.
 
-        // ─── Watchdog: fall back to file:// copy if ExoPlayer can't ────
-        // play the content:// URI directly. Most devices fire readyToPlay
-        // within 400 ms; we give it 1 s (was 2.5 s — halved so users
-        // never stare at a frozen thumbnail for more than a second before
-        // the file:// fallback kicks in). The copy goes through the
-        // serialized queue so it never fights another in-flight prepare.
-        if (displayUri.startsWith('content://')) {
-          watchdogTimer = setTimeout(async () => {
-            // Bail if cancelled, OR if the player is currently ready, OR if
-            // it has EVER been ready for this source. The "ever ready" check
-            // is the critical one: ExoPlayer briefly flips status back to
-            // 'loading' during mid-playback re-buffers (every few seconds
-            // when streaming SAF bytes). Without this latch the watchdog
-            // would mistake a 1.5 s re-buffer for an initial-load stall and
-            // forcibly swap the source mid-playback, freezing the video.
-            if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
-            try {
-              const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
-              // Re-check the latch AFTER the await — the player might have
-              // reached readyToPlay during the cache copy, in which case we
-              // must not swap the source out from under a video that's now
-              // happily playing.
-              if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
-              if (cached && cached !== displayUri) {
-                isLoadingSource.current = true;
-                // Mark BEFORE the setDisplayUri() below so when the source-
-                // loading effect re-runs with displayUri = cached, the dedupe
-                // guard at the top sees the match and skips the duplicate
-                // replaceAsync. Without this we'd issue a second
-                // replaceAsync(cached) for the exact same URI we just loaded.
-                lastReplacedSourceRef.current = cached;
-                await player.replaceAsync(cached);
-                if (cancelled) return;
-                isLoadingSource.current = false;
-                setDisplayUri(cached);
-                // play() will be triggered by the statusChange readyToPlay event.
-                // Do not call tryStartPlayback here — same double-play race as above.
-              }
-            } catch (err) {
-              isLoadingSource.current = false;
-            }
-          }, 1000);
-        }
+        // NOTE: The 1-second SAF watchdog that used to exist here has been
+        // removed. Videos are now ALWAYS pre-copied to a local file:// cache
+        // path before ExoPlayer ever sees the URI (see the URI-prep effect
+        // below). A content:// SAF URI will never reach this point, so the
+        // watchdog was redundant and its 1 s timeout caused false failures
+        // (it fired before large-file copies finished, causing it to try
+        // streaming the raw SAF URI which always freezes at ~1 s).
       } catch (e) {
         if (!cancelled) {
           isLoadingSource.current = false;
@@ -809,7 +782,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     load();
     return () => {
       cancelled = true;
-      if (watchdogTimer) clearTimeout(watchdogTimer);
       isLoadingSource.current = false;
       isReadyToPlayRef.current = false;
     };
@@ -936,6 +908,8 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     //
     //   Saved items already have file:// URIs — they bypass this entirely.
     //   Images use content:// directly — expo-image handles SAF fine.
+    let cancelled = false;
+
     if (item.type === 'video' && initialSource.startsWith('content://')) {
       (async () => {
         try {
@@ -943,15 +917,21 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             item as StatusItem,
             { forShare: true }
           );
-          setDisplayUri(cached ?? initialSource);
+          // Guard: slot may have deactivated while the copy was running.
+          if (!cancelled) setDisplayUri(cached);
         } catch {
-          // Copy failed — fall back to content:// and let the watchdog handle it.
-          setDisplayUri(initialSource);
+          // Copy failed — show the error overlay. NEVER fall back to the raw
+          // content:// SAF URI: streaming it always causes ExoPlayer to freeze
+          // at ~1 s on Android 11+ (SAF DocumentProvider can't refill the
+          // buffer fast enough). The user can tap Retry to attempt again.
+          if (!cancelled) setVideoError(true);
         }
       })();
     } else {
       setDisplayUri(initialSource);
     }
+
+    return () => { cancelled = true; };
   }, [initialSource, item, isNearActive, isActive, player]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;

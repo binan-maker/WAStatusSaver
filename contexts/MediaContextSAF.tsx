@@ -41,6 +41,12 @@ import {
 } from './media/types';
 import { SavedStore } from '@/lib/saved-store';
 
+// ── In-flight copy deduplication ─────────────────────────────────────────
+// Tracks copies currently in progress by item ID so two callers requesting
+// the same item (e.g. tap-prefetch in grid + viewer URI-prep) share one
+// promise instead of queuing two sequential copies of the same file.
+const copyInFlight = new Map<string, Promise<string>>();
+
 // ── Telemetry ─────────────────────────────────────────────────────────────
 const TELEMETRY_KEY = '@statusvault_telemetry';
 const TELEMETRY_MAX = 50;
@@ -956,36 +962,48 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Prepare for viewing ───────────────────────────────────────────────────
-  async function canPlaySafUri(uri: string): Promise<boolean> {
-    try {
-      const info = await FileSystem.getInfoAsync(uri);
-      return info.exists && (info as any).size > 0;
-    } catch { return false; }
-  }
-
+  //
+  // RULE: Videos must NEVER be streamed from SAF content:// URIs.
+  // ExoPlayer opens the SAF file descriptor and buffers ~1 s of data fine,
+  // but when it tries to refill the buffer the SAF DocumentProvider (a
+  // separate Android process) is too slow to deliver bytes — the buffer
+  // starves and the video freezes at exactly the 1-second mark every time.
+  //
+  // Fix: always copy video content:// URIs to a local file:// cache path
+  // before handing them to ExoPlayer. Images are fine with content:// because
+  // expo-image does a single-shot decode (no streaming buffer to refill).
+  //
+  // In-flight dedup: if a copy for this item ID is already running (e.g.
+  // tapped from the grid while the viewer is also preparing), both callers
+  // share the same promise instead of queuing two sequential copies.
   async function prepareStatusForViewingFn(
     item: StatusItem,
     opts?: { forShare?: boolean; forPlayback?: boolean },
   ): Promise<string> {
     if (!item.uri.startsWith('content://')) return item.uri;
-    if (!opts?.forShare) {
-      if (opts?.forPlayback) {
-        const accessible = await canPlaySafUri(item.uri);
-        if (!accessible) { logFallbackCopyTriggered(); }
-        else { logDirectPlaySuccess(); return item.uri; }
-      }
-      return item.uri;
-    }
+
+    // Images: a single-shot decode from content:// is fine — no streaming.
+    // Only copy when explicitly sharing (needs a shareable file:// path).
+    if (item.type !== 'video' && !opts?.forShare) return item.uri;
+
     const ext = item.name.split('.').pop() || (item.type === 'video' ? 'mp4' : 'jpg');
     const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
     const tempUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
+
+    // Fast path: cached file already exists.
     try {
       const info = await FileSystem.getInfoAsync(tempUri);
       if (info.exists && (info as any).size > 0) return tempUri;
     } catch {}
+
+    // Dedup: reuse an in-flight copy promise for the same item.
+    const existing = copyInFlight.get(item.id);
+    if (existing) return existing;
+
     const rawDest = tempUri.replace('file://', '');
-    const useNativeCopy = item.uri.startsWith('content://') && SafReaderModule.isAvailable();
-    return enqueueCopy(async () => {
+    const useNativeCopy = SafReaderModule.isAvailable();
+
+    const copyPromise: Promise<string> = enqueueCopy(async () => {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           if (useNativeCopy) {
@@ -996,12 +1014,17 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           const verify = await FileSystem.getInfoAsync(tempUri);
           if (verify.exists && (verify as any).size > 0) return tempUri;
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
-        } catch (e) {
+        } catch {
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         }
       }
       throw new Error(`Cache copy failed for ${item.name}`);
-    });
+    }).finally(() => {
+      copyInFlight.delete(item.id);
+    }) as Promise<string>;
+
+    copyInFlight.set(item.id, copyPromise);
+    return copyPromise;
   }
 
   const prepareStatusForViewing = useCallback(
