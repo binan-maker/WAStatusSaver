@@ -1033,7 +1033,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     // background write BEFORE we inspect the file, so the fast-path never sees
     // a half-written file from a concurrent Java thread.
     if (opts?.forPlayback && SafReaderModule.isAvailable()) {
-      SafReaderModule.cancelPreCopy().catch(() => {});
+      // AWAIT so the cancel flag is set in Java before we stat the file below.
+      // cancelPreCopy() resolves in < 1 ms (just sets a volatile flag); the
+      // Java copy thread stops after finishing its current write chunk.
+      // The size-validation below handles any partially-written file that lands
+      // between the cancel signal and our getInfoAsync call.
+      await SafReaderModule.cancelPreCopy().catch(() => {});
     }
 
     // Fast path: cached file exists AND is complete.
