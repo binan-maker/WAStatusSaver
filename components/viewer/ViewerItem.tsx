@@ -17,7 +17,7 @@ import Reanimated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoPlayerView } from './VideoPlayerView';
 import { Ionicons } from '@expo/vector-icons';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
@@ -62,15 +62,6 @@ export function ViewerItem({
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRevealedOnceRef = useRef(false);
 
-  // ── expo-video player (unconditional — hook rules) ─────────────────────────
-  // expo-video uses ExoPlayer under the hood and is Fabric-compatible.
-  // All videos arrive here as file:// URIs (SAF content:// is always copied
-  // to file:// by prepareStatusForViewing before this point).
-  const videoPlayer = useVideoPlayer(null, (player) => {
-    player.loop = true;
-    player.muted = false;
-  });
-
   // ── Raw source (may be content:// on Android 11+) ──────────────────────────
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
@@ -114,36 +105,7 @@ export function ViewerItem({
   // ── Cleanup reveal timer on unmount ────────────────────────────────────────
   useEffect(() => () => clearRevealTimer(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Release player on unmount ──────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      try { videoPlayer.release(); } catch {}
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Load video source when displayUri is ready ─────────────────────────────
-  useEffect(() => {
-    if (item.type !== 'video') return;
-    if (displayUri) {
-      try {
-        videoPlayer.replace({ uri: displayUri });
-      } catch {}
-    }
-  }, [displayUri, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Play / pause based on active state ─────────────────────────────────────
-  useEffect(() => {
-    if (item.type !== 'video') return;
-    try {
-      if (isActive && displayUri) {
-        videoPlayer.play();
-      } else {
-        videoPlayer.pause();
-      }
-    } catch {}
-  }, [isActive, displayUri, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Status listener ────────────────────────────────────────────────────────
+  // ── Player callbacks (passed down into VideoPlayerView) ───────────────────
   const handlePlayerReady = useCallback(() => {
     setIsVideoReady(true);
     setVideoError(null);
@@ -156,20 +118,6 @@ export function ViewerItem({
     setVideoError('Tap to retry');
     setIsVideoReady(false);
   }, []);
-
-  useEffect(() => {
-    if (item.type !== 'video') return;
-    const sub = videoPlayer.addListener('statusChange', (event) => {
-      if (event.status === 'readyToPlay') {
-        handlePlayerReady();
-      } else if (event.status === 'error') {
-        handlePlayerError(
-          (event as any).error?.message ?? 'Playback error',
-        );
-      }
-    });
-    return () => sub.remove();
-  }, [videoPlayer, item.type, handlePlayerReady, handlePlayerError]);
 
   // ── Hide video overlay when this slide becomes inactive ────────────────────
   useEffect(() => {
@@ -384,16 +332,18 @@ export function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* expo-video VideoView — mounts when active AND file:// URI is ready.
-                All SAF content:// URIs are copied to file:// by
-                prepareStatusForViewing before displayUri is ever set.
-                expo-video wraps ExoPlayer natively and is Fabric-compatible. */}
+            {/* VideoPlayerView — key={displayUri} forces a fresh player for
+                each new file:// URI. Source + play() are set synchronously
+                in useVideoPlayer's setup callback so no events are missed.
+                SAF content:// URIs are always copied to file:// BEFORE
+                displayUri is set (prepareStatusForViewing). */}
             {isActive && displayUri && !isPreparing && (
-              <VideoView
-                player={videoPlayer}
-                style={StyleSheet.absoluteFill}
-                nativeControls={false}
-                contentFit="contain"
+              <VideoPlayerView
+                key={displayUri}
+                fileUri={displayUri}
+                isActive={isActive}
+                onReady={handlePlayerReady}
+                onError={handlePlayerError}
               />
             )}
 
