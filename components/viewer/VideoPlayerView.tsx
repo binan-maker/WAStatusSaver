@@ -48,6 +48,14 @@ export function VideoPlayerView({
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
+  // ── URI diagnostic log ────────────────────────────────────────────────────
+  // Remove once the freeze root-cause is confirmed.
+  console.log(
+    '[VideoPlayerView] uri_type=' +
+      (fileUri.startsWith('file://') ? 'FILE' : fileUri.startsWith('content://') ? 'CONTENT⚠️' : 'OTHER⚠️') +
+      ' uri=' + fileUri.slice(0, 100),
+  );
+
   const hasCalledOnPlaying = useRef(false);
 
   const player = useVideoPlayer({ uri: fileUri }, (p) => {

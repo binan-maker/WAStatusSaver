@@ -22,6 +22,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { VideoPlayerView } from './VideoPlayerView';
+import { ExoPlayerView } from '@/modules/exo-player';
+import { ExoPlayerBoundary } from './ExoPlayerBoundary';
 import { Ionicons } from '@expo/vector-icons';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
@@ -53,6 +55,9 @@ export function ViewerItem({
 
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+  // true when the native ExoPlayerView fails to render (not compiled into build);
+  // falls back to expo-video VideoPlayerView in that case.
+  const [nativePlayerFailed, setNativePlayerFailed] = useState(false);
 
   // Thumbnail fades from 1 (fully visible) to 0 (hidden) once video plays.
   // Using Animated.Value so the fade is smooth and never flickers.
@@ -72,6 +77,7 @@ export function ViewerItem({
     prepareCancelRef.current = true;
     setDisplayUri(null);
     setVideoError(null);
+    setNativePlayerFailed(false);
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
     prepareCancelRef.current = false;
@@ -106,6 +112,10 @@ export function ViewerItem({
     if (!isActive) return;
 
     if (!isSAF) {
+      console.log(
+        '[ViewerItem] displayUri set (non-SAF) uri_type=' +
+          (initialSource.startsWith('file://') ? 'FILE' : initialSource.startsWith('content://') ? 'CONTENT⚠️' : 'OTHER⚠️'),
+      );
       setDisplayUri(initialSource);
       return;
     }
@@ -117,6 +127,11 @@ export function ViewerItem({
       .then((fileUri) => {
         if (prepareCancelRef.current) return;
         if (fileUri) {
+          console.log(
+            '[ViewerItem] displayUri set (SAF copy) uri_type=' +
+              (fileUri.startsWith('file://') ? 'FILE' : fileUri.startsWith('content://') ? 'CONTENT⚠️' : 'OTHER⚠️') +
+              ' uri=' + fileUri.slice(0, 100),
+          );
           setDisplayUri(fileUri);
         } else {
           setVideoError('Could not load video — tap to retry');
@@ -143,6 +158,13 @@ export function ViewerItem({
 
   const handleError = useCallback((_msg: string) => {
     setVideoError('Tap to retry');
+  }, []);
+
+  // Called by ExoPlayerBoundary when the native view throws at render time,
+  // meaning the native module wasn't compiled into this build — fall back to expo-video.
+  const handleNativePlayerFail = useCallback(() => {
+    console.log('[ViewerItem] native ExoPlayerView unavailable → falling back to expo-video');
+    setNativePlayerFailed(true);
   }, []);
 
   const handleRetry = useCallback(() => {
@@ -299,8 +321,26 @@ export function ViewerItem({
 
             {/* Video player — mounts as soon as displayUri is ready.
                 key={displayUri} ensures a fresh player for each new file:// URI.
-                No isPreparing gate here — player starts as soon as file is ready. */}
-            {isActive && displayUri && (
+
+                PRIMARY: native ExoPlayerView (TextureView — immune to OEM surface bugs).
+                FALLBACK: expo-video VideoPlayerView, used when native module was not
+                compiled into the build (ExoPlayerBoundary catches the render error and
+                sets nativePlayerFailed=true). */}
+            {isActive && displayUri && !nativePlayerFailed && (
+              <ExoPlayerBoundary onError={handleNativePlayerFail}>
+                <ExoPlayerView
+                  key={displayUri}
+                  style={StyleSheet.absoluteFill}
+                  fileUri={displayUri}
+                  paused={false}
+                  muted={false}
+                  onPlayerReady={handlePlaying}
+                  onPlayerError={handleError}
+                />
+              </ExoPlayerBoundary>
+            )}
+
+            {isActive && displayUri && nativePlayerFailed && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
