@@ -1,25 +1,25 @@
 /**
  * ExoPlayer — JS wrapper for the native Media3/ExoPlayer view module.
  *
- * CONTRACT: fileUri MUST be a file:// URI. The native layer will emit
- * an onPlayerError immediately if a content:// URI is passed.
+ * CONTRACT: fileUri MUST be a file:// URI. The native layer emits
+ * onPlayerError immediately if a non-file:// URI is passed.
  * Always use SafReaderModule.copyFileToCache() before calling this.
  *
  * Available only on Android custom dev-client / EAS builds (native module).
- * Returns null on iOS, web, and Expo Go (where the native view is not linked).
+ * Returns null on iOS and web.
  *
- * WHY UIManager.getViewManagerConfig:
- * requireNativeComponent('ExoPlayerView') does NOT throw at module-load time
- * even when the native view manager is absent — it returns a reference that
- * looks valid. The crash only occurs later when React (Fabric) tries to render
- * it and cannot find the view config in the registry. We use UIManager to
- * probe the registry at startup so isAvailable() is accurate and ExoPlayerView
- * never reaches React.createElement with an unregistered name.
+ * WHY requireNativeComponent without UIManager.getViewManagerConfig:
+ * UIManager.getViewManagerConfig is unreliable in Fabric (new arch) — it may
+ * return null even when the view manager IS compiled and registered, because
+ * Fabric uses its own view config registry that is populated differently from
+ * UIManager. requireNativeComponent is the correct entry point; it delegates
+ * to NativeComponentRegistry internally. If the native view is absent at
+ * render time, Fabric throws "View config not found" — that error is caught
+ * by the ExoPlayerBoundary in ViewerItem (not by this module).
  */
 import React from 'react';
 import {
   requireNativeComponent,
-  UIManager,
   Platform,
   ViewStyle,
   NativeSyntheticEvent,
@@ -36,19 +36,19 @@ interface NativeExoPlayerProps {
   onPlayerError?: (event: NativeSyntheticEvent<{ error: string }>) => void;
 }
 
-// Probe UIManager first so we never call requireNativeComponent for an absent
-// view — which would silently succeed but crash at render time under Fabric.
-function resolveNativeView(): ReturnType<typeof requireNativeComponent<NativeExoPlayerProps>> | null {
-  if (Platform.OS !== 'android') return null;
+// requireNativeComponent does NOT verify the native side at module load time —
+// it creates a component class that delegates to the registered view manager.
+// Absence of the native view manager is only detected at first render (Fabric
+// throws "View config not found"). ExoPlayerBoundary in ViewerItem catches that.
+let NativeExoPlayerView: ReturnType<typeof requireNativeComponent<NativeExoPlayerProps>> | null = null;
+if (Platform.OS === 'android') {
   try {
-    if (!UIManager.getViewManagerConfig('ExoPlayerView')) return null;
-    return requireNativeComponent<NativeExoPlayerProps>('ExoPlayerView');
+    NativeExoPlayerView = requireNativeComponent<NativeExoPlayerProps>('ExoPlayerView');
   } catch {
-    return null;
+    // requireNativeComponent should not throw at module level, but guard anyway.
+    NativeExoPlayerView = null;
   }
 }
-
-const NativeExoPlayerView = resolveNativeView();
 
 // ── Public JS interface ───────────────────────────────────────────────────────
 
@@ -87,7 +87,11 @@ export function ExoPlayerView({
   });
 }
 
-/** True only when the native ExoPlayerView is registered (EAS / custom dev-client build). */
+/**
+ * True on Android where requireNativeComponent succeeded at module load time.
+ * Does NOT guarantee the native view manager is compiled — use ExoPlayerBoundary
+ * to catch render-time failures gracefully.
+ */
 export function isAvailable(): boolean {
   return NativeExoPlayerView !== null;
 }

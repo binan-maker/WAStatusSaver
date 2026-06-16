@@ -19,6 +19,7 @@ import Reanimated, {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ExoPlayerView } from '@/modules/exo-player';
+import { ExoPlayerBoundary } from './ExoPlayerBoundary';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { useThumbnail } from '@/hooks/media/useThumbnail';
@@ -344,18 +345,25 @@ export function ViewerItem({
           <View style={styles.videoWrap}>
 
             {/* ExoPlayer — only mounted when active AND we have a file:// URI.
-                file:// is enforced in ExoPlayerView.java — content:// will
-                emit onPlayerError immediately if it ever slips through. */}
+                Wrapped in ExoPlayerBoundary which catches Fabric's render-time
+                "View config not found" if the native module is not yet compiled
+                into the APK, routing it to handlePlayerError (retry overlay)
+                instead of crashing the whole screen. */}
             {isActive && displayUri && !isPreparing && (
-              <ExoPlayerView
-                key={`${item.id}-${displayUri}`}
-                fileUri={displayUri}
-                paused={false}
-                muted={false}
-                style={StyleSheet.absoluteFill}
-                onPlayerReady={handlePlayerReady}
-                onPlayerError={handlePlayerError}
-              />
+              <ExoPlayerBoundary
+                resetKey={`${item.id}-${displayUri}`}
+                onError={handlePlayerError}
+              >
+                <ExoPlayerView
+                  key={`${item.id}-${displayUri}`}
+                  fileUri={displayUri}
+                  paused={false}
+                  muted={false}
+                  style={StyleSheet.absoluteFill}
+                  onPlayerReady={handlePlayerReady}
+                  onPlayerError={handlePlayerError}
+                />
+              </ExoPlayerBoundary>
             )}
 
             {/* Thumbnail poster — shown on top until video is visible.
