@@ -845,26 +845,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
         const queueItems = items.map(it => ({ id: it.id, uri: it.uri, type: it.type }));
         const currentIds = new Set(items.map(it => it.id));
 
-        // ── Java pre-copy (THE competitor-app pattern) ────────────────────
-        // Fire-and-forget: copies ALL videos to local cache on a Java
-        // background thread right now so that by the time the user taps
-        // any video it is already at a file:// path. ExoPlayer then gets
-        // a seekable local file — zero SAF streaming latency.
-        // Only runs when the native module is linked (EAS / custom build).
-        if (SafReaderModule.isAvailable()) {
-          const videoItems = items
-            .filter(it => it.type === 'video')
-            .map(it => ({ uri: it.uri, id: it.id, name: it.name }));
-          if (videoItems.length > 0) {
-            const rawCacheDir = (FileSystem.cacheDirectory ?? '').replace(/\/$/, '');
-            InteractionManager.runAfterInteractions(() => {
-              SafReaderModule.preCopyAll(rawCacheDir, videoItems)
-                .then(n => { __DEV__ && console.log(`[SafReader] preCopyAll: ${n} videos pre-cached`); })
-                .catch(e => { __DEV__ && console.warn('[SafReader] preCopyAll error:', e); });
-            });
-          }
-        }
-
+        // ── Thumbnail queue + prune ───────────────────────────────────────
+        // Videos are NOT bulk-copied on scan. The copy happens on-demand in
+        // ViewerItem the moment the user taps a video — that is the only copy
+        // that matters and it keeps background IO off the storage bus while
+        // the user is scrolling. Thumbnails are generated once and cached; the
+        // prune call removes orphaned JPGs for statuses WhatsApp has deleted.
         InteractionManager.runAfterInteractions(() => {
           setTimeout(() => {
             ThumbnailCache.prune(currentIds).catch(() => {});

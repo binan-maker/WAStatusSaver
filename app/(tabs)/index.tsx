@@ -270,7 +270,6 @@ export default function StatusesScreen() {
     refresh,
     saveStatus,
     shareStatus,
-    prepareStatusForViewing,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -369,16 +368,6 @@ export default function StatusesScreen() {
             setTimeout(() => prefetchedTapUris.delete(uri), 30000);
           });
       }
-    } else if (item.type === 'video' && item.uri.startsWith('content://')) {
-      // For SAF videos: kick off the file:// cache copy THE INSTANT the user
-      // taps. The viewer's URI-prep effect calls prepareStatusForViewing too,
-      // but because copyInFlight deduplicates concurrent calls, both callers
-      // share the same copy promise — no wasted double-copy. By the time the
-      // viewer finishes mounting and its effect runs, the copy has a head-
-      // start (or is already done on fast devices), so ExoPlayer gets a
-      // file:// URI almost immediately instead of waiting for the full copy
-      // to complete from a cold start.
-      prepareStatusForViewing(item, { forShare: true }).catch(() => {});
     }
 
     router.push({
@@ -406,44 +395,6 @@ export default function StatusesScreen() {
   const handlePressAny = useCallback((item: any) => handlePress(item as StatusItem), [handlePress]);
   const handleSaveAny = useCallback((item: any) => handleSave(item as StatusItem), [handleSave]);
   const handleShareAny = useCallback((item: any) => handleShare(item as StatusItem), [handleShare]);
-
-  // ── Viewport pre-copy for videos ─────────────────────────────────────────
-  // When video cells scroll into the visible viewport, fire a background Java
-  // copy for those items (and a small window around them). By the time the
-  // user taps any visible cell, the copy is done or nearly done → ExoPlayer
-  // gets a local file:// path instantly.
-  //
-  // This complements preCopyAll (which copies EVERYTHING after scan) by
-  // prioritising the items the user is CURRENTLY looking at. If preCopyAll
-  // is still running in the background and the user scrolls to the bottom of
-  // the list, the visible items are promoted to the front of the queue by
-  // getting their own individual prepareStatusForViewing calls here.
-  //
-  // Throttled to once per 400 ms so rapid scrolling doesn't flood the copy
-  // queue. copyInFlight dedup in MediaContextSAF means duplicate calls for
-  // the same item are free — they share the existing promise.
-  const viewportPreCopyThrottleRef = useRef(0);
-  const onVideoViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: Array<{ item: StatusItem }> }) => {
-      const now = Date.now();
-      if (now - viewportPreCopyThrottleRef.current < 400) return;
-      viewportPreCopyThrottleRef.current = now;
-
-      for (const { item } of viewableItems) {
-        if (item.type !== 'video') continue;
-        if (!item.uri.startsWith('content://')) continue;
-        // Fire-and-forget — copyInFlight dedup means this is free if already in flight
-        prepareStatusForViewing(item, { forShare: true }).catch(() => {});
-      }
-    },
-    [prepareStatusForViewing],
-  );
-  // FlashList requires this to be a stable object ref — passing an inline
-  // object literal causes it to reset scroll position on every render.
-  const videoViewabilityConfig = useMemo(
-    () => ({ itemVisiblePercentThreshold: 30 }),
-    [],
-  );
 
   // Stable per-cell renderers. Defining these as arrow functions inline on
   // the FlashList's `renderItem` prop creates a new function identity on
@@ -773,10 +724,6 @@ export default function StatusesScreen() {
               renderItem={renderVideoItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              // Viewport pre-copy: fires Java file copies for visible video
-              // cells so ExoPlayer gets a local file:// URI by tap time.
-              onViewableItemsChanged={onVideoViewableItemsChanged}
-              viewabilityConfig={videoViewabilityConfig}
               // Same caps as the image grid above. Video cells in MediaCard
               // are static thumbnails (not live VideoViews), so clipping
               // off-screen subviews is safe here too. The dedicated viewer
