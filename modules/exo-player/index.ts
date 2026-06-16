@@ -6,20 +6,39 @@
  * Always use SafReaderModule.copyFileToCache() before calling this.
  *
  * Available only on Android custom dev-client / EAS builds (native module).
- * Returns null on iOS and web.
+ * Returns null on iOS, web, and any Android build where ExoPlayerPackage
+ * was not compiled in.
  *
- * WHY requireNativeComponent without UIManager.getViewManagerConfig:
- * UIManager.getViewManagerConfig is unreliable in Fabric (new arch) — it may
- * return null even when the view manager IS compiled and registered, because
- * Fabric uses its own view config registry that is populated differently from
- * UIManager. requireNativeComponent is the correct entry point; it delegates
- * to NativeComponentRegistry internally. If the native view is absent at
- * render time, Fabric throws "View config not found" — that error is caught
- * by the ExoPlayerBoundary in ViewerItem (not by this module).
+ * ── HOW AVAILABILITY IS DETECTED ─────────────────────────────────────────────
+ * requireNativeComponent in Fabric (new arch) does NOT validate the native
+ * side at module-load time.  It creates a component stub that is registered
+ * with NativeComponentRegistry; absence of the underlying view manager is
+ * only detected during React's completeWork phase — at render time — when
+ * Fabric calls ReactNativeViewConfigRegistry.get() and throws
+ * "View config not found for component ExoPlayerView".
+ *
+ * UIManager.hasViewManagerConfig() queries the NATIVE UIManager registry
+ * synchronously at module-load time.  If the Java ExoPlayerViewManager class
+ * is not compiled and registered, it returns false immediately — before any
+ * render attempt.  We use this as the primary gate:
+ *
+ *   hasViewManagerConfig → false  → NativeExoPlayerView stays null
+ *                                    isAvailable() → false
+ *                                    ExoPlayerView renders nothing
+ *                                    ViewerItem goes straight to expo-video
+ *                                    No ERROR ever appears in the log
+ *
+ *   hasViewManagerConfig → true   → requireNativeComponent runs
+ *                                    isAvailable() → true
+ *                                    ExoPlayerView renders the native TextureView
+ *
+ * ExoPlayerBoundary is kept as a belt-and-suspenders catch for any OEM where
+ * the registry check is unreliable, but it should never be needed in practice.
  */
 import React from 'react';
 import {
   requireNativeComponent,
+  UIManager,
   Platform,
   ViewStyle,
   NativeSyntheticEvent,
@@ -36,17 +55,26 @@ interface NativeExoPlayerProps {
   onPlayerError?: (event: NativeSyntheticEvent<{ error: string }>) => void;
 }
 
-// requireNativeComponent does NOT verify the native side at module load time —
-// it creates a component class that delegates to the registered view manager.
-// Absence of the native view manager is only detected at first render (Fabric
-// throws "View config not found"). ExoPlayerBoundary in ViewerItem catches that.
+// Check the native UIManager registry BEFORE calling requireNativeComponent.
+// hasViewManagerConfig is synchronous and safe to call at module load time.
+// Returns false when ExoPlayerPackage is not compiled into the current build.
 let NativeExoPlayerView: ReturnType<typeof requireNativeComponent<NativeExoPlayerProps>> | null = null;
+
 if (Platform.OS === 'android') {
-  try {
-    NativeExoPlayerView = requireNativeComponent<NativeExoPlayerProps>('ExoPlayerView');
-  } catch {
-    // requireNativeComponent should not throw at module level, but guard anyway.
-    NativeExoPlayerView = null;
+  const nativeAvailable = (() => {
+    try {
+      return UIManager.hasViewManagerConfig('ExoPlayerView');
+    } catch {
+      return false;
+    }
+  })();
+
+  if (nativeAvailable) {
+    try {
+      NativeExoPlayerView = requireNativeComponent<NativeExoPlayerProps>('ExoPlayerView');
+    } catch {
+      NativeExoPlayerView = null;
+    }
   }
 }
 
@@ -88,9 +116,11 @@ export function ExoPlayerView({
 }
 
 /**
- * True on Android where requireNativeComponent succeeded at module load time.
- * Does NOT guarantee the native view manager is compiled — use ExoPlayerBoundary
- * to catch render-time failures gracefully.
+ * True only when UIManager confirms ExoPlayerViewManager is registered in the
+ * native UIManager registry AND requireNativeComponent succeeded.
+ *
+ * Checked at module-load time — safe to use as an initial value for useState
+ * without any async work.
  */
 export function isAvailable(): boolean {
   return NativeExoPlayerView !== null;

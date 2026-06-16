@@ -22,7 +22,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { VideoPlayerView } from './VideoPlayerView';
-import { ExoPlayerView } from '@/modules/exo-player';
+import { ExoPlayerView, isAvailable as exoPlayerIsAvailable } from '@/modules/exo-player';
 import { ExoPlayerBoundary } from './ExoPlayerBoundary';
 import { Ionicons } from '@expo/vector-icons';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
@@ -41,11 +41,13 @@ export interface ViewerItemProps {
   controlsOpacity: Animated.Value;
 }
 
-// Module-level flag — once the native ExoPlayer view throws "View config not found"
-// we know the native module is not compiled into this build. Flip it to true on the
-// first catch and it stays true for the app session, so ExoPlayerView is never
-// attempted again and the error never fires a second time.
-let exoPlayerModuleUnavailable = false;
+// Module-level flag — set to true either at load time (UIManager check in
+// isAvailable() returns false) or on the first ExoPlayerBoundary catch.
+// Once true it stays true for the whole app session so ExoPlayerView is
+// never rendered again and the "View config not found" error never fires.
+//
+// Evaluated once at module load — isAvailable() is synchronous.
+let exoPlayerModuleUnavailable = !exoPlayerIsAvailable();
 
 export function ViewerItem({
   item,
