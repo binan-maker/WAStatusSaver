@@ -1,0 +1,60 @@
+Android Bundling failed 2188ms node_modules\expo-router\entry.js (1862 modules)
+ ERROR  SyntaxError: D:\WA\modules\exo-player\index.ts: Unexpected token, expected "," (59:6)
+
+  57 |   return (
+  58 |     <NativeExoPlayerView
+> 59 |       fileUri={fileUri}
+     |       ^
+  60 |       paused={paused}
+  61 |       muted={muted}
+  62 |       style={style}
+    at constructor (D:\WA\node_modules\@babel\parser\lib\index.js:365:19)
+    at TypeScriptParserMixin.raise (D:\WA\node_modules\@babel\parser\lib\index.js:6616:19)
+    at TypeScriptParserMixin.unexpected (D:\WA\node_modules\@babel\parser\lib\index.js:6636:16)
+    at TypeScriptParserMixin.expect (D:\WA\node_modules\@babel\parser\lib\index.js:6916:12)
+    at TypeScriptParserMixin.tsParseDelimitedListWorker (D:\WA\node_modules\@babel\parser\lib\index.js:7923:14)
+    at TypeScriptParserMixin.tsParseDelimitedList (D:\WA\node_modules\@babel\parser\lib\index.js:7900:25)
+    at TypeScriptParserMixin.tsParseBracketedList (D:\WA\node_modules\@babel\parser\lib\index.js:7940:25)
+    at TypeScriptParserMixin.tsParseTypeParameters (D:\WA\node_modules\@babel\parser\lib\index.js:8086:24)
+    at D:\WA\node_modules\@babel\parser\lib\index.js:9809:29
+    at TypeScriptParserMixin.tryParse (D:\WA\node_modules\@babel\parser\lib\index.js:6924:20)
+    at TypeScriptParserMixin.parseMaybeAssign (D:\WA\node_modules\@babel\parser\lib\index.js:9807:24)
+    at D:\WA\node_modules\@babel\parser\lib\index.js:10817:39
+    at TypeScriptParserMixin.allowInAnd (D:\WA\node_modules\@babel\parser\lib\index.js:12443:12)
+    at TypeScriptParserMixin.parseMaybeAssignAllowIn (D:\WA\node_modules\@babel\parser\lib\index.js:10817:17)
+    at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (D:\WA\node_modules\@babel\parser\lib\index.js:12510:17)
+    at TypeScriptParserMixin.parseParenAndDistinguishExpression (D:\WA\node_modules\@babel\parser\lib\index.js:11692:28)
+    at TypeScriptParserMixin.parseExprAtom (D:\WA\node_modules\@babel\parser\lib\index.js:11348:23)
+    at TypeScriptParserMixin.parseExprSubscripts (D:\WA\node_modules\@babel\parser\lib\index.js:11098:23)
+    at TypeScriptParserMixin.parseUpdate (D:\WA\node_modules\@babel\parser\lib\index.js:11083:21)
+    at TypeScriptParserMixin.parseMaybeUnary (D:\WA\node_modules\@babel\parser\lib\index.js:11063:23)
+    at TypeScriptParserMixin.parseMaybeUnary (D:\WA\node_modules\@babel\parser\lib\index.js:9854:18)
+    at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\WA\node_modules\@babel\parser\lib\index.js:10916:61)
+    at TypeScriptParserMixin.parseExprOps (D:\WA\node_modules\@babel\parser\lib\index.js:10921:23)
+    at TypeScriptParserMixin.parseMaybeConditional (D:\WA\node_modules\@babel\parser\lib\index.js:10898:23)
+    at TypeScriptParserMixin.parseMaybeAssign (D:\WA\node_modules\@babel\parser\lib\index.js:10848:21)
+    at TypeScriptParserMixin.parseMaybeAssign (D:\WA\node_modules\@babel\parser\lib\index.js:9803:20)
+    at TypeScriptParserMixin.parseExpressionBase (D:\WA\node_modules\@babel\parser\lib\index.js:10801:23)
+    at D:\WA\node_modules\@babel\parser\lib\index.js:10797:39
+    at TypeScriptParserMixin.allowInAnd (D:\WA\node_modules\@babel\parser\lib\index.js:12438:16)
+    at TypeScriptParserMixin.parseExpression (D:\WA\node_modules\@babel\parser\lib\index.js:10797:17)
+    at TypeScriptParserMixin.parseReturnStatement (D:\WA\node_modules\@babel\parser\lib\index.js:13159:28)
+    at TypeScriptParserMixin.parseStatementContent (D:\WA\node_modules\@babel\parser\lib\index.js:12815:21)
+    at TypeScriptParserMixin.parseStatementContent (D:\WA\node_modules\@babel\parser\lib\index.js:9525:18)
+    at TypeScriptParserMixin.parseStatementLike (D:\WA\node_modules\@babel\parser\lib\index.js:12784:17)
+    at TypeScriptParserMixin.parseStatementListItem (D:\WA\node_modules\@babel\parser\lib\index.js:12764:17)
+    at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\WA\node_modules\@babel\parser\lib\index.js:13333:61)
+    at TypeScriptParserMixin.parseBlockBody (D:\WA\node_modules\@babel\parser\lib\index.js:13326:10)
+    at TypeScriptParserMixin.parseBlock (D:\WA\node_modules\@babel\parser\lib\index.js:13314:10)
+    at TypeScriptParserMixin.parseFunctionBody (D:\WA\node_modules\@babel\parser\lib\index.js:12117:24)
+    at TypeScriptParserMixin.parseFunctionBodyAndFinish (D:\WA\node_modules\@babel\parser\lib\index.js:12103:10)
+    at TypeScriptParserMixin.parseFunctionBodyAndFinish (D:\WA\node_modules\@babel\parser\lib\index.js:9189:18)
+    at D:\WA\node_modules\@babel\parser\lib\index.js:13462:12
+    at TypeScriptParserMixin.withSmartMixTopicForbiddingContext (D:\WA\node_modules\@babel\parser\lib\index.js:12420:14)
+    at TypeScriptParserMixin.parseFunction (D:\WA\node_modules\@babel\parser\lib\index.js:13461:10)
+    at TypeScriptParserMixin.parseFunctionStatement (D:\WA\node_modules\@babel\parser\lib\index.js:13142:17)
+    at TypeScriptParserMixin.parseStatementContent (D:\WA\node_modules\@babel\parser\lib\index.js:12808:21)
+    at TypeScriptParserMixin.parseStatementContent (D:\WA\node_modules\@babel\parser\lib\index.js:9525:18)
+    at TypeScriptParserMixin.parseStatementLike (D:\WA\node_modules\@babel\parser\lib\index.js:12784:17)
+    at TypeScriptParserMixin.parseStatementListItem (D:\WA\node_modules\@babel\parser\lib\index.js:12764:17)
+    at TypeScriptParserMixin.parseExportDeclaration (D:\WA\node_modules\@babel\parser\lib\index.js:13951:17)

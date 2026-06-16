@@ -54,20 +54,17 @@ export function ExoPlayerView({
 }: ExoPlayerViewProps): React.ReactElement | null {
   if (!NativeExoPlayerView) return null;
 
-  return (
-    <NativeExoPlayerView
-      fileUri={fileUri}
-      paused={paused}
-      muted={muted}
-      style={style}
-      onPlayerReady={onPlayerReady ? (_e) => onPlayerReady() : undefined}
-      onPlayerError={
-        onPlayerError
-          ? (e) => onPlayerError(e.nativeEvent?.error ?? 'Playback error')
-          : undefined
-      }
-    />
-  );
+  return React.createElement(NativeExoPlayerView, {
+    fileUri,
+    paused,
+    muted,
+    style,
+    onPlayerReady: onPlayerReady ? (_e: NativeSyntheticEvent<{}>) => onPlayerReady() : undefined,
+    onPlayerError: onPlayerError
+      ? (e: NativeSyntheticEvent<{ error: string }>) =>
+          onPlayerError(e.nativeEvent?.error ?? 'Playback error')
+      : undefined,
+  });
 }
 
 /** True when the native module is available (custom dev-client / EAS build). */
