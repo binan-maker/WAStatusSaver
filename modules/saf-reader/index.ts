@@ -33,6 +33,12 @@ export interface NativeCacheCheck {
   size: number;
 }
 
+export interface NativeBatchFileEntry {
+  path: string;
+  exists: boolean;
+  size: number;
+}
+
 /** Item passed to preCopyAll — must include the JS item.id so Java computes
  *  the same safeId and therefore the same destPath as prepareStatusForViewingFn. */
 export interface PreCopyItem {
@@ -146,4 +152,40 @@ export function cancelPreCopy(): Promise<null> {
 export function checkCachedFile(filePath: string): Promise<NativeCacheCheck> {
   if (!SafReaderNative) return Promise.resolve({ exists: false, size: 0 });
   return SafReaderNative.checkCachedFile(filePath);
+}
+
+/**
+ * Batch file-stat: stats ALL paths in a single Java call.
+ * Collapses N × async getInfoAsync() round-trips into one promise.
+ * Paths may include or omit the file:// prefix — Java strips it.
+ * Returns results in the same order as the input array.
+ */
+export function batchCheckFiles(paths: string[]): Promise<NativeBatchFileEntry[]> {
+  if (!SafReaderNative) return Promise.resolve([]);
+  return (SafReaderNative as any).batchCheckFiles(paths);
+}
+
+/**
+ * Java-native cache directory cleanup. Deletes every file in dirPath whose
+ * name starts with one of the given prefixes AND that is older than maxAgeMs
+ * milliseconds. Returns the count of deleted files.
+ * Replaces the JS loop that called getInfoAsync + deleteAsync per file.
+ */
+export function cleanupCacheDir(
+  dirPath: string,
+  prefixes: string[],
+  maxAgeMs: number,
+): Promise<number> {
+  if (!SafReaderNative) return Promise.resolve(0);
+  return (SafReaderNative as any).cleanupCacheDir(dirPath, prefixes, maxAgeMs);
+}
+
+/**
+ * Delete multiple local files in one Java call.
+ * Returns the count of files successfully deleted.
+ * Non-existent files are silently skipped.
+ */
+export function batchDeleteFiles(paths: string[]): Promise<number> {
+  if (!SafReaderNative) return Promise.resolve(0);
+  return (SafReaderNative as any).batchDeleteFiles(paths);
 }

@@ -390,12 +390,40 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_ITEMS);
       const items: SavedItem[] = stored ? JSON.parse(stored) : [];
-      const checks = await Promise.allSettled(items.map(item => FileSystem.getInfoAsync(item.localUri)));
-      const valid: SavedItem[] = [];
-      for (let i = 0; i < items.length; i++) {
-        const c = checks[i];
-        if (c.status === 'fulfilled' && (c.value as any).exists) valid.push(items[i]);
+
+      let valid: SavedItem[];
+
+      if (SafReaderModule.isAvailable() && items.length > 0) {
+        // ── Java batch stat — 1 call instead of N individual getInfoAsync ──
+        // All saved items are local file:// paths. Java File.exists() + length()
+        // for N files in one bridge round-trip is orders of magnitude faster
+        // than N individual Promise.allSettled(getInfoAsync) calls.
+        const checks = await SafReaderModule.batchCheckFiles(
+          items.map(it => it.localUri),
+        );
+        // Build a path→entry map so order doesn't matter
+        const checkMap = new Map<string, boolean>();
+        for (const c of checks) {
+          checkMap.set(c.path, c.exists);
+          // Also match the file:// prefixed version
+          checkMap.set('file://' + c.path, c.exists);
+        }
+        valid = items.filter(it =>
+          checkMap.get(it.localUri) === true ||
+          checkMap.get(it.localUri.replace('file://', '')) === true,
+        );
+      } else {
+        // JS fallback (Expo Go / no native module)
+        const checks = await Promise.allSettled(
+          items.map(item => FileSystem.getInfoAsync(item.localUri)),
+        );
+        valid = [];
+        for (let i = 0; i < items.length; i++) {
+          const c = checks[i];
+          if (c.status === 'fulfilled' && (c.value as any).exists) valid.push(items[i]);
+        }
       }
+
       setSavedItems(valid);
       if (valid.length !== items.length)
         await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(valid));
@@ -1056,9 +1084,23 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   const cleanupCacheFiles = useCallback(async (maxAgeMs = 4 * 60 * 60 * 1000) => {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) return;
+    const rawDir = cacheDir.replace(/\/$/, '');
+
+    if (SafReaderModule.isAvailable()) {
+      // ── Java path — single directory walk, no per-file bridge round-trips ──
+      // Java scans the directory, checks lastModified() for every view_* and
+      // share_* file, and deletes old ones in one call. Replaces the JS loop
+      // that called getInfoAsync + deleteAsync per file.
+      try {
+        await SafReaderModule.cleanupCacheDir(rawDir, ['view_', 'share_'], maxAgeMs);
+      } catch {}
+      return;
+    }
+
+    // JS fallback (Expo Go / no native module)
     try {
-      const cacheDir = FileSystem.cacheDirectory;
-      if (!cacheDir) return;
       const files = await FileSystem.readDirectoryAsync(cacheDir);
       const now = Date.now();
       for (const file of files) {
