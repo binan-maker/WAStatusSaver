@@ -1025,10 +1025,40 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     const safeId = item.id.replace(/[:\/\\?%*|"<>]/g, '_');
     const tempUri = `${FileSystem.cacheDirectory}view_${safeId}.${ext}`;
 
-    // Fast path: cached file already exists.
+    // ── Cancel background preCopyAll before any fast-path check ──────────────
+    // preCopyAll (Java) writes to the EXACT same dest path as this function.
+    // If preCopyAll is mid-write when we check, the file exists with size > 0
+    // but is a PARTIAL copy. ExoPlayer reads the MP4 header, plays a frame or
+    // two, then hits the premature EOF and freezes. Cancelling here stops the
+    // background write BEFORE we inspect the file, so the fast-path never sees
+    // a half-written file from a concurrent Java thread.
+    if (opts?.forPlayback && SafReaderModule.isAvailable()) {
+      SafReaderModule.cancelPreCopy().catch(() => {});
+    }
+
+    // Fast path: cached file exists AND is complete.
+    // "size > 0" is not enough — a partial file from preCopyAll or an
+    // interrupted previous copy also passes that check.
+    // Rules (applied in order):
+    //   1. item.size known → accept only if cachedSize ≥ 99 % of source size.
+    //   2. item.size unknown → accept only if cachedSize > 100 KB
+    //      (WhatsApp status videos are always > 100 KB; filters partial writes).
+    //   3. Otherwise → delete the partial file and fall through to a fresh copy.
     try {
       const info = await FileSystem.getInfoAsync(tempUri);
-      if (info.exists && (info as any).size > 0) return tempUri;
+      if (info.exists) {
+        const cachedSize: number = (info as any).size ?? 0;
+        const sourceSize: number = item.size ?? 0;
+        const complete =
+          sourceSize > 0
+            ? cachedSize >= sourceSize * 0.99
+            : cachedSize > 100 * 1024;
+        if (complete) return tempUri;
+        // Partial or tiny file — delete so the copy below starts fresh.
+        if (cachedSize > 0) {
+          FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+        }
+      }
     } catch {}
 
     // Dedup: reuse an in-flight copy promise for the same item.
@@ -1047,7 +1077,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
             await FileSystem.copyAsync({ from: item.uri, to: tempUri });
           }
           const verify = await FileSystem.getInfoAsync(tempUri);
-          if (verify.exists && (verify as any).size > 0) return tempUri;
+          const verifySize: number = (verify as any).size ?? 0;
+          const sourceSize: number = item.size ?? 0;
+          const verifyOk =
+            verify.exists &&
+            (sourceSize > 0 ? verifySize >= sourceSize * 0.99 : verifySize > 0);
+          if (verifyOk) return tempUri;
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         } catch {
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
