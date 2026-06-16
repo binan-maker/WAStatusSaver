@@ -1305,19 +1305,32 @@ export default function ViewerScreen() {
   }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
 
   // ── Android hardware-back handling ─────────────────────────────────────
-  // expo-router will pop the stack on hardware back by default, but on some
-  // OEMs (older MIUI / OneUI) the gesture handler / FlatList pager swallows
-  // the press and the user has to tap back several times before the route
-  // actually pops. Owning the handler here guarantees ONE press = one pop.
-  // We return `true` to mark the event as handled so RN doesn't double-fire
-  // the default handler on top of router.back().
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      router.back();
-      return true;
-    });
-    return () => sub.remove();
-  }, []);
+  // MUST use useFocusEffect (NOT useEffect) for BackHandler in any screen
+  // inside a React Navigation stack. Here's why useEffect is wrong:
+  //
+  //   1. useEffect only cleans up on UNMOUNT. Screens in a stack stay mounted
+  //      while other screens sit on top. With useEffect the handler stays live
+  //      even when this screen is no longer focused.
+  //
+  //   2. When the user taps the on-screen ← button the viewer starts its
+  //      dismiss animation but stays MOUNTED for the duration (~300 ms). If the
+  //      user also taps the hardware back button in that window the useEffect
+  //      handler fires a SECOND router.back() — popping the screen they just
+  //      returned to. This is the exact "any part of the app" symptom: back
+  //      behaves unexpectedly after leaving the viewer.
+  //
+  // useFocusEffect cleanup fires the moment the screen loses focus (animation
+  // starts), so the handler is gone before the transition completes. One press
+  // always equals exactly one pop, no matter how fast the user taps.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.back();
+        return true;
+      });
+      return () => sub.remove();
+    }, [])
+  );
 
   const items = useMemo(() => {
     if (isSavedView) {

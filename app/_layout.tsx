@@ -80,7 +80,21 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         options={{
           headerShown: false,
           animation: 'fade',
-          presentation: 'fullScreenModal',
+          // DO NOT use presentation:'fullScreenModal' on Android 11+.
+          // fullScreenModal registers a native-layer dismiss handler that
+          // intercepts the first back press at the Activity level BEFORE
+          // React Native's BackHandler sees it. The user has to press back
+          // TWICE to actually dismiss the screen (first press is eaten by
+          // the native modal, second finally reaches RN). Default 'card'
+          // presentation routes all back events through RN's BackHandler as
+          // expected.
+          //
+          // gestureEnabled:false prevents the stack's swipe-to-go-back gesture
+          // from competing with the viewer's horizontal FlatList pager — they
+          // both want to own left-edge horizontal swipes on Android 11+, and
+          // without this the stack gesture wins, cancels the FlatList scroll,
+          // and leaves the user confused.
+          gestureEnabled: false,
         }}
       />
       <Stack.Screen
