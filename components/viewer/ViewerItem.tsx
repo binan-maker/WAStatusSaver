@@ -46,6 +46,7 @@ export function ViewerItem({
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
+  const [prepareError, setPrepareError] = useState<string | null>(null);
 
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
@@ -55,6 +56,7 @@ export function ViewerItem({
   const lastReplacedSourceRef = useRef<string | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRevealedOnceRef = useRef(false);
+  const playToEndListenerRef = useRef<{ remove: () => void } | null>(null);
 
   const clearRevealTimer = useCallback(() => {
     if (revealTimerRef.current) {
@@ -87,7 +89,10 @@ export function ViewerItem({
 
   useEffect(() => {
     return () => {
-      try { player.release(); } catch {}
+      try { 
+        playToEndListenerRef.current?.remove();
+        player.release(); 
+      } catch {}
     };
   }, [player]);
 
@@ -143,6 +148,7 @@ export function ViewerItem({
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
+    setPrepareError(null);
     hasRevealedOnceRef.current = false;
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -156,6 +162,7 @@ export function ViewerItem({
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
+    setPrepareError(null);
     hasRevealedOnceRef.current = false;
     lastReplacedSourceRef.current = null;
   }, [item.id]);
@@ -163,9 +170,13 @@ export function ViewerItem({
   // Loop via playToEnd event
   useEffect(() => {
     if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
-    let sub: { remove: () => void } | null = null;
+    
     try {
-      sub = player.addListener('playToEnd', () => {
+      // Remove previous listener
+      playToEndListenerRef.current?.remove();
+      
+      playToEndListenerRef.current = player.addListener('playToEnd', () => {
+        // Only loop if this item is still active
         if (!isActiveRef.current) return;
         try {
           (player as any).currentTime = 0;
@@ -173,8 +184,11 @@ export function ViewerItem({
         } catch {}
       });
     } catch {}
-    return () => { try { sub?.remove(); } catch {} };
-  }, [player, item.type, item.name]); // eslint-disable-line react-hooks/exhaustive-deps
+    
+    return () => { 
+      try { playToEndListenerRef.current?.remove(); } catch {} 
+    };
+  }, [player, item.type, item.name, item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load source into player when displayUri and isActive
   useEffect(() => {
@@ -244,18 +258,21 @@ export function ViewerItem({
         player.pause();
         isReadyToPlayRef.current = false;
         setIsVideoReady(false);
-        (player as any).replaceAsync?.(null).catch?.(() => {});
-        lastReplacedSourceRef.current = null;
+        // Keep player decoder alive but paused (don't call replaceAsync(null))
       }
     } catch {}
   }, [isActive, isNearActive, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // URI preparation — copy SAF content:// to local cache for reliable playback
+  // ── URI PREPARATION: CRITICAL FIX ─────────────────────────────────────────
+  // For SAF content:// videos, MUST copy to file:// before playback.
+  // ExoPlayer buffers only ~1s from content://, then SAF provider starves.
+  // This is the CORE FIX for "plays 1 second then freezes" issue.
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
         setDisplayUri(null);
         setIsVideoReady(false);
+        setPrepareError(null);
         if (item.type === 'video' && player) {
           isReadyToPlayRef.current = false;
           try { player.pause(); } catch {}
@@ -268,21 +285,36 @@ export function ViewerItem({
 
     let cancelled = false;
 
-    if (item.type === 'video' && initialSource.startsWith('content://')) {
+    // ── VIDEOS: Always prepare SAF content:// URIs ────────────────────────
+    // Images can use content:// directly (single decode, no streaming)
+    // Videos MUST be file:// or they freeze at 1 second.
+    if (item.type === 'video') {
       (async () => {
         try {
-          const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
-          if (!cancelled) setDisplayUri(cached);
-        } catch {
-          // Copy failed — keep loading spinner, video stays on thumbnail
+          setPrepareError(null);
+          // Force preparation: this copies content:// → file:// for videos
+          const prepared = await prepareStatusForViewing(item as StatusItem, { 
+            forPlayback: true // Explicit flag for playback (future optimization)
+          });
+          if (!cancelled) {
+            setDisplayUri(prepared);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            const errMsg = err instanceof Error ? err.message : 'Unknown error';
+            setPrepareError(errMsg);
+            // Fallback: still try with original URI (will likely fail at 1s but attempt)
+            setDisplayUri(initialSource);
+          }
         }
       })();
     } else {
+      // Images: no preparation needed, use directly
       setDisplayUri(initialSource);
     }
 
     return () => { cancelled = true; };
-  }, [initialSource, item, isNearActive, isActive, player]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialSource, item, isNearActive, isActive, player, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
 
@@ -428,7 +460,7 @@ export function ViewerItem({
       ) : (
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
-            {isActive && (
+            {isActive && displayUri && (
               <VideoView
                 key={item.id}
                 player={player}
