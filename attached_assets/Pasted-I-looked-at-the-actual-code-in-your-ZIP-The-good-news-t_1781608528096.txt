@@ -1,0 +1,226 @@
+I looked at the actual code in your ZIP.
+
+The good news: this is **not a SAF issue anymore**.
+
+Your viewer is already doing:
+
+```txt
+content://
+↓
+prepareStatusForViewing()
+↓
+copy to cache
+↓
+file://
+↓
+expo-video
+```
+
+So the old Android 11 SAF starvation bug has mostly been solved.
+
+---
+
+### The real clue
+
+You said:
+
+> plays → freezes → plays → freezes → plays → freezes
+
+I found code that is literally capable of creating that exact pattern.
+
+In `VideoPlayerView.tsx`:
+
+```ts
+player.addListener('playingChange', (event) => {
+  if (event.isPlaying) {
+    recoveryFired.current = false;
+  } else if (
+    hasCalledOnPlaying.current &&
+    isActiveRef.current &&
+    !recoveryFired.current
+  ) {
+    recoveryFired.current = true;
+
+    setTimeout(() => {
+      player.play();
+    }, 80);
+  }
+});
+```
+
+Every time ExoPlayer reports:
+
+```txt
+isPlaying = false
+```
+
+your code force-calls:
+
+```ts
+player.play()
+```
+
+again.
+
+---
+
+### Why this is dangerous
+
+On Android 11+:
+
+```txt
+Playing
+↓
+Buffering
+↓
+isPlaying = false
+↓
+Your recovery fires
+↓
+player.play()
+↓
+Buffering again
+↓
+isPlaying = false
+↓
+player.play()
+↓
+loop
+```
+
+Result:
+
+```txt
+play
+freeze
+play
+freeze
+play
+freeze
+```
+
+Exactly your symptom.
+
+---
+
+### First thing to check
+
+Add logs:
+
+```ts
+const playingSub = player.addListener(
+  'playingChange',
+  (event) => {
+    console.log(
+      'PLAYING CHANGE',
+      event.isPlaying,
+      Date.now()
+    );
+  }
+);
+```
+
+If you see:
+
+```txt
+true
+false
+true
+false
+true
+false
+```
+
+every second or two,
+
+the recovery system itself is causing the stutter.
+
+---
+
+### Another suspect
+
+I also noticed:
+
+```ts
+const nudgeDelays = [
+  50,
+  200,
+  500,
+  1000,
+  1800,
+  3000
+];
+```
+
+which repeatedly does:
+
+```ts
+player.play();
+```
+
+while the video is starting.
+
+That was added to fix OEM surface issues.
+
+But if playback is already working, these nudges can interfere.
+
+---
+
+### What I would test first
+
+Temporarily disable Layer 2 and Layer 3.
+
+Keep only:
+
+```ts
+p.play();
+```
+
+inside:
+
+```ts
+useVideoPlayer(...)
+```
+
+and remove:
+
+```ts
+playingChange recovery
+```
+
+and
+
+```ts
+nudge schedule
+```
+
+for one test build.
+
+---
+
+### If the freezes disappear
+
+Then the problem is not:
+
+* SAF
+* copying
+* thumbnails
+* Android storage
+
+The problem is your custom Android recovery logic fighting ExoPlayer.
+
+---
+
+### If the freezes remain
+
+Then I would investigate:
+
+1. `copyFileToCache()` speed
+2. whether the cached file is fully copied
+3. file size before playback
+4. ExoPlayer buffering events
+5. whether multiple `VideoPlayerView`s are active simultaneously
+
+---
+
+From the code I saw, the **most suspicious thing right now is the `playingChange → player.play()` recovery loop**. The symptom you described matches that code path almost perfectly.

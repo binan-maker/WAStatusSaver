@@ -55,11 +55,13 @@ export function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
-  // Gate: once a surface-detach recovery fires, block further recoveries until
-  // isPlaying:true confirms the video is genuinely running again.  Without this
-  // gate, player.play() itself triggers isPlaying:false (buffering) which fires
-  // ANOTHER recovery, creating the play→freeze→play→freeze loop on Android 11+.
-  const recoveryFired = useRef(false);
+  // Timestamp of the last surface-detach recovery attempt.
+  // We enforce a 4-second cooldown between recoveries so that normal ExoPlayer
+  // buffering events (isPlaying:false during rebuffer) never trigger player.play().
+  // Without a cooldown, the loop is:
+  //   buffer → isPlaying:false → recovery → play() → buffer → isPlaying:false → …
+  // With a 4-second cooldown only genuine long freezes get a recovery kick.
+  const lastRecoveryTime = useRef(0);
   const nudgeTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
@@ -94,27 +96,32 @@ export function VideoPlayerView({
     });
 
     // ── Layer 2: playingChange ────────────────────────────────────────────────
-    // • isPlaying: true  → backup confirmation + reset recoveryFired so the
-    //   next genuine surface-detach can still be recovered.
-    // • isPlaying: false → RECOVERY: if video was confirmed playing but stopped
-    //   while the slide is still active, force-resume after 80 ms — BUT only
-    //   if recoveryFired is false.  Setting recoveryFired=true before the
-    //   setTimeout means only ONE recovery fires per "play" window.  Without
-    //   this gate, player.play() triggers another isPlaying:false (buffering)
-    //   which triggers another recovery → infinite play/freeze loop on Android.
+    // • isPlaying: true  → backup confirmation (some OEMs skip timeUpdate).
+    // • isPlaying: false → RECOVERY: only if the video was confirmed playing,
+    //   the slide is still active, AND at least 4 seconds have elapsed since
+    //   the last recovery attempt.
+    //
+    // WHY 4-SECOND COOLDOWN instead of a per-event gate:
+    //   ExoPlayer fires isPlaying:false on every rebuffer (~1 s on slow
+    //   connections).  player.play() itself causes a brief isPlaying:false
+    //   while ExoPlayer re-prepares.  A per-event gate (recoveryFired) resets
+    //   on the next isPlaying:true, so the loop still runs every few seconds.
+    //   A time-based cooldown ensures at most one forced play() per 4 s window,
+    //   which stops the play→freeze→play→freeze cycle while still kicking a
+    //   genuinely frozen video back to life.
     const playingSub = player.addListener('playingChange', (event: any) => {
       if (event.isPlaying) {
-        recoveryFired.current = false; // Video is genuinely running — allow one future recovery
         confirmPlaying();
-      } else if (hasCalledOnPlaying.current && isActiveRef.current && !recoveryFired.current) {
-        // Unexpected stop while slide is active — surface probably detached.
-        // Gate closes immediately; only re-opens when isPlaying:true fires.
-        recoveryFired.current = true;
-        setTimeout(() => {
-          if (isActiveRef.current) {
-            try { player.play(); } catch {}
-          }
-        }, 80);
+      } else if (hasCalledOnPlaying.current && isActiveRef.current) {
+        const now = Date.now();
+        if (now - lastRecoveryTime.current > 4000) {
+          lastRecoveryTime.current = now;
+          setTimeout(() => {
+            if (isActiveRef.current) {
+              try { player.play(); } catch {}
+            }
+          }, 80);
+        }
       }
     });
 
@@ -162,7 +169,7 @@ export function VideoPlayerView({
         // Allow onPlaying() to fire again after a swipe-back so the thumbnail
         // fades correctly on resume (parent reset opacity to 1 on inactive).
         hasCalledOnPlaying.current = false;
-        recoveryFired.current = false; // Fresh activation — allow one surface-detach recovery
+        lastRecoveryTime.current = 0; // Reset cooldown — fresh activation window
         player.play();
       } else {
         player.pause();
