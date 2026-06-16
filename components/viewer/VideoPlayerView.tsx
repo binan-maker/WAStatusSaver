@@ -55,13 +55,15 @@ export function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
-  // Timestamp of the last surface-detach recovery attempt.
-  // We enforce a 4-second cooldown between recoveries so that normal ExoPlayer
-  // buffering events (isPlaying:false during rebuffer) never trigger player.play().
-  // Without a cooldown, the loop is:
-  //   buffer → isPlaying:false → recovery → play() → buffer → isPlaying:false → …
-  // With a 4-second cooldown only genuine long freezes get a recovery kick.
-  const lastRecoveryTime = useRef(0);
+  // Pending recovery timer.  Strategy: when isPlaying:false fires, we do NOT
+  // immediately call player.play() — instead we wait 300 ms to see if ExoPlayer
+  // self-recovers (normal buffering refill).  If isPlaying:true fires within
+  // those 300 ms we cancel the timer (no-op).  If the player is STILL stopped
+  // after 300 ms it is a genuine freeze (surface detach / OEM GPU stall) and we
+  // force-resume.  This prevents both:
+  //   • immediate recovery → buffering → recovery → loop  (old 80 ms behaviour)
+  //   • 4-second gap → user sees a 3-second hard freeze  (previous fix)
+  const recoveryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nudgeTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
@@ -96,32 +98,35 @@ export function VideoPlayerView({
     });
 
     // ── Layer 2: playingChange ────────────────────────────────────────────────
-    // • isPlaying: true  → backup confirmation (some OEMs skip timeUpdate).
-    // • isPlaying: false → RECOVERY: only if the video was confirmed playing,
-    //   the slide is still active, AND at least 4 seconds have elapsed since
-    //   the last recovery attempt.
+    // • isPlaying: true  → cancel any pending recovery (ExoPlayer self-healed)
+    //   and confirm playing.
+    // • isPlaying: false → arm a 300 ms recovery timer.  If the player comes
+    //   back on its own before 300 ms (normal buffering), the timer is cancelled.
+    //   If it is STILL stopped after 300 ms it is a genuine surface-detach /
+    //   OEM GPU freeze — we force-resume.
     //
-    // WHY 4-SECOND COOLDOWN instead of a per-event gate:
-    //   ExoPlayer fires isPlaying:false on every rebuffer (~1 s on slow
-    //   connections).  player.play() itself causes a brief isPlaying:false
-    //   while ExoPlayer re-prepares.  A per-event gate (recoveryFired) resets
-    //   on the next isPlaying:true, so the loop still runs every few seconds.
-    //   A time-based cooldown ensures at most one forced play() per 4 s window,
-    //   which stops the play→freeze→play→freeze cycle while still kicking a
-    //   genuinely frozen video back to life.
+    //   This "wait-and-cancel" pattern avoids both failure modes:
+    //     1. Immediate recovery (80 ms) — player.play() interrupts the buffer
+    //        refill, which itself fires isPlaying:false → new recovery → loop.
+    //     2. Long cooldown (4 s) — genuine freeze is not recovered for 4 s so
+    //        the user sees a hard freeze for several seconds.
     const playingSub = player.addListener('playingChange', (event: any) => {
       if (event.isPlaying) {
+        // Player came back — cancel any pending recovery, it is not needed.
+        if (recoveryTimer.current) {
+          clearTimeout(recoveryTimer.current);
+          recoveryTimer.current = null;
+        }
         confirmPlaying();
       } else if (hasCalledOnPlaying.current && isActiveRef.current) {
-        const now = Date.now();
-        if (now - lastRecoveryTime.current > 4000) {
-          lastRecoveryTime.current = now;
-          setTimeout(() => {
-            if (isActiveRef.current) {
-              try { player.play(); } catch {}
-            }
-          }, 80);
-        }
+        // Arm recovery — will fire only if player is STILL stopped at 300 ms.
+        if (recoveryTimer.current) clearTimeout(recoveryTimer.current);
+        recoveryTimer.current = setTimeout(() => {
+          recoveryTimer.current = null;
+          if (isActiveRef.current && hasCalledOnPlaying.current) {
+            try { player.play(); } catch {}
+          }
+        }, 300);
       }
     });
 
@@ -155,6 +160,10 @@ export function VideoPlayerView({
       playingSub.remove();
       statusSub.remove();
       clearNudges();
+      if (recoveryTimer.current) {
+        clearTimeout(recoveryTimer.current);
+        recoveryTimer.current = null;
+      }
       try { player.release(); } catch {}
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -169,9 +178,17 @@ export function VideoPlayerView({
         // Allow onPlaying() to fire again after a swipe-back so the thumbnail
         // fades correctly on resume (parent reset opacity to 1 on inactive).
         hasCalledOnPlaying.current = false;
-        lastRecoveryTime.current = 0; // Reset cooldown — fresh activation window
+        if (recoveryTimer.current) {
+          clearTimeout(recoveryTimer.current);
+          recoveryTimer.current = null;
+        }
         player.play();
       } else {
+        // Cancel any pending recovery when leaving this slide.
+        if (recoveryTimer.current) {
+          clearTimeout(recoveryTimer.current);
+          recoveryTimer.current = null;
+        }
         player.pause();
       }
     } catch {}
