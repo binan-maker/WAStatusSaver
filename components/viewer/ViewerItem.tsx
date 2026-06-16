@@ -41,6 +41,12 @@ export interface ViewerItemProps {
   controlsOpacity: Animated.Value;
 }
 
+// Module-level flag — once the native ExoPlayer view throws "View config not found"
+// we know the native module is not compiled into this build. Flip it to true on the
+// first catch and it stays true for the app session, so ExoPlayerView is never
+// attempted again and the error never fires a second time.
+let exoPlayerModuleUnavailable = false;
+
 export function ViewerItem({
   item,
   isActive,
@@ -55,9 +61,9 @@ export function ViewerItem({
 
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
-  // true when the native ExoPlayerView fails to render (not compiled into build);
-  // falls back to expo-video VideoPlayerView in that case.
-  const [nativePlayerFailed, setNativePlayerFailed] = useState(false);
+  // Initialises from the module-level flag so subsequent items instantly go to
+  // the expo-video fallback without ever trying to render ExoPlayerView again.
+  const [nativePlayerFailed, setNativePlayerFailed] = useState(exoPlayerModuleUnavailable);
 
   // Thumbnail fades from 1 (fully visible) to 0 (hidden) once video plays.
   // Using Animated.Value so the fade is smooth and never flickers.
@@ -77,7 +83,9 @@ export function ViewerItem({
     prepareCancelRef.current = true;
     setDisplayUri(null);
     setVideoError(null);
-    setNativePlayerFailed(false);
+    // nativePlayerFailed is NOT reset here — ExoPlayer availability is a device-level
+    // fact for this build. Once the module-level flag is set, all subsequent items
+    // initialise directly to the expo-video fallback (see useState initialiser above).
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
     prepareCancelRef.current = false;
@@ -162,8 +170,10 @@ export function ViewerItem({
 
   // Called by ExoPlayerBoundary when the native view throws at render time,
   // meaning the native module wasn't compiled into this build — fall back to expo-video.
+  // Sets the module-level flag so no future ViewerItem ever attempts ExoPlayerView again.
   const handleNativePlayerFail = useCallback(() => {
     console.log('[ViewerItem] native ExoPlayerView unavailable → falling back to expo-video');
+    exoPlayerModuleUnavailable = true;
     setNativePlayerFailed(true);
   }, []);
 
