@@ -73,13 +73,6 @@
       ],
       "expo-font",
       [
-        "expo-video",
-        {
-          "supportsBackgroundPlayback": true,
-          "supportsPictureInPicture": true
-        }
-      ],
-      [
         "expo-navigation-bar",
         {
           "position": "relative",
@@ -89,6 +82,7 @@
       ],
       "expo-web-browser",
       "./plugins/with-saf-reader",
+      "./plugins/with-exo-player",
       [
         "expo-media-library",
         {
