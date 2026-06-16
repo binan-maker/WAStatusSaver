@@ -39,6 +39,13 @@ interface VideoPlayerViewProps {
   onError: (message: string) => void;
 }
 
+// ── Mount counter (module-level) ──────────────────────────────────────────────
+// Tracks how many VideoPlayerView instances are alive at once.
+// Should always be 1 (the active slide). If you see 2+ the FlatList window
+// is mounting too many players simultaneously — that competes for the hardware
+// decoder and causes freezes.
+let _mountedCount = 0;
+
 export function VideoPlayerView({
   fileUri,
   isActive,
@@ -48,15 +55,15 @@ export function VideoPlayerView({
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
-  // ── URI diagnostic log ────────────────────────────────────────────────────
-  // Remove once the freeze root-cause is confirmed.
-  console.log(
-    '[VideoPlayerView] uri_type=' +
-      (fileUri.startsWith('file://') ? 'FILE' : fileUri.startsWith('content://') ? 'CONTENT⚠️' : 'OTHER⚠️') +
-      ' uri=' + fileUri.slice(0, 100),
-  );
-
   const hasCalledOnPlaying = useRef(false);
+
+  // ── URI diagnostic log ────────────────────────────────────────────────────
+  const uriType = fileUri.startsWith('file://')
+    ? 'FILE'
+    : fileUri.startsWith('content://')
+    ? 'CONTENT⚠️'
+    : 'OTHER⚠️';
+  console.log('[VideoPlayer] URI type=' + uriType + ' uri=' + fileUri.slice(0, 100));
 
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
     p.loop = true;
@@ -75,26 +82,49 @@ export function VideoPlayerView({
   }, [onPlaying]);
 
   useEffect(() => {
-    // timeUpdate fires every 250 ms only when frames are actually rendering.
-    // currentTime > 0 is the most reliable cross-OEM "video is on screen" signal.
+    // ── Mount log ─────────────────────────────────────────────────────────
+    _mountedCount++;
+    console.log('[VideoPlayer] MOUNTED totalActive=' + _mountedCount + (
+      _mountedCount > 1 ? ' ⚠️ MULTIPLE PLAYERS' : ''
+    ));
+
     const timeUpdateSub = player.addListener('timeUpdate', (event: any) => {
       if ((event.currentTime ?? 0) > 0) confirmPlaying();
     });
 
     const statusSub = player.addListener('statusChange', (event: any) => {
+      // Log every status change so buffering stalls are visible in logcat.
+      console.log(
+        '[VideoPlayer] statusChange status=' + event.status +
+        ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?') +
+        ' buffered=' + (player.bufferedPosition?.toFixed(2) ?? '?'),
+      );
       if (event.status === 'error') {
         onError(event.error?.message ?? 'Playback error');
       }
     });
 
+    const playingSub = player.addListener('playingChange', (event: any) => {
+      // This log catches play→pause→play loops triggered by external code.
+      // If you see rapid alternating true/false here WITHOUT user interaction
+      // that is the recovery-loop root cause.
+      console.log(
+        '[VideoPlayer] playingChange isPlaying=' + event.isPlaying +
+        ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?'),
+      );
+    });
+
     return () => {
       timeUpdateSub.remove();
       statusSub.remove();
+      playingSub.remove();
       try { player.release(); } catch {}
+      _mountedCount--;
+      console.log('[VideoPlayer] UNMOUNTED totalActive=' + _mountedCount);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pause when swipped away; resume + reset thumbnail gate on swipe-back.
+  // Pause when swiped away; resume + reset thumbnail gate on swipe-back.
   useEffect(() => {
     try {
       if (isActive) {

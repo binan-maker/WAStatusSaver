@@ -1,0 +1,279 @@
+If the video is now:
+
+```txt
+Opens instantly ✅
+Starts playing ✅
+No complete freeze ✅
+But...
+Play → Freeze → Play → Freeze ❌
+```
+
+then I would focus on these areas in order.
+
+# 1. Verify the player gets a local file
+
+Log:
+
+```ts
+console.log(displayUri);
+```
+
+Must be:
+
+```txt
+file://...
+```
+
+Not:
+
+```txt
+content://...
+```
+
+If even one video is still using `content://`, Android 11+ can stutter.
+
+---
+
+# 2. Verify cached file size
+
+After copy:
+
+```ts
+FileSystem.getInfoAsync(fileUri)
+```
+
+Log:
+
+```txt
+original size
+copied size
+```
+
+They should match.
+
+Bad:
+
+```txt
+Original: 18 MB
+Copy: 4 MB
+```
+
+Good:
+
+```txt
+Original: 18 MB
+Copy: 18 MB
+```
+
+---
+
+# 3. Check recovery loops
+
+You have code that does:
+
+```ts
+player.play();
+```
+
+again and again when playback pauses.
+
+Check:
+
+```txt
+playingChange listener
+watchdog
+recovery timers
+nudge timers
+```
+
+These are common causes of:
+
+```txt
+play
+pause
+play
+pause
+```
+
+loops.
+
+---
+
+# 4. Check buffering events
+
+Add logs:
+
+```ts
+status
+bufferedPosition
+currentTime
+```
+
+If you see:
+
+```txt
+1.2s
+freeze
+
+2.1s
+freeze
+
+3.0s
+freeze
+```
+
+that's buffering starvation.
+
+---
+
+# 5. Check multiple players
+
+Very important.
+
+Count:
+
+```ts
+VideoPlayerView mounted
+```
+
+logs.
+
+You should have:
+
+```txt
+1 active player
+```
+
+Not:
+
+```txt
+3 players
+4 players
+```
+
+running simultaneously.
+
+---
+
+# 6. Check background work while viewing
+
+When video viewer opens:
+
+Temporarily stop:
+
+```txt
+Thumbnail generation
+Status scanning
+Auto refresh
+Pre-copy queue
+```
+
+If stutter disappears:
+
+```txt
+Video playback competing with background IO
+```
+
+is the cause.
+
+---
+
+# 7. Check Android decoder issues
+
+Log:
+
+```txt
+video width
+video height
+codec
+```
+
+Some statuses are:
+
+```txt
+1080p
+60fps
+HEVC/H265
+```
+
+Some phones struggle.
+
+---
+
+# 8. Check Expo Video
+
+You are using:
+
+```txt
+expo-video
+```
+
+Verify:
+
+```txt
+buffering state
+playing state
+ready state
+```
+
+Sometimes the wrapper fires events incorrectly.
+
+---
+
+# 9. Check memory pressure
+
+Watch:
+
+```txt
+RAM usage
+```
+
+If opening a video causes:
+
+```txt
+300 MB
+500 MB
+700 MB
+```
+
+Android may constantly reclaim buffers.
+
+---
+
+# 10. Most important logs
+
+Add:
+
+```ts
+console.log("URI", uri);
+console.log("SIZE", size);
+console.log("PLAYING", event.isPlaying);
+console.log("CURRENT", player.currentTime);
+console.log("BUFFERED", player.bufferedPosition);
+console.log("MOUNTED PLAYER");
+```
+
+Then reproduce the issue once.
+
+---
+
+### Priority order
+
+1. `content://` vs `file://`
+2. File copy completeness
+3. Recovery/watchdog loops
+4. Buffering events
+5. Multiple active players
+6. Background SAF/thumbnail work
+7. Expo Video behavior
+8. Codec/device-specific issues
+
+Given your symptom, I'd currently suspect:
+
+```txt
+#1 Recovery/watchdog logic
+#2 Multiple play() calls
+#3 Partial buffering starvation
+```
+
+before I would suspect thumbnails or SAF scanning.

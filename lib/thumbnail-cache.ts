@@ -264,11 +264,26 @@ async function prune(currentIds: Set<string>): Promise<void> {
   if (dirty) schedulePersist();
 }
 
+/**
+ * pause() — stop the thumbnail queue immediately.
+ * Call this when the video viewer opens so thumbnail I/O (which decodes
+ * video key-frames via MediaMetadataRetriever) does NOT compete with the
+ * video player for the hardware decoder and storage bandwidth.
+ *
+ * The queue is simply cancelled; any pending items will be re-enqueued
+ * when loadStatuses() runs after the viewer closes.  Already-generated
+ * thumbnails in memMap are unaffected.
+ */
+function pause(): void {
+  cancel();
+}
+
 export const ThumbnailCache = {
   init,
   get,
   subscribe,
   enqueue,
   cancel,
+  pause,
   prune,
 };

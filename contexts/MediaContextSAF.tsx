@@ -1058,6 +1058,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           sourceSize > 0
             ? cachedSize >= sourceSize * 0.99
             : cachedSize > 100 * 1024;
+        console.log(
+          '[SAFcopy] fast-path check name=' + item.name +
+          ' original=' + (sourceSize > 0 ? (sourceSize / 1024).toFixed(0) + 'KB' : 'unknown') +
+          ' cached=' + (cachedSize / 1024).toFixed(0) + 'KB' +
+          ' complete=' + complete,
+        );
         if (complete) return tempUri;
         // Partial or tiny file — delete so the copy below starts fresh.
         if (cachedSize > 0) {
@@ -1087,6 +1093,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           const verifyOk =
             verify.exists &&
             (sourceSize > 0 ? verifySize >= sourceSize * 0.99 : verifySize > 0);
+          console.log(
+            '[SAFcopy] copy attempt=' + attempt + ' name=' + item.name +
+            ' original=' + (sourceSize > 0 ? (sourceSize / 1024).toFixed(0) + 'KB' : 'unknown') +
+            ' copied=' + (verifySize / 1024).toFixed(0) + 'KB' +
+            ' ok=' + verifyOk,
+          );
           if (verifyOk) return tempUri;
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         } catch {

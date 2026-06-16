@@ -22,6 +22,7 @@ import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 import { ViewerItem } from '@/components/viewer/ViewerItem';
 import { createStyles, SW } from '@/components/viewer/viewerStyles';
+import { ThumbnailCache } from '@/lib/thumbnail-cache';
 
 export default function ViewerScreen() {
   const { colors: COLORS, resolved } = useTheme();
@@ -60,6 +61,15 @@ export default function ViewerScreen() {
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== 'android') return;
+
+      // Stop thumbnail background I/O while the viewer is open.
+      // MediaMetadataRetriever (thumbnail generation) competes with the video
+      // player for the hardware decoder and storage bandwidth, which causes the
+      // play→freeze→play stutter on mid-range devices. Thumbnails that were
+      // already generated are still in memMap; any pending ones will be
+      // re-enqueued when the next loadStatuses() scan runs after the viewer closes.
+      ThumbnailCache.pause();
+
       const applyDarkBars = () => {
         StatusBar.setHidden(false, 'none');
         StatusBar.setTranslucent(false);
