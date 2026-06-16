@@ -56,6 +56,11 @@ export function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
+  // True after first render — prevents calling player.play() twice on mount.
+  // useVideoPlayer initializer already sets playWhenReady=true; a second play()
+  // call from the isActive effect interrupts ExoPlayer's buffer-fill pipeline
+  // and causes the play→freeze symptom on Android 11+.
+  const didMountRef = useRef(false);
 
   // ── URI diagnostic log ────────────────────────────────────────────────────
   const uriType = fileUri.startsWith('file://')
@@ -125,7 +130,14 @@ export function VideoPlayerView({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause when swiped away; resume + reset thumbnail gate on swipe-back.
+  // Skip the initial mount: useVideoPlayer's initializer already called p.play(),
+  // so running play() again here interrupts ExoPlayer's buffer-fill and causes
+  // the play→freeze symptom at ~0.7 s on Android 11+.
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     try {
       if (isActive) {
         hasCalledOnPlaying.current = false;

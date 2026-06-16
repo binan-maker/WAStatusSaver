@@ -74,6 +74,14 @@ export function ViewerItem({
 
   const prepareCancelRef = useRef(false);
 
+  // Once this item becomes active, keep VideoPlayerView mounted even if isActive
+  // briefly flips false (e.g. during a FlatList batch re-render or ExoPlayerBoundary
+  // error-recovery re-render).  Unmounting the player on a transient false → the
+  // player releases, video stops cold — exactly the 0.76 s freeze symptom.
+  // VideoPlayerView's own useEffect([isActive]) handles pause/resume safely.
+  const hasBeenActiveRef = useRef(false);
+  if (isActive) hasBeenActiveRef.current = true;
+
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -90,6 +98,7 @@ export function ViewerItem({
     // initialise directly to the expo-video fallback (see useState initialiser above).
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
+    hasBeenActiveRef.current = false;
     prepareCancelRef.current = false;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -352,7 +361,7 @@ export function ViewerItem({
               </ExoPlayerBoundary>
             )}
 
-            {isActive && displayUri && nativePlayerFailed && (
+            {hasBeenActiveRef.current && displayUri && nativePlayerFailed && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
