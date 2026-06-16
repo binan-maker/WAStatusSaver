@@ -1,10 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from 'react';
 import {
   View,
   StyleSheet,
   Animated,
-  Platform,
-  ActivityIndicator,
   Text,
   TouchableOpacity,
 } from 'react-native';
@@ -45,104 +49,48 @@ export function ViewerItem({
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { prepareStatusForViewing } = useMedia();
 
-  // Pre-generated file:// JPG thumbnail — used as poster while video prepares.
   const cachedThumb = useThumbnail(item.id);
 
-  // displayUri is always file:// for videos — never content://
   const [displayUri, setDisplayUri] = useState<string | null>(null);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [isVideoVisible, setIsVideoVisible] = useState(false);
-  const [isPreparing, setIsPreparing] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
 
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
+  // Thumbnail fades from 1 (fully visible) to 0 (hidden) once video plays.
+  // Using Animated.Value so the fade is smooth and never flickers.
+  const thumbnailOpacity = useRef(new Animated.Value(1)).current;
+  const isVideoPlayingRef = useRef(false);
 
   const prepareCancelRef = useRef(false);
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasRevealedOnceRef = useRef(false);
 
-  // ── Raw source (may be content:// on Android 11+) ──────────────────────────
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isSAF = initialSource.startsWith('content://');
 
-  // ── Reveal helpers ─────────────────────────────────────────────────────────
-
-  const clearRevealTimer = useCallback(() => {
-    if (revealTimerRef.current) {
-      clearTimeout(revealTimerRef.current);
-      revealTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleReveal = useCallback(
-    (delayMs: number) => {
-      clearRevealTimer();
-      revealTimerRef.current = setTimeout(() => {
-        hasRevealedOnceRef.current = true;
-        setIsVideoVisible(true);
-      }, delayMs);
-    },
-    [clearRevealTimer],
-  );
-
-  // ── Reset all state when item changes ──────────────────────────────────────
+  // ── Reset everything when item changes ──────────────────────────────────
   useEffect(() => {
     prepareCancelRef.current = true;
     setDisplayUri(null);
-    setIsVideoReady(false);
-    setIsVideoVisible(false);
-    setIsPreparing(false);
     setVideoError(null);
-    hasRevealedOnceRef.current = false;
-    clearRevealTimer();
+    thumbnailOpacity.setValue(1);
+    isVideoPlayingRef.current = false;
     prepareCancelRef.current = false;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Cleanup reveal timer on unmount ────────────────────────────────────────
-  useEffect(() => () => clearRevealTimer(), []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Player callbacks (passed down into VideoPlayerView) ───────────────────
-  const handlePlayerReady = useCallback(() => {
-    setIsVideoReady(true);
-    setVideoError(null);
-    if (!hasRevealedOnceRef.current) {
-      scheduleReveal(80);
-    }
-  }, [scheduleReveal]);
-
-  const handlePlayerError = useCallback((error: string) => {
-    setVideoError('Tap to retry');
-    setIsVideoReady(false);
-  }, []);
-
-  // ── Hide video overlay when this slide becomes inactive ────────────────────
+  // Re-show thumbnail when slide becomes inactive (for next swipe-back)
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
-      setIsVideoVisible(false);
-      clearRevealTimer();
+      thumbnailOpacity.setValue(1);
+      isVideoPlayingRef.current = false;
     }
   }, [isActive, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Re-schedule reveal when returning to an already-ready slide ────────────
-  useEffect(() => {
-    if (item.type !== 'video') return;
-    if (isActive && isVideoReady && !isVideoVisible) {
-      scheduleReveal(80);
-    }
-  }, [isActive, isVideoReady, isVideoVisible, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── CRITICAL: Prepare URI — copy SAF content:// → file:// before playback ──
+  // ── Prepare URI ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
         setDisplayUri(null);
-        setIsVideoReady(false);
-        setIsPreparing(false);
         setVideoError(null);
       }
       return;
@@ -162,34 +110,51 @@ export function ViewerItem({
       return;
     }
 
-    setIsPreparing(true);
-    setVideoError(null);
     prepareCancelRef.current = false;
+    setVideoError(null);
 
     prepareStatusForViewing(item as StatusItem, { forPlayback: true })
       .then((fileUri) => {
         if (prepareCancelRef.current) return;
-        setDisplayUri(fileUri);
-        setIsPreparing(false);
+        if (fileUri) {
+          setDisplayUri(fileUri);
+        } else {
+          setVideoError('Could not load video — tap to retry');
+        }
       })
       .catch(() => {
         if (prepareCancelRef.current) return;
         setVideoError('Could not load video — tap to retry');
-        setIsPreparing(false);
       });
 
     return () => { prepareCancelRef.current = true; };
   }, [initialSource, isSAF, item, isNearActive, isActive, displayUri, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Manual retry ───────────────────────────────────────────────────────────
+  // ── Callbacks for VideoPlayerView ────────────────────────────────────────
+  const handlePlaying = useCallback(() => {
+    if (isVideoPlayingRef.current) return;
+    isVideoPlayingRef.current = true;
+    Animated.timing(thumbnailOpacity, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  }, [thumbnailOpacity]);
+
+  const handleError = useCallback((_msg: string) => {
+    setVideoError('Tap to retry');
+  }, []);
+
   const handleRetry = useCallback(() => {
     setVideoError(null);
     setDisplayUri(null);
-  }, []);
+    thumbnailOpacity.setValue(1);
+    isVideoPlayingRef.current = false;
+  }, [thumbnailOpacity]);
 
   const mediaUri = displayUri || initialSource;
 
-  // ── Pinch-to-zoom for images ───────────────────────────────────────────────
+  // ── Pinch-to-zoom for images ───────────────────────────────────────────
   const imageScale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -332,58 +297,40 @@ export function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* VideoPlayerView — key={displayUri} forces a fresh player for
-                each new file:// URI. Source + play() are set synchronously
-                in useVideoPlayer's setup callback so no events are missed.
-                SAF content:// URIs are always copied to file:// BEFORE
-                displayUri is set (prepareStatusForViewing). */}
-            {isActive && displayUri && !isPreparing && (
+            {/* Video player — mounts as soon as displayUri is ready.
+                key={displayUri} ensures a fresh player for each new file:// URI.
+                No isPreparing gate here — player starts as soon as file is ready. */}
+            {isActive && displayUri && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
                 isActive={isActive}
-                onReady={handlePlayerReady}
-                onError={handlePlayerError}
+                onPlaying={handlePlaying}
+                onError={handleError}
               />
             )}
 
-            {/* Thumbnail poster — shown until video is playing.
-                Policy: always a pre-generated file:// JPG from ThumbnailCache.
-                No videoTimestamp on any URI — blurhash placeholder until ready. */}
-            {(!isActive || !isVideoVisible) && (
-              <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                <Image
-                  source={cachedThumb ? { uri: cachedThumb } : null}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                  transition={0}
-                  recyclingKey={item.id}
-                  placeholder={VIEWER_PLACEHOLDER}
-                  placeholderContentFit="cover"
-                />
-                {isActive && !isVideoReady && !isPreparing && !videoError && (
-                  <View style={styles.videoPlayBadge} pointerEvents="none">
-                    <View style={styles.videoPlayBadgeInner}>
-                      <Ionicons name="play" size={28} color="#fff" />
-                    </View>
-                  </View>
-                )}
-              </View>
-            )}
+            {/* Thumbnail poster — always behind the video, fades to 0 once
+                playingChange fires. Never shows a spinner or play button.
+                Opacity animates smoothly: 1 (covering) → 0 (transparent). */}
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
+              pointerEvents="none"
+            >
+              <Image
+                source={cachedThumb ? { uri: cachedThumb } : null}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                transition={0}
+                recyclingKey={item.id}
+                placeholder={VIEWER_PLACEHOLDER}
+                placeholderContentFit="cover"
+              />
+            </Animated.View>
 
-            {/* Spinner while copying SAF → file:// cache */}
-            {isPreparing && (
-              <View style={styles.videoSpinnerWrap} pointerEvents="none">
-                <ActivityIndicator color="#fff" size="large" />
-                <Text style={{ color: '#fff', marginTop: 12, fontSize: 12 }}>
-                  Loading video…
-                </Text>
-              </View>
-            )}
-
-            {/* Retry overlay on playback error or copy failure */}
-            {videoError && !isPreparing && (
+            {/* Retry overlay — only shown on actual playback error */}
+            {videoError && (
               <TouchableOpacity
                 style={[
                   StyleSheet.absoluteFill,
