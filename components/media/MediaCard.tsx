@@ -10,24 +10,14 @@ import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { CARD_SIZE, RADIUS } from '@/constants/theme';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThumbnail } from '@/hooks/media/useThumbnail';
+import { useSavedStatus } from '@/hooks/media/useSavedStatus';
 
 type AnyItem = StatusItem | SavedItem;
 
-// 32x32 neutral grey blurhash — shown while a recycled cell is decoding the
-// new image so users never see a "black grid" when scrolling back up.
 const THUMB_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
 
 interface MediaCardProps {
   item: AnyItem;
-  isSaved: boolean;
-  // ANDROID 11+ TAP-RELIABILITY FIX:
-  // These callbacks now take the item as an argument so parents can pass
-  // STABLE useCallback'd handlers (e.g. `onPress={handlePress}`) instead of
-  // inline arrows like `onPress={() => handlePress(item)}`. Inline arrows
-  // create a new function identity every parent render, defeating React.memo
-  // here and causing every thumbnail to re-render mid-touch on cold launch
-  // — which dropped the in-flight touch event and forced the user to tap
-  // 3-4 times before navigation actually fired.
   onPress: (item: AnyItem) => void;
   onSave?: (item: AnyItem) => void;
   onShare: (item: AnyItem) => void;
@@ -38,7 +28,6 @@ interface MediaCardProps {
 
 function MediaCardInner({
   item,
-  isSaved,
   onPress,
   onSave,
   onShare,
@@ -50,27 +39,15 @@ function MediaCardInner({
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const originalUri = 'localUri' in item ? item.localUri : item.uri;
 
-  // Subscribe to the per-item thumbnail cache. The hook returns:
-  //   - file://...vid_xxx.jpg → background queue produced a real thumb
-  //   - null                  → no cached thumb yet, fall back to current
-  //                             expo-image videoTimestamp path
-  // Only THIS card re-renders when its own thumb becomes ready, so the
-  // background generator never disturbs scrolling.
+  // Per-card saved-state subscription — only THIS card re-renders when its
+  // own saved state flips. Saving one status never cascades to the full grid.
+  const isSaved = useSavedStatus(item.id);
+
   const cachedThumb = useThumbnail(item.id);
   const isVideo = item.type === 'video';
-  // Decide what URI to feed the <Image>:
-  //   - cached thumb if available (always wins — pure file://, instant)
-  //   - else original URI (content:// or file://)
-  // We also gate the heavy `videoTimestamp` prop on whether we already have
-  // a real cached frame: when we have one, we pass a normal image source
-  // and Glide treats it as a static JPG — no MediaMetadataRetriever, no
-  // SAF round-trip, no decoder spin-up. THIS is what kills the scroll lag.
   const displayUri = cachedThumb || originalUri;
   const useVideoFallback = isVideo && !cachedThumb;
 
-  // Stable internal handlers. They only change when the upstream callback
-  // identity OR the item identity changes — both of which are stable across
-  // a normal render cycle.
   const handlePress = useCallback(() => onPress(item), [onPress, item]);
   const handleSave = useCallback(() => onSave?.(item), [onSave, item]);
   const handleShare = useCallback(() => onShare(item), [onShare, item]);
@@ -82,21 +59,11 @@ function MediaCardInner({
         activeOpacity={1}
         onPress={handlePress}
         style={styles.touchable}
-        // ANDROID 11+ TOUCH-DROP FIX: pressRetentionOffset keeps the touch
-        // "hot" even if the finger drifts slightly while the JS thread is busy
-        // decoding the first thumbnail batch. Without this, Android cancels
-        // the touch the moment the finger moves >10px — which on a vibrating
-        // or moving phone is the leading cause of "I had to tap twice".
         pressRetentionOffset={{ top: 10, right: 10, bottom: 10, left: 10 }}
       >
         {isVideo ? (
           <View style={styles.image}>
             {useVideoFallback ? (
-              // Fallback path — used only briefly until the background queue
-              // generates a real cached frame for this video. videoTimestamp
-              // 0 picks the first key-frame (no expensive seek). Once the
-              // cache populates, this branch is replaced by the file-path
-              // branch below and we never touch the decoder again.
               <Image
                 source={{ uri: displayUri }}
                 style={styles.image}
@@ -112,8 +79,6 @@ function MediaCardInner({
                 placeholderContentFit="cover"
               />
             ) : (
-              // Hot path — pure file:// JPG. No native decoder, no SAF,
-              // no metadata retriever. Just memory-mapped JPEG decode.
               <Image
                 source={{ uri: displayUri }}
                 style={styles.image}

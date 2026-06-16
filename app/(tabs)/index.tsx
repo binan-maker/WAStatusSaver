@@ -66,7 +66,7 @@ const STATUS_SOURCE_OPTIONS: { value: StatusSource; label: string; sublabel: str
   },
 ];
 
-function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
+const StatusHeader = React.memo(function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
   const insets = useSafeAreaInsets();
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
@@ -95,9 +95,9 @@ function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
       </View>
     </View>
   );
-}
+});
 
-function SubTabBar({
+const SubTabBar = React.memo(function SubTabBar({
   activeTab,
   onTabChange,
   imageCnt,
@@ -111,6 +111,7 @@ function SubTabBar({
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const underlineAnim = useRef(new Animated.Value(activeTab === 'images' ? 0 : 1)).current;
+
 
   const translateX = underlineAnim.interpolate({
     inputRange: [0, 1],
@@ -172,9 +173,9 @@ function SubTabBar({
       </TouchableOpacity>
     </View>
   );
-}
+});
 
-function StatusSourceSelector({
+const StatusSourceSelector = React.memo(function StatusSourceSelector({
   selectedSource,
   onSelectSource,
 }: {
@@ -236,7 +237,7 @@ function StatusSourceSelector({
       )}
     </View>
   );
-}
+});
 
 export default function StatusesScreen() {
   const COLORS = useThemeColors();
@@ -269,7 +270,6 @@ export default function StatusesScreen() {
     refresh,
     saveStatus,
     shareStatus,
-    isStatusSaved,
   } = useMedia();
 
   const insets = useSafeAreaInsets();
@@ -277,6 +277,7 @@ export default function StatusesScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const navigationRef = useRef<Map<string, number>>(new Map());
   const lastRefreshTime = useRef<number>(0);
+  const activeTabRef = useRef<TabType>(activeTab);
 
   // Consolidated Load Effect:
   // Triggers on mount, or whenever permissions are granted.
@@ -417,28 +418,31 @@ export default function StatusesScreen() {
     ({ item }: { item: StatusItem }) => (
       <MediaCard
         item={item}
-        isSaved={isStatusSaved(item.id)}
         onPress={handlePressAny}
         onSave={handleSaveAny}
         onShare={handleShareAny}
         showSaveButton
       />
     ),
-    [isStatusSaved, handlePressAny, handleSaveAny, handleShareAny],
+    [handlePressAny, handleSaveAny, handleShareAny],
   );
   const renderVideoItem = useCallback(
     ({ item }: { item: StatusItem }) => (
       <MediaCard
         item={item}
-        isSaved={isStatusSaved(item.id)}
         onPress={handlePressAny}
         onSave={handleSaveAny}
         onShare={handleShareAny}
         showSaveButton
       />
     ),
-    [isStatusSaved, handlePressAny, handleSaveAny, handleShareAny],
+    [handlePressAny, handleSaveAny, handleShareAny],
   );
+
+  const overrideItemLayout = useCallback((layout: any) => {
+    layout.size = CARD_SIZE;
+    layout.span = 1;
+  }, []);
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
@@ -543,14 +547,15 @@ export default function StatusesScreen() {
     }
   }, [markVisited]);
 
+  activeTabRef.current = activeTab;
   const onScroll = useCallback((event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
-    if (newTab !== activeTab) {
+    if (newTab !== activeTabRef.current) {
       setActiveTab(newTab);
       markVisited(newTab);
     }
-  }, [activeTab, markVisited]);
+  }, [markVisited]);
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
@@ -630,7 +635,6 @@ export default function StatusesScreen() {
         showsHorizontalScrollIndicator={false}
         onScrollBeginDrag={onScrollBeginDrag}
         onMomentumScrollEnd={onScroll}
-        scrollEventThrottle={16}
         style={styles.listArea}
       >
         {/*
@@ -671,14 +675,7 @@ export default function StatusesScreen() {
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
-              // Stable layout hint so FlashList never has to measure cells
-              // — it just walks the list assigning fixed sizes, which is
-              // an order of magnitude cheaper than the default heuristic
-              // on slow Android 11+ devices.
-              overrideItemLayout={(layout) => {
-                layout.size = CARD_SIZE;
-                layout.span = 1;
-              }}
+              overrideItemLayout={overrideItemLayout}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -725,10 +722,7 @@ export default function StatusesScreen() {
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               estimatedItemSize={CARD_SIZE}
-              overrideItemLayout={(layout) => {
-                layout.size = CARD_SIZE;
-                layout.span = 1;
-              }}
+              overrideItemLayout={overrideItemLayout}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}

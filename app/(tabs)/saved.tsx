@@ -98,7 +98,6 @@ export default function SavedScreen() {
   const renderSavedItem = useCallback(({ item }: { item: SavedItem }) => (
     <MediaCard
       item={item}
-      isSaved
       onPress={handlePressAny}
       onShare={handleShareAny}
       onDelete={handleDeleteAny}

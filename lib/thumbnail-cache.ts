@@ -225,7 +225,7 @@ async function processQueue(): Promise<void> {
       // Idle gap between items. ~80 ms keeps the JS thread fully available
       // for touch / scroll handlers — the user's input always wins over
       // background thumbnail work.
-      await new Promise((r) => setTimeout(r, 80));
+      await new Promise((r) => setTimeout(r, 150));
     }
   } finally {
     processing = false;

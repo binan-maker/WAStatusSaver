@@ -39,6 +39,7 @@ import {
   pollUntil,
   enqueueCopy,
 } from './media/types';
+import { SavedStore } from '@/lib/saved-store';
 
 // ── Telemetry ─────────────────────────────────────────────────────────────
 const TELEMETRY_KEY = '@statusvault_telemetry';
@@ -152,6 +153,12 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     useState<MediaLibrary.PermissionStatus | null>(null);
   const [isRequestingSAF, setIsRequestingSAF] = useState(false);
   const [isGrantingAccess, setIsGrantingAccess] = useState(false);
+
+  // Keep SavedStore in sync so MediaCard can subscribe per-ID without
+  // causing a grid-wide re-render cascade when one status is saved/deleted.
+  useEffect(() => {
+    SavedStore.setIds(savedItems.map(s => s.id));
+  }, [savedItems]);
 
   // Refs that mirror state for stable callbacks
   const savedItemsRef = useRef<SavedItem[]>([]);
