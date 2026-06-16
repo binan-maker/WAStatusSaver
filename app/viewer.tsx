@@ -66,12 +66,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   // SurfaceView. It lags behind isVideoReady by 200 ms so the thumbnail never
   // disappears before ExoPlayer has pushed pixels to the screen.
   const [isVideoVisible, setIsVideoVisible] = useState(false);
-  // OEM-resilience: when ExoPlayer reports `error` on a content:// URI we
-  // surface a "Tap to retry" overlay instead of leaving the user staring
-  // at a frozen thumbnail. The retry handler does a cold decoder restart
-  // which recovers on every device we've seen.
-  const [videoError, setVideoError] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
   // HARDWARE DECODER STALL ESCALATION:
   //   stallCountRef  — counts how many consecutive 2.5 s stall windows have
   //     fired without currentTime advancing. Used to escalate the recovery
@@ -293,77 +287,41 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     }
   }, [displayUri, item.type, player]);
 
-  // Manual retry handler — called by the "Retry" button in the error overlay.
-  //
-  // COLD DECODER RESTART:
-  //   1. replaceAsync(null) — fully releases the hardware codec slot
-  //   2. 1 second wait      — lets the Android codec pool reclaim the slot
-  //   3. replaceAsync(uri)  — allocates a fresh decoder for the same file
-  const handleVideoRetry = useCallback(async () => {
-    if (item.type !== 'video') return;
-    setIsRetrying(true);
-    setVideoError(false);
-
-    // Reset stall escalation so the watchdog starts fresh for this attempt.
-    stallCountRef.current = 0;
-    stallAutoRetryFiredRef.current = false;
-
+  // Silent cold-decoder restart — used by both the stall watchdog and the
+  // status-error handler. Never surfaces an error to the user.
+  const silentColdRestart = useCallback(async (uriToReload: string | null) => {
+    if (!uriToReload || isColdRestartingRef.current) return;
+    isColdRestartingRef.current = true;
+    isReadyToPlayRef.current = false;
+    hasEverReachedReadyRef.current = false;
+    lastReplacedSourceRef.current = null;
     try {
-      // If displayUri is null or still a content:// URI it means the initial
-      // pre-copy failed (or hasn't finished yet). Retry the copy rather than
-      // falling back to content:// streaming which always freezes on Android 11+.
-      let currentUri = displayUriRef.current;
-      if (!currentUri || currentUri.startsWith('content://')) {
-        try {
-          currentUri = await prepareStatusForViewing(item as StatusItem, { forShare: true });
-          setDisplayUri(currentUri);
-        } catch {
-          setVideoError(true);
-          setIsRetrying(false);
-          return;
-        }
-      }
-      // Cold restart: fully release the hardware decoder, wait, then reallocate.
-      isColdRestartingRef.current = true; // pause watchdog + playToEnd
-      isReadyToPlayRef.current = false;
-      hasEverReachedReadyRef.current = false;
-      lastReplacedSourceRef.current = null;
       await player.replaceAsync(null);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!isActiveRef.current) {
-        isColdRestartingRef.current = false;
-        return;
-      }
-      lastReplacedSourceRef.current = currentUri;
-      await player.replaceAsync(currentUri);
-      // Reset stall state so watchdog gives the fresh decoder a clean slate.
+      await new Promise(r => setTimeout(r, 800));
+      if (!isActiveRef.current) return;
+      lastReplacedSourceRef.current = uriToReload;
+      await player.replaceAsync(uriToReload);
+      coldRestartCountRef.current += 1;
       stallCountRef.current = 0;
       stallAutoRetryFiredRef.current = false;
       lastProgressTimeRef.current = 0;
       lastProgressMsRef.current = Date.now();
-      isColdRestartingRef.current = false;
-      // play() fires from statusChange readyToPlay — do NOT call here.
-    } catch (err) {
-      isColdRestartingRef.current = false; // always re-enable watchdog
-      setVideoError(true);
+    } catch {
+      // Silently swallow — keep the loading spinner, never show error text.
     } finally {
-      setIsRetrying(false);
+      isColdRestartingRef.current = false;
     }
-  }, [item, player, initialSource]);
+  }, [player]);
 
   // ── Callback refs for the stable status listener ──────────────────────────
-  // The status listener is attached once per player instance and must never be
-  // torn down/re-added when displayUri or other state changes — that would miss
-  // the readyToPlay event. But the listener needs to call tryStartPlayback and
-  // scheduleReveal which change when displayUri changes. Solution: store the
-  // latest callback in a ref and call through the ref inside the stable listener.
-  // This is the same pattern expo's useEventListener uses internally.
   const tryStartPlaybackRef = useRef(tryStartPlayback);
   const scheduleRevealRef = useRef(scheduleReveal);
   const clearRevealTimerRef = useRef(clearRevealTimer);
+  const silentColdRestartRef = useRef(silentColdRestart);
   useEffect(() => { tryStartPlaybackRef.current = tryStartPlayback; });
   useEffect(() => { scheduleRevealRef.current = scheduleReveal; });
   useEffect(() => { clearRevealTimerRef.current = clearRevealTimer; });
+  useEffect(() => { silentColdRestartRef.current = silentColdRestart; });
 
   // ── Status listener ──────────────────────────────────────────────────────
   // Attached once per player instance. Uses refs for callbacks so it always
@@ -379,20 +337,17 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         const ready = status === 'readyToPlay';
         isReadyToPlayRef.current = ready;
 
-        // ── Error surface — show retry overlay ─────────────────────────
-        // Some OEM ExoPlayer builds (older Xiaomi MIUI, certain Realme
-        // ROMs) reject content:// URIs from a foreign SAF tree with an
-        // immediate `error` status. Watchdog covers most of these, but
-        // for cases where playback fails AFTER the watchdog window we
-        // surface a tap-to-retry button instead of leaving the user
-        // stuck on a frozen thumbnail.
+        // ── Silent error recovery ──────────────────────────────────────
+        // On 'error' status silently cold-restart the decoder instead of
+        // surfacing any UI. The user just sees the loading spinner and
+        // playback resumes automatically on OEM builds that reject content://
         if (status === 'error') {
-          setVideoError(true);
+          setTimeout(() => {
+            silentColdRestartRef.current(displayUriRef.current);
+          }, 300);
         }
 
         if (ready) {
-          // Clear any lingering error state — playback recovered.
-          setVideoError(false);
           setIsVideoReady(true);
           // FIRST-PLAY GATE: Only start playback on the VERY FIRST readyToPlay
           // for this source. The looping itself is handled by the playingChange
@@ -448,7 +403,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
-    setVideoError(false);
     hasRevealedOnceRef.current = false;
     // Reset the "ever reached ready" latch on a real source change so the
     // watchdog can do its job for the new source if needed. NOT reset on
@@ -609,40 +563,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
           if (stallN === 1 && !stallAutoRetryFiredRef.current) {
             stallAutoRetryFiredRef.current = true;
-
-            if (coldRestartCountRef.current >= 1) {
-              // Already cold-restarted once — nothing more to try.
-              setVideoError(true);
-            } else {
-              isColdRestartingRef.current = true;
-              const uriToReload = displayUriRef.current;
-              (async () => {
-                try {
-                  isReadyToPlayRef.current = false;
-                  hasEverReachedReadyRef.current = false;
-                  await player.replaceAsync(null);
-                  await new Promise(r => setTimeout(r, 1000));
-                  if (!isActiveRef.current || userPausedRef.current || !uriToReload) {
-                    isColdRestartingRef.current = false;
-                    return;
-                  }
-                  lastReplacedSourceRef.current = uriToReload;
-                  await player.replaceAsync(uriToReload);
-                  coldRestartCountRef.current += 1;
-                  stallCountRef.current = 0;
-                  stallAutoRetryFiredRef.current = false;
-                  lastProgressTimeRef.current = 0;
-                  lastProgressMsRef.current = Date.now();
-                } catch {
-                  setVideoError(true);
-                } finally {
-                  isColdRestartingRef.current = false;
-                }
-              })();
+            // Allow up to 3 silent cold restarts before giving up silently
+            // (keep spinner visible, never show an error message).
+            if (coldRestartCountRef.current < 3) {
+              silentColdRestartRef.current(displayUriRef.current);
             }
+            // else: give up silently — loading spinner stays, no error text
           } else if (stallN >= 2) {
-            // Cold restart did not recover — show error overlay.
-            setVideoError(true);
+            // Reset so watchdog can fire again after next stall window
+            stallAutoRetryFiredRef.current = false;
           }
 
           lastProgressMsRef.current = Date.now();
@@ -912,20 +841,25 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
 
     if (item.type === 'video' && initialSource.startsWith('content://')) {
       (async () => {
-        try {
-          const cached = await prepareStatusForViewing(
-            item as StatusItem,
-            { forShare: true }
-          );
-          // Guard: slot may have deactivated while the copy was running.
-          if (!cancelled) setDisplayUri(cached);
-        } catch {
-          // Copy failed — show the error overlay. NEVER fall back to the raw
-          // content:// SAF URI: streaming it always causes ExoPlayer to freeze
-          // at ~1 s on Android 11+ (SAF DocumentProvider can't refill the
-          // buffer fast enough). The user can tap Retry to attempt again.
-          if (!cancelled) setVideoError(true);
+        let attempts = 0;
+        while (attempts < 3 && !cancelled) {
+          try {
+            const cached = await prepareStatusForViewing(
+              item as StatusItem,
+              { forShare: true }
+            );
+            if (!cancelled) setDisplayUri(cached);
+            return;
+          } catch {
+            attempts += 1;
+            if (attempts < 3 && !cancelled) {
+              await new Promise(r => setTimeout(r, 800));
+            }
+          }
         }
+        // All copy attempts failed — silently keep the loading spinner.
+        // Never fall back to raw content:// URI (always freezes at ~1 s
+        // on Android 11+ SAF). No error message is shown.
       })();
     } else {
       setDisplayUri(initialSource);
@@ -1125,7 +1059,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                     recyclingKey={item.id}
                     videoTimestamp={500}
                   />
-                  {isActive && !isVideoReady && !videoError && (
+                  {isActive && !isVideoReady && (
                     <View style={styles.videoPlayBadge} pointerEvents="none">
                       <View style={styles.videoPlayBadgeInner}>
                         <Ionicons name="play" size={28} color="#fff" />
@@ -1135,7 +1069,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 </View>
               )}
 
-              {isNearActive && !isVideoReady && !videoError && (
+              {isNearActive && !isVideoReady && (
                 <View style={styles.videoSpinnerWrap} pointerEvents="none">
                   <ActivityIndicator
                     color={COLORS.PRIMARY}
@@ -1144,31 +1078,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 </View>
               )}
 
-              {isActive && videoError && (
-                <View style={styles.videoRetryOverlay}>
-                  <View style={styles.videoRetryStack}>
-                    <Text style={styles.videoRetrySubText}>
-                      Video playback failed
-                    </Text>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={handleVideoRetry}
-                      disabled={isRetrying}
-                      style={styles.videoRetryBtn}
-                      accessibilityLabel="Tap to retry playback"
-                    >
-                      {isRetrying ? (
-                        <ActivityIndicator color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="refresh-circle" size={28} color="#FFFFFF" />
-                          <Text style={styles.videoRetryText}>Retry</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
             </View>
           </View>
       )}
@@ -1694,44 +1603,6 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.8)',
     // Slight left padding to visually center the play triangle
     paddingLeft: 4,
-  },
-  videoRetryOverlay: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  videoRetryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.PRIMARY,
-    paddingHorizontal: SPACING.LG,
-    paddingVertical: SPACING.MD,
-    borderRadius: RADIUS.LG,
-    gap: SPACING.SM,
-    minWidth: 200,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  videoRetryText: {
-    color: '#FFFFFF',
-    fontSize: FONT_SIZE.MD,
-    fontWeight: '700',
-  },
-  videoRetrySubText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: FONT_SIZE.SM,
-    fontWeight: '500',
-    textAlign: 'center',
-    marginBottom: SPACING.SM,
-  },
-  videoRetryStack: {
-    alignItems: 'center',
-    gap: SPACING.MD,
   },
   // Custom video controls overlay (FIX 2026-04-27 — replaces nativeControls).
   videoCustomControlsCenter: {
