@@ -73,7 +73,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         animation: 'slide_from_right',
       }}
     >
-      {showOnboarding && <Stack.Screen name="onboarding" options={{ headerShown: false }} />}
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="viewer"

@@ -170,7 +170,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
   const scheduleReveal = useCallback((delayMs: number) => {
     clearRevealTimer();
     revealTimerRef.current = setTimeout(() => {
-      __DEV__ && console.log(`[Viewer] REVEALING video surface for ${item.name}`);
       hasRevealedOnceRef.current = true;
       setIsVideoVisible(true);
     }, delayMs);
@@ -236,7 +235,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       // Keep controls visible after the tap so the user sees the new icon.
       showVideoControls();
     } catch (e) {
-      __DEV__ && console.log('[Viewer] togglePlayPause error:', e);
     }
   }, [player, showVideoControls]);
 
@@ -259,7 +257,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       setCurrentTime(targetSec);
       showVideoControls();
     } catch (e) {
-      __DEV__ && console.log('[Viewer] seek error:', e);
     }
   }, [player, videoDuration, showVideoControls]);
   // ──────────────────────────────────────────────────────────────────────
@@ -293,7 +290,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       player.muted = false;
       player.play();
     } catch (e) {
-      __DEV__ && console.log('Player start error:', e);
     }
   }, [displayUri, item.type, player]);
 
@@ -315,7 +311,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     try {
       const currentUri = displayUriRef.current || initialSource;
       // Cold restart: fully release the hardware decoder, wait, then reallocate.
-      __DEV__ && console.log(`[Viewer] Manual retry: cold-restarting decoder for ${item.name}`);
       isColdRestartingRef.current = true; // pause watchdog + playToEnd
       isReadyToPlayRef.current = false;
       hasEverReachedReadyRef.current = false;
@@ -336,7 +331,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
       isColdRestartingRef.current = false;
       // play() fires from statusChange readyToPlay — do NOT call here.
     } catch (err) {
-      console.error(`[Viewer] handleVideoRetry failed for ${item.name}:`, err);
       isColdRestartingRef.current = false; // always re-enable watchdog
       setVideoError(true);
     } finally {
@@ -369,7 +363,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     let subscription: { remove: () => void } | null = null;
     try {
       subscription = player.addListener('statusChange', ({ status }: { status: string }) => {
-        __DEV__ && console.log(`[Viewer] Player status for ${item.name}: ${status}`);
         const ready = status === 'readyToPlay';
         isReadyToPlayRef.current = ready;
 
@@ -395,6 +388,16 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           // double-play() races with replaceAsync resolution.
           if (!hasEverReachedReadyRef.current) {
             hasEverReachedReadyRef.current = true;
+            // STALL-CLOCK RESET (critical): reset the progress clock here,
+            // at the EXACT moment the decoder reports ready — not at displayUri
+            // change time. The pre-copy can take several seconds on slow devices;
+            // if lastProgressMsRef was set when the item mounted (or when
+            // displayUri changed) and the copy takes >4 s, the stall watchdog
+            // sees stalledMs≥4000 on its very next tick and fires at 0.00s
+            // before the video ever gets a chance to play. Resetting here
+            // gives the video a guaranteed fresh 4-second window from actual
+            // hardware decoder readiness, not from JS copy start time.
+            lastProgressMsRef.current = Date.now();
             tryStartPlaybackRef.current();
           }
           if (!hasRevealedOnceRef.current) {
@@ -418,7 +421,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         }
       });
     } catch (e) {
-      __DEV__ && console.log('[Viewer] Could not attach statusChange listener:', e);
     }
     return () => {
       try { subscription?.remove(); } catch {}
@@ -494,7 +496,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         setIsPlaying(nowPlaying);
       });
     } catch (e) {
-      __DEV__ && console.log('[Viewer] playingChange listener attach failed:', e);
     }
     return () => { try { sub?.remove(); } catch {} };
   }, [player, item.type, item.name]);
@@ -515,7 +516,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // corrupt the restart sequence.
         if (isColdRestartingRef.current) return;
         if (userPausedRef.current || !isActiveRef.current) return;
-        __DEV__ && console.log(`[Viewer] playToEnd for ${item.name} — restarting loop`);
         try {
           (player as any).currentTime = 0;
           player.play();
@@ -524,11 +524,9 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
           lastProgressTimeRef.current = 0;
           lastProgressMsRef.current = Date.now();
         } catch (e) {
-          __DEV__ && console.log('[Viewer] playToEnd loop restart failed:', e);
         }
       });
     } catch (e) {
-      __DEV__ && console.log('[Viewer] playToEnd listener attach failed:', e);
     }
     return () => { try { sub?.remove(); } catch {} };
   }, [player, item.type, item.name]);
@@ -605,7 +603,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             } else {
               isColdRestartingRef.current = true;
               const uriToReload = displayUriRef.current;
-              __DEV__ && console.log(`[Viewer] stall detected for ${item.name} at ${currentSec.toFixed(2)}s — cold-restarting decoder`);
               (async () => {
                 try {
                   isReadyToPlayRef.current = false;
@@ -722,7 +719,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     // and briefly stalled playback on Android 11. With this short-circuit
     // the second pass is a no-op.
     if (lastReplacedSourceRef.current === displayUri) {
-      __DEV__ && console.log(`[Viewer] Skipping duplicate replaceAsync for ${item.name}`);
       return;
     }
 
@@ -739,14 +735,12 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         // collide with the JS thread on slow Android 11 devices.
         const isLocalCached = displayUri.startsWith('file://');
         if (!isLocalCached) {
-          __DEV__ && console.log(`[Viewer] Waiting for animations before load: ${item.name}`);
           await Promise.race([
             new Promise<void>(resolve => InteractionManager.runAfterInteractions(resolve)),
             new Promise<void>(resolve => setTimeout(resolve, 120)),
           ]);
           if (cancelled) return;
         }
-        __DEV__ && console.log(`[Viewer] Calling replaceAsync for ${item.name} (${Date.now() - loadStart}ms)`);
 
         // Mark BEFORE awaiting so a watchdog-triggered displayUri update
         // arriving mid-await doesn't re-fire replaceAsync against the same
@@ -754,7 +748,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         lastReplacedSourceRef.current = displayUri;
         await player.replaceAsync(displayUri);
         if (cancelled) return;
-        __DEV__ && console.log(`[Viewer] replaceAsync complete for ${item.name} (${Date.now() - loadStart}ms)`);
         isLoadingSource.current = false;
         // DO NOT call tryStartPlayback here. play() is triggered exclusively by
         // the statusChange readyToPlay event (first occurrence only). Calling it
@@ -779,7 +772,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
             // would mistake a 1.5 s re-buffer for an initial-load stall and
             // forcibly swap the source mid-playback, freezing the video.
             if (cancelled || isReadyToPlayRef.current || hasEverReachedReadyRef.current) return;
-            __DEV__ && console.log(`[Viewer] Watchdog: direct content:// playback stalled for ${item.name}, falling back to cached copy`);
             try {
               const cached = await prepareStatusForViewing(item as StatusItem, { forShare: true });
               // Re-check the latch AFTER the await — the player might have
@@ -801,18 +793,15 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                 setDisplayUri(cached);
                 // play() will be triggered by the statusChange readyToPlay event.
                 // Do not call tryStartPlayback here — same double-play race as above.
-                __DEV__ && console.log(`[Viewer] Watchdog: switched ${item.name} to cached copy successfully`);
               }
             } catch (err) {
               isLoadingSource.current = false;
-              console.error(`[Viewer] Watchdog fallback failed for ${item.name}:`, err);
             }
           }, 1000);
         }
       } catch (e) {
         if (!cancelled) {
           isLoadingSource.current = false;
-          console.error(`[Viewer] Player load error for ${item.name} (${Date.now() - loadStart}ms):`, e);
         }
       }
     };
@@ -889,7 +878,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
         lastReplacedSourceRef.current = null;
       }
     } catch (e) {
-      __DEV__ && console.log('Player sync error:', e);
     }
   // tryStartPlayback intentionally excluded — accessed via tryStartPlaybackRef.
   }, [isActive, isNearActive, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -951,7 +939,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
     if (item.type === 'video' && initialSource.startsWith('content://')) {
       (async () => {
         try {
-          __DEV__ && console.log(`[Viewer] Pre-copying SAF video to file:// for ${item.name}`);
           const cached = await prepareStatusForViewing(
             item as StatusItem,
             { forShare: true }
@@ -1129,7 +1116,6 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
               placeholder={VIEWER_PLACEHOLDER}
               placeholderContentFit="cover"
               onError={(e) => {
-                console.error(`[Viewer] Image LOAD ERROR for ${item.name}:`, e);
               }}
             />
           </Reanimated.View>
@@ -1144,7 +1130,7 @@ function ViewerItem({ item, isActive, isNearActive, onToggleControls, showContro
                   style={StyleSheet.absoluteFill}
                   contentFit="contain"
                   nativeControls={false}
-                  allowsFullscreen
+                  fullscreenOptions={{ showFullscreenButton: false }}
                 />
               )}
 
