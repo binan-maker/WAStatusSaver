@@ -55,6 +55,11 @@ export function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
+  // Gate: once a surface-detach recovery fires, block further recoveries until
+  // isPlaying:true confirms the video is genuinely running again.  Without this
+  // gate, player.play() itself triggers isPlaying:false (buffering) which fires
+  // ANOTHER recovery, creating the play→freeze→play→freeze loop on Android 11+.
+  const recoveryFired = useRef(false);
   const nudgeTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
@@ -89,16 +94,22 @@ export function VideoPlayerView({
     });
 
     // ── Layer 2: playingChange ────────────────────────────────────────────────
-    // • isPlaying: true  → backup confirmation (some OEMs skip timeUpdate)
+    // • isPlaying: true  → backup confirmation + reset recoveryFired so the
+    //   next genuine surface-detach can still be recovered.
     // • isPlaying: false → RECOVERY: if video was confirmed playing but stopped
-    //   while the slide is still active, force-resume after 80 ms.
-    //   This is the direct fix for the Android 11+ OEM surface-detach freeze.
+    //   while the slide is still active, force-resume after 80 ms — BUT only
+    //   if recoveryFired is false.  Setting recoveryFired=true before the
+    //   setTimeout means only ONE recovery fires per "play" window.  Without
+    //   this gate, player.play() triggers another isPlaying:false (buffering)
+    //   which triggers another recovery → infinite play/freeze loop on Android.
     const playingSub = player.addListener('playingChange', (event: any) => {
       if (event.isPlaying) {
+        recoveryFired.current = false; // Video is genuinely running — allow one future recovery
         confirmPlaying();
-      } else if (hasCalledOnPlaying.current && isActiveRef.current) {
+      } else if (hasCalledOnPlaying.current && isActiveRef.current && !recoveryFired.current) {
         // Unexpected stop while slide is active — surface probably detached.
-        // Wait 80 ms for the GPU compositor to reattach it, then resume.
+        // Gate closes immediately; only re-opens when isPlaying:true fires.
+        recoveryFired.current = true;
         setTimeout(() => {
           if (isActiveRef.current) {
             try { player.play(); } catch {}
@@ -151,6 +162,7 @@ export function VideoPlayerView({
         // Allow onPlaying() to fire again after a swipe-back so the thumbnail
         // fades correctly on resume (parent reset opacity to 1 on inactive).
         hasCalledOnPlaying.current = false;
+        recoveryFired.current = false; // Fresh activation — allow one surface-detach recovery
         player.play();
       } else {
         player.pause();
