@@ -32,6 +32,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Image as ExpoImage } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SafReaderModule from '@/modules/saf-reader';
 
 export type ThumbItemType = 'image' | 'video';
 
@@ -168,30 +169,39 @@ async function generateOne(item: ThumbItem): Promise<void> {
   }
 
   // Videos: extract first key-frame as a JPG once and reuse forever.
+  //
+  // NATIVE PATH (EAS / custom build):
+  //   SafReaderModule.generateThumbnail runs Android's hardware-accelerated
+  //   MediaMetadataRetriever entirely in Java — no JS bridge overhead, no
+  //   second process hop. It writes atomically via .tmp+rename itself.
+  //
+  // JS FALLBACK (Expo Go / no native module):
+  //   expo-video-thumbnails — also hardware-accelerated but crosses the
+  //   JS bridge twice (request + result) and writes to a temp dir that
+  //   we then have to move into our managed cache dir.
   const dir = await ensureCacheDir();
   if (!dir) return;
   const dest = `${dir}vid_${safeFilename(item.id)}.jpg`;
-  const tmp = `${dest}.tmp`;
+
   try {
-    const result = await VideoThumbnails.getThumbnailAsync(item.uri, {
-      time: 0,
-      // Quality 0.5 produces a ~20-40 KB JPG that's still sharp at grid
-      // size and decodes in single-digit ms even on low-end Android.
-      quality: 0.5,
-    });
-    // Move the generated file into our managed dir under a stable name
-    // via tmp+rename so a crash can never leave a torn JPG on disk.
-    try {
-      await FileSystem.deleteAsync(tmp, { idempotent: true });
-    } catch {}
-    await FileSystem.copyAsync({ from: result.uri, to: tmp });
-    try {
-      await FileSystem.deleteAsync(dest, { idempotent: true });
-    } catch {}
-    await FileSystem.moveAsync({ from: tmp, to: dest });
-    try {
-      await FileSystem.deleteAsync(result.uri, { idempotent: true });
-    } catch {}
+    if (SafReaderModule.isAvailable()) {
+      // Native Java path — fastest, no bridge overhead for data transfer.
+      // The source URI may be a content:// SAF URI or a file:// local path;
+      // Java handles both via setDataSource(context, uri) vs setDataSource(path).
+      await SafReaderModule.generateThumbnail(item.uri, dest, 0);
+    } else {
+      // JS bridge path — expo-video-thumbnails.
+      const tmp = `${dest}.tmp`;
+      const result = await VideoThumbnails.getThumbnailAsync(item.uri, {
+        time: 0,
+        quality: 0.5,
+      });
+      try { await FileSystem.deleteAsync(tmp, { idempotent: true }); } catch {}
+      await FileSystem.copyAsync({ from: result.uri, to: tmp });
+      try { await FileSystem.deleteAsync(dest, { idempotent: true }); } catch {}
+      await FileSystem.moveAsync({ from: tmp, to: dest });
+      try { await FileSystem.deleteAsync(result.uri, { idempotent: true }); } catch {}
+    }
     memMap[item.id] = dest;
     schedulePersist();
     notify(item.id, dest);
