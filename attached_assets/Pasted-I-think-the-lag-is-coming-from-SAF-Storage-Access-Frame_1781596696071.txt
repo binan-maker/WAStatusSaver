@@ -1,0 +1,142 @@
+I think the lag is coming from SAF (Storage Access Framework) content:// video playback and your video preparation flow.
+
+I found a few likely bottlenecks:
+
+1. VideoView is sometimes receiving SAF URIs directly
+
+In ViewerItem.tsx:
+
+setDisplayUri(initialSource);
+
+and later:
+
+await player.replaceAsync(displayUri);
+
+initialSource can be:
+
+item.uri
+
+which for Android 11+ is usually:
+
+content://...
+
+Your own comments in MediaProvider say:
+
+Videos must NEVER be streamed from SAF content:// URIs
+
+because ExoPlayer buffer starvation causes freezes.
+
+But in ViewerItem I don't see:
+
+prepareStatusForViewing(item, {
+  forPlayback: true
+})
+
+before loading the player.
+
+So many videos may still be opening directly from SAF.
+
+2. You are generating video thumbnails from the actual video
+
+I noticed:
+
+<Image
+  source={{ uri: initialSource }}
+  videoTimestamp={500}
+/>
+
+For Android 11+:
+
+content://
+
+thumbnail extraction from SAF videos is much slower than Android 10 filesystem access.
+
+If you have 30+ statuses this can create heavy IO.
+
+3. preload + copy happening together
+
+I found:
+
+SafReaderModule.preCopyAll(...)
+
+which copies all videos in background.
+
+At the same time ViewerItem may be loading videos.
+
+At the same time ThumbnailCache is generating thumbnails.
+
+At the same time SAF scanning is running.
+
+This means:
+
+SAF Read
++
+Thumbnail Generation
++
+Video Copy
++
+ExoPlayer Loading
+
+all competing for storage bandwidth.
+
+On slower Redmi, Vivo, Oppo, Samsung devices this causes stutters.
+
+4. Global VideoView instances
+
+Each ViewerItem creates:
+
+const player = useVideoPlayer(...)
+
+Even though only one is active.
+
+If FlatList keeps:
+
+active item
+previous item
+next item
+
+mounted,
+
+you may have 3 players existing simultaneously.
+
+Android 11+ memory pressure becomes much higher.
+
+5. Most suspicious issue
+
+Your MediaContext has a function specifically made for playback:
+
+prepareStatusForViewing(
+  item,
+  { forPlayback: true }
+)
+
+which copies SAF videos to cache.
+
+But ViewerItem never seems to call it.
+
+Instead it uses:
+
+item.uri
+
+directly.
+
+That is the first thing I would investigate.
+
+Quick test
+
+Add logs before:
+
+player.replaceAsync(displayUri);
+console.log(displayUri);
+
+If Android 11 devices print:
+
+content://
+
+then you've found the problem.
+
+If they print:
+
+file:///data/user/0/...
+
+then the issue is elsewhere.
