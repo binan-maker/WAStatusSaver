@@ -16,16 +16,15 @@ import Reanimated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { VideoView } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
-import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
+import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { createStyles, SW, SH } from './viewerStyles';
 
 const VIEWER_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
 
-// ── GLOBAL: Only ONE video player instance across all ViewerItems ──
-// When user scrolls: previous video COMPLETELY STOPS, new video ONLY loads.
+// ── GLOBAL: Only ONE video player active at a time ──
 let globalActiveVideoId: string | null = null;
 
 export interface ViewerItemProps {
@@ -58,19 +57,15 @@ export function ViewerItem({
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRevealedOnceRef = useRef(false);
   const playToEndListenerRef = useRef<{ remove: () => void } | null>(null);
-  const prepareTaskRef = useRef<any>(null);
 
-  // ── THIS ITEM'S PLAYER: Created once per component instance ──
-  const playerRef = useRef<any>(null);
-  if (!playerRef.current) {
-    playerRef.current = new (require('expo-video').VideoPlayer)(null);
-    playerRef.current.loop = false;
-    playerRef.current.muted = true;
+  // ── CREATE PLAYER via hook (expo-video v3 — VideoPlayer is not a constructor) ──
+  const player = useVideoPlayer(null, (p) => {
+    p.loop = false;
+    p.muted = true;
     if (Platform.OS === 'android') {
-      playerRef.current.staysActiveInBackground = false;
+      (p as any).staysActiveInBackground = false;
     }
-  }
-  const player = playerRef.current;
+  });
 
   const clearRevealTimer = useCallback(() => {
     if (revealTimerRef.current) {
@@ -79,19 +74,22 @@ export function ViewerItem({
     }
   }, []);
 
-  const scheduleReveal = useCallback((delayMs: number) => {
-    clearRevealTimer();
-    revealTimerRef.current = setTimeout(() => {
-      hasRevealedOnceRef.current = true;
-      setIsVideoVisible(true);
-    }, delayMs);
-  }, [clearRevealTimer]);
+  const scheduleReveal = useCallback(
+    (delayMs: number) => {
+      clearRevealTimer();
+      revealTimerRef.current = setTimeout(() => {
+        hasRevealedOnceRef.current = true;
+        setIsVideoVisible(true);
+      }, delayMs);
+    },
+    [clearRevealTimer]
+  );
 
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-  }, [item.id, item.uri]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── CRITICAL: Only set this as GLOBAL ACTIVE when isActive ──
+  // ── Track global active video ──
   useEffect(() => {
     if (isActive && item.type === 'video') {
       globalActiveVideoId = item.id;
@@ -100,6 +98,7 @@ export function ViewerItem({
     }
   }, [isActive, item.id, item.type]);
 
+  // ── Cleanup on unmount ──
   useEffect(() => {
     return () => {
       try {
@@ -132,7 +131,7 @@ export function ViewerItem({
   useEffect(() => { scheduleRevealRef.current = scheduleReveal; });
   useEffect(() => { clearRevealTimerRef.current = clearRevealTimer; });
 
-  // Status listener
+  // ── Status change listener ──
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!player || typeof player.addListener !== 'function') return;
@@ -141,7 +140,6 @@ export function ViewerItem({
       sub = player.addListener('statusChange', ({ status }: { status: string }) => {
         const ready = status === 'readyToPlay';
         isReadyToPlayRef.current = ready;
-
         if (ready) {
           setIsVideoReady(true);
           tryStartPlaybackRef.current();
@@ -162,7 +160,7 @@ export function ViewerItem({
     };
   }, [player, item.type, item.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset on source change
+  // ── Reset state on source change ──
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
@@ -170,6 +168,7 @@ export function ViewerItem({
     clearRevealTimer();
   }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Reset state on item change ──
   useEffect(() => {
     setIsVideoReady(false);
     setIsVideoVisible(false);
@@ -177,15 +176,9 @@ export function ViewerItem({
     hasRevealedOnceRef.current = false;
   }, [item.id]);
 
-  // Loop on end
+  // ── Loop on end ──
   useEffect(() => {
-    if (
-      item.type !== 'video' ||
-      !player ||
-      typeof player.addListener !== 'function'
-    )
-      return;
-
+    if (item.type !== 'video' || !player || typeof player.addListener !== 'function') return;
     try {
       playToEndListenerRef.current?.remove();
       playToEndListenerRef.current = player.addListener('playToEnd', () => {
@@ -196,32 +189,21 @@ export function ViewerItem({
         } catch {}
       });
     } catch {}
-
     return () => {
       try { playToEndListenerRef.current?.remove(); } catch {}
     };
   }, [player, item.type, item.name, item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load into player when active
+  // ── Load source into player when active ──
   useEffect(() => {
     if (item.type !== 'video' || !player || !displayUri || !isActive) return;
-
     let cancelled = false;
     isReadyToPlayRef.current = false;
-
     const load = async () => {
       try {
         await player.replaceAsync(displayUri);
-        if (!cancelled) {
-          // Video loaded successfully
-        }
-      } catch {
-        if (!cancelled) {
-          // Load failed, but player handles it
-        }
-      }
+      } catch {}
     };
-
     load();
     return () => {
       cancelled = true;
@@ -229,13 +211,12 @@ export function ViewerItem({
     };
   }, [displayUri, item.type, player, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Cleanup reveal timer on unmount ──
   useEffect(() => {
-    return () => {
-      clearRevealTimer();
-    };
+    return () => { clearRevealTimer(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show when ready
+  // ── Show video once ready ──
   useEffect(() => {
     if (item.type !== 'video') return;
     if (isActive && isVideoReady && !isVideoVisible) {
@@ -243,7 +224,7 @@ export function ViewerItem({
     }
   }, [isActive, isVideoReady, isVideoVisible, item.type]);
 
-  // Hide when inactive
+  // ── Hide when inactive ──
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
@@ -252,7 +233,7 @@ export function ViewerItem({
     }
   }, [isActive, item.type]);
 
-  // Pause/stop when inactive
+  // ── Pause/play based on active state ──
   useEffect(() => {
     if (item.type !== 'video' || !player) return;
     try {
@@ -261,7 +242,6 @@ export function ViewerItem({
           tryStartPlaybackRef.current();
         }
       } else {
-        // COMPLETELY STOP this video when scrolled away
         player.muted = true;
         player.pause();
         isReadyToPlayRef.current = false;
@@ -270,7 +250,7 @@ export function ViewerItem({
     } catch {}
   }, [isActive, item.id, player, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── NO COPYING: Use URI directly ──
+  // ── Set display URI ──
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
@@ -279,29 +259,19 @@ export function ViewerItem({
         setIsPreparing(false);
         if (item.type === 'video' && player) {
           isReadyToPlayRef.current = false;
-          try {
-            player.pause();
-          } catch {}
+          try { player.pause(); } catch {}
         }
       }
       return;
     }
-
     if (displayUri) return;
-
-    // Videos: use URI directly (no copy)
-    if (item.type === 'video' && isActive) {
-      setIsPreparing(false);
-      setDisplayUri(initialSource);
-    } else {
-      // Images: instant
-      setDisplayUri(initialSource);
-    }
+    setIsPreparing(false);
+    setDisplayUri(initialSource);
   }, [initialSource, item, isNearActive, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mediaUri = displayUri || initialSource;
 
-  // Pinch-to-zoom for images
+  // ── Pinch-to-zoom for images ──
   const imageScale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -319,7 +289,7 @@ export function ViewerItem({
   }, [item.id, isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pinchGesture = Gesture.Pinch()
-    .onUpdate(e => {
+    .onUpdate((e) => {
       imageScale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 6);
     })
     .onEnd(() => {
@@ -353,7 +323,7 @@ export function ViewerItem({
       if (imageScale.value > 1) state.activate();
       else state.fail();
     })
-    .onUpdate(e => {
+    .onUpdate((e) => {
       const scale = imageScale.value;
       const maxX = ((scale - 1) * SW) / 2;
       const maxY = ((scale - 1) * SW) / 2;
@@ -362,24 +332,16 @@ export function ViewerItem({
       translateX.value = Math.max(-maxX, Math.min(maxX, newX));
       translateY.value = Math.max(-maxY, Math.min(maxY, newY));
     })
-    .onEnd(e => {
+    .onEnd((e) => {
       const scale = imageScale.value;
       const maxX = ((scale - 1) * SW) / 2;
       const maxY = ((scale - 1) * SW) / 2;
       translateX.value = withDecay(
-        {
-          velocity: e.velocityX * 0.5,
-          deceleration: 0.92,
-          clamp: [-maxX, maxX],
-        },
+        { velocity: e.velocityX * 0.5, deceleration: 0.92, clamp: [-maxX, maxX] },
         () => { savedTranslateX.value = translateX.value; }
       );
       translateY.value = withDecay(
-        {
-          velocity: e.velocityY * 0.5,
-          deceleration: 0.92,
-          clamp: [-maxY, maxY],
-        },
+        { velocity: e.velocityY * 0.5, deceleration: 0.92, clamp: [-maxY, maxY] },
         () => { savedTranslateY.value = translateY.value; }
       );
     });
@@ -387,7 +349,7 @@ export function ViewerItem({
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .maxDuration(200)
-    .onEnd(e => {
+    .onEnd((e) => {
       if (imageScale.value > 1) {
         imageScale.value = withSpring(1);
         translateX.value = withSpring(0);
