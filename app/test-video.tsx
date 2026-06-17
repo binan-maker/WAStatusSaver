@@ -1,147 +1,170 @@
 /**
- * MINIMAL Android 11+ VIDEO TEST SCREEN
+ * TEST SCREEN A — copy-then-play (same path as production)
  *
- * Purpose: isolate the production viewer freeze by running the absolute
- * smallest possible playback path. If this screen plays without freezing
- * and the production viewer freezes, the cause is something in ViewerItem /
- * VideoPlayerView / the mount gate — not in the file copy or expo-video itself.
+ * Measures and displays:
+ *   - Source size from ContentResolver BEFORE copy
+ *   - Destination file size AFTER copy
+ *   - Whether they match
+ *   - How long the copy took
  *
- * Navigation:
- *   router.push({ pathname: '/test-video', params: { id: item.id } })
- *   (Debug button appears in viewer.tsx top bar in __DEV__ builds only)
+ * If source ≠ dest → the copy is partial → that IS the freeze cause.
+ * If source = dest AND the video still freezes → expo-video cannot play
+ *   local file:// URIs from the app cache on this device/Android version.
+ *   → Test Screen B (test-video-direct) will tell us if content:// works.
  *
- * What this screen does NOT have (compared to production viewer):
- *   - No FlatList / swipe logic
- *   - No thumbnail fade animation
- *   - No mount gate / decoder count
- *   - No pause/resume on isActive changes
- *   - No stall timer / recovery loop
- *   - No ViewerItem re-renders
- *   - No adjacent-item pre-fetching
- *   - No gesture handlers
- *
- * What it DOES have:
- *   - prepareStatusForViewing() — exact same copy + verify path as production
- *   - useVideoPlayer + VideoView from expo-video — exact same library
- *   - p.play() in initializer — same call as production VideoPlayerView
- *   - contentFit="contain" — same as production
+ * Navigate here from the production viewer (green flask icon, DEV builds only).
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
+  View, Text, ActivityIndicator, StyleSheet,
+  TouchableOpacity, Platform, ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useMedia, StatusItem } from '@/contexts/MediaContext';
 import { Ionicons } from '@expo/vector-icons';
 
-// ── Inner player — only rendered once fileUri is ready ───────────────────────
-// Kept as a separate component so the useVideoPlayer hook is not called with a
-// null URI and is never re-created after mount (the key prop handles recreation
-// if we ever want to change the source).
-function MinimalPlayer({ fileUri }: { fileUri: string }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Size measurement helper — works on both content:// and file:// URIs.
+// For content:// URIs expo-file-system calls
+//   ContentResolver.query(uri, [OpenableColumns.SIZE], ...)
+// which WhatsApp's DocumentProvider answers with the untruncated file size.
+// ─────────────────────────────────────────────────────────────────────────────
+async function measureSize(uri: string): Promise<number> {
+  try {
+    const info = await FileSystem.getInfoAsync(uri as any);
+    return (info as any).size ?? -1;
+  } catch (e: any) {
+    return -2; // -2 = getInfoAsync threw
+  }
+}
+
+function fmt(n: number): string {
+  if (n === -1) return 'unknown (getInfoAsync returned no size)';
+  if (n === -2) return 'ERROR (getInfoAsync threw)';
+  if (n === 0) return '0 bytes ⚠️ EMPTY FILE';
+  return `${n.toLocaleString()} bytes (${(n / 1024 / 1024).toFixed(2)} MB)`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MinimalPlayer — created only once fileUri is confirmed non-empty.
+// ─────────────────────────────────────────────────────────────────────────────
+function MinimalPlayer({
+  fileUri, onStatus,
+}: { fileUri: string; onStatus: (s: string) => void }) {
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
     p.loop = true;
     p.muted = false;
-    // Sets playWhenReady = true in Media3. Media3 will not actually start
-    // until both the media is loaded AND the SurfaceTexture is attached.
-    // This is the identical call made in production VideoPlayerView.
-    p.play();
+    p.play(); // sets Media3 playWhenReady=true
   });
 
   useEffect(() => {
     const sub = player.addListener('statusChange', (e: any) => {
-      __DEV__ && console.log('[TestVideo] statusChange:', e.status, e.error?.message);
+      onStatus(e.status + (e.error ? ` — ${e.error.message}` : ''));
     });
-    return () => {
-      sub.remove();
-      try { player.release(); } catch {}
-    };
+    return () => { sub.remove(); try { player.release(); } catch {} };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      nativeControls
+      nativeControls={false}
       contentFit="contain"
     />
   );
 }
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────────────────
 export default function TestVideoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { statuses, savedItems, prepareStatusForViewing } = useMedia();
 
-  const [phase, setPhase] = useState<'finding' | 'copying' | 'ready' | 'error'>('finding');
+  type Phase = 'finding' | 'measuring-src' | 'copying' | 'measuring-dest' | 'ready' | 'error';
+  const [phase, setPhase] = useState<Phase>('finding');
   const [fileUri, setFileUri] = useState<string | null>(null);
+  const [playerStatus, setPlayerStatus] = useState('—');
   const [errorMsg, setErrorMsg] = useState('');
-  const [itemInfo, setItemInfo] = useState('');
+
+  // Measurement values
+  const [srcUri, setSrcUri] = useState('');
+  const [srcSize, setSrcSize] = useState<number | null>(null);
+  const [destSize, setDestSize] = useState<number | null>(null);
+  const [copyMs, setCopyMs] = useState<number | null>(null);
+  const copyStart = useRef(0);
 
   useEffect(() => {
-    if (!id) {
-      setPhase('error');
-      setErrorMsg('No item id passed in params');
-      return;
-    }
+    if (!id) { setPhase('error'); setErrorMsg('No id param'); return; }
 
-    // Find the item in statuses or savedItems.
     const item: StatusItem | undefined =
       statuses.find(s => s.id === id || decodeURIComponent(s.id) === id) ??
       (savedItems.find(s => s.id === id || decodeURIComponent(s.id) === id) as StatusItem | undefined);
 
-    if (!item) {
-      setPhase('error');
-      setErrorMsg(`Item not found for id: ${id}`);
-      return;
-    }
+    if (!item) { setPhase('error'); setErrorMsg(`Item not found: ${id}`); return; }
+    if (item.type !== 'video') { setPhase('error'); setErrorMsg('Not a video'); return; }
 
-    if (item.type !== 'video') {
-      setPhase('error');
-      setErrorMsg('Selected item is not a video');
-      return;
-    }
+    const contentUri: string = 'localUri' in item ? (item as any).localUri : item.uri;
+    setSrcUri(contentUri);
 
-    const srcUri = 'localUri' in item ? (item as any).localUri : item.uri;
-    const isSAF = srcUri.startsWith('content://');
-
-    setItemInfo(
-      `name: ${item.name}\n` +
-      `size: ${item.size ?? 0}\n` +
-      `isSAF: ${isSAF}\n` +
-      `uri: ${srcUri.slice(0, 80)}`
-    );
+    const isSAF = contentUri.startsWith('content://');
 
     if (!isSAF) {
-      // Android ≤10 or already-saved item — play directly, no copy needed.
-      setFileUri(srcUri);
+      // Android ≤10 / saved item — file:// path, no copy needed.
+      setSrcSize(-3); // -3 = not applicable
+      setDestSize(-3);
+      setFileUri(contentUri);
       setPhase('ready');
       return;
     }
 
-    // Android 11+ SAF path — copy to local cache exactly as production does.
-    setPhase('copying');
-    prepareStatusForViewing(item, { forPlayback: true })
-      .then((uri) => {
-        if (uri) {
+    // ── Step 1: measure source via ContentResolver ───────────────────────────
+    setPhase('measuring-src');
+    measureSize(contentUri).then((ss) => {
+      setSrcSize(ss);
+
+      // ── Step 2: copy ─────────────────────────────────────────────────────
+      setPhase('copying');
+      copyStart.current = Date.now();
+
+      prepareStatusForViewing(item, { forPlayback: true })
+        .then(async (uri) => {
+          const elapsed = Date.now() - copyStart.current;
+          setCopyMs(elapsed);
+
+          if (!uri) {
+            setPhase('error');
+            setErrorMsg('prepareStatusForViewing returned null');
+            return;
+          }
+
+          // ── Step 3: measure destination ──────────────────────────────────
+          setPhase('measuring-dest');
+          const ds = await measureSize(uri);
+          setDestSize(ds);
           setFileUri(uri);
           setPhase('ready');
-        } else {
+        })
+        .catch((e: any) => {
           setPhase('error');
-          setErrorMsg('prepareStatusForViewing returned null/undefined');
-        }
-      })
-      .catch((e: any) => {
-        setPhase('error');
-        setErrorMsg(String(e?.message ?? e));
-      });
+          setErrorMsg(String(e?.message ?? e));
+        });
+    });
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Determine if copy is complete
+  const sizeMatch =
+    srcSize != null && destSize != null &&
+    srcSize > 0 && destSize > 0 &&
+    destSize >= srcSize * 0.99;
+
+  const sizeLabel =
+    srcSize == null || destSize == null ? '—' :
+    srcSize === -3 ? 'N/A (no copy)' :
+    sizeMatch ? '✅ MATCH — copy is complete' :
+    `❌ MISMATCH — partial copy! src=${srcSize} dest=${destSize}`;
 
   return (
     <View style={s.root}>
@@ -150,48 +173,65 @@ export default function TestVideoScreen() {
         <Ionicons name="arrow-back" size={22} color="#fff" />
       </TouchableOpacity>
 
-      {/* Label */}
-      <View style={s.label}>
-        <Text style={s.labelTitle}>MINIMAL TEST PLAYER</Text>
-        <Text style={s.labelSub}>expo-video · no swipe · no timers · no recovery</Text>
-        {Platform.OS === 'android' && (
-          <Text style={s.labelSub}>Android API {Platform.Version}</Text>
-        )}
-      </View>
-
-      {/* States */}
-      {phase === 'finding' && (
-        <View style={s.center}>
-          <ActivityIndicator color="#00C48C" size="large" />
-          <Text style={s.status}>Finding item…</Text>
+      {/* Video area */}
+      {phase === 'ready' && fileUri && !sizeMatch && srcSize !== -3 && (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#200', alignItems: 'center', justifyContent: 'center' }]}>
+          <Text style={{ color: '#ff6b6b', fontSize: 13, textAlign: 'center', padding: 24 }}>
+            ❌ Copy size mismatch — file is partial.{'\n'}Player will freeze.
+          </Text>
         </View>
       )}
+      {phase === 'ready' && fileUri && (sizeMatch || srcSize === -3) && (
+        <MinimalPlayer key={fileUri} fileUri={fileUri} onStatus={setPlayerStatus} />
+      )}
 
-      {phase === 'copying' && (
-        <View style={s.center}>
+      {/* Info overlay */}
+      <ScrollView
+        style={s.overlay}
+        contentContainerStyle={s.overlayContent}
+        pointerEvents="box-none"
+      >
+        <Text style={s.title}>TEST SCREEN A — copy then play</Text>
+        <Text style={s.sub}>Android API {Platform.Version} · {phase}</Text>
+
+        <Row label="Source URI" value={srcUri.slice(0, 120)} />
+        <Row label="Source size (ContentResolver)" value={srcSize != null ? fmt(srcSize) : '…'} warn={srcSize === 0 || srcSize === -2} />
+        <Row label="Copy duration" value={copyMs != null ? `${copyMs} ms` : '…'} />
+        <Row label="Dest size (file://.../cache)" value={destSize != null ? fmt(destSize) : '…'} warn={destSize === 0 || destSize === -2} />
+        <Row label="Size match" value={sizeLabel} warn={!sizeMatch && srcSize !== -3 && srcSize != null} />
+        {fileUri && <Row label="Dest URI" value={fileUri.slice(0, 120)} />}
+        <Row label="Player status" value={playerStatus} warn={playerStatus.includes('error')} />
+
+        <TouchableOpacity
+          style={s.btn2}
+          onPress={() => router.push({ pathname: '/test-video-direct', params: { id } })}
+        >
+          <Text style={s.btn2Text}>→ Open Test Screen B (direct content://)</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {(phase === 'finding' || phase === 'measuring-src' || phase === 'copying' || phase === 'measuring-dest') && (
+        <View style={s.loadOverlay}>
           <ActivityIndicator color="#00C48C" size="large" />
-          <Text style={s.status}>Copying from SAF → cache…</Text>
-          <Text style={s.meta}>{itemInfo}</Text>
+          <Text style={s.loadText}>{phase.replace(/-/g, ' ')}…</Text>
         </View>
       )}
 
       {phase === 'error' && (
-        <View style={s.center}>
+        <View style={s.loadOverlay}>
           <Ionicons name="alert-circle" size={48} color="#ff4444" />
           <Text style={s.errorText}>{errorMsg}</Text>
         </View>
       )}
+    </View>
+  );
+}
 
-      {phase === 'ready' && fileUri && (
-        <>
-          <MinimalPlayer key={fileUri} fileUri={fileUri} />
-          {/* Overlay info strip at the bottom */}
-          <View style={s.info}>
-            <Text style={s.infoText} numberOfLines={2}>{itemInfo}</Text>
-            <Text style={s.infoUri} numberOfLines={1}>▶ {fileUri.slice(0, 90)}</Text>
-          </View>
-        </>
-      )}
+function Row({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <View style={s.row}>
+      <Text style={s.rowLabel}>{label}</Text>
+      <Text style={[s.rowValue, warn && s.rowWarn]}>{value}</Text>
     </View>
   );
 }
@@ -199,77 +239,35 @@ export default function TestVideoScreen() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
   back: {
-    position: 'absolute',
-    top: 48,
-    left: 16,
-    zIndex: 100,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    position: 'absolute',
-    top: 48,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 99,
-  },
-  labelTitle: {
-    color: '#00C48C',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-  },
-  labelSub: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-  },
-  status: {
-    color: '#fff',
-    fontSize: 14,
-    marginTop: 12,
-  },
-  meta: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 17,
-  },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 12,
-  },
-  info: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    position: 'absolute', top: 48, left: 16, zIndex: 200,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 12,
-    gap: 4,
+    alignItems: 'center', justifyContent: 'center',
   },
-  infoText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 10,
-    lineHeight: 15,
+  overlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    maxHeight: '55%',
+    backgroundColor: 'rgba(0,0,0,0.88)',
   },
-  infoUri: {
-    color: '#00C48C',
-    fontSize: 10,
+  overlayContent: { padding: 14, gap: 6 },
+  title: { color: '#00C48C', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  sub: { color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 6 },
+  row: { gap: 2 },
+  rowLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
+  rowValue: { color: '#fff', fontSize: 11, lineHeight: 16 },
+  rowWarn: { color: '#ff6b6b' },
+  btn2: {
+    marginTop: 10,
+    backgroundColor: 'rgba(0,196,140,0.15)',
+    borderWidth: 1, borderColor: '#00C48C',
+    borderRadius: 8, padding: 10, alignItems: 'center',
   },
+  btn2Text: { color: '#00C48C', fontSize: 12, fontWeight: '600' },
+  loadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    alignItems: 'center', justifyContent: 'center', gap: 14,
+  },
+  loadText: { color: '#fff', fontSize: 14 },
+  errorText: { color: '#ff6b6b', fontSize: 13, textAlign: 'center', padding: 24 },
 });
