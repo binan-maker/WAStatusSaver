@@ -1,14 +1,4 @@
-/**
- * TEST SCREEN C — react-native-video (same URI as Screen B)
- *
- * Takes the EXACT same file URI that Screen B passes to expo-video and
- * feeds it into react-native-video instead. Zero other changes.
- *
- * HOW TO READ THE RESULT
- * ──────────────────────
- * ✅ react-native-video plays  AND  expo-video freezes
- *    → The bug is inside expo-video / Media3 on this device.
- *      Fix: switch the production viewer to react-native-video.
+ction viewer to react-native-video.
  *
  * ❌ Both screens freeze
  *    → The issue is the file itself or the codec.
