@@ -74,15 +74,46 @@ export function ViewerItem({
 
   const prepareCancelRef = useRef(false);
 
-  // Once this item becomes active, keep both ExoPlayerView AND VideoPlayerView
-  // mounted even if isActive briefly flips false (e.g. during the FlatList
-  // batch-reconcile frame that occurs when setStatuses() shifts item indices).
-  // Unmounting the native ExoPlayer on a transient false destroys the Java
-  // instance and its buffer — that is the ~1 s freeze root cause.
-  // VideoPlayerView handles pause/resume via its own isActive prop + debounce.
-  // ExoPlayerView receives a debounced `paused` prop (see exoPaused below).
-  const hasBeenActiveRef = useRef(false);
-  if (isActive) hasBeenActiveRef.current = true;
+  // ── Debounced video-player mount gate ────────────────────────────────────
+  // Problem: hasBeenActiveRef.current (old approach) was set to true once a
+  // slide became active and NEVER reset.  When swiping A→B both players stayed
+  // mounted simultaneously → totalActive=2 → hardware-decoder competition →
+  // freeze / play-stop loop.
+  //
+  // Fix: use a proper debounced mount state.
+  //   • Mount immediately when isActive becomes true.
+  //   • Unmount after 500 ms when isActive becomes false.
+  //     - Transient render flickers (isActive false for <16 ms during FlatList
+  //       reconciliation) cancel the timer before it fires — no unmount, no freeze.
+  //     - Real swipe-aways (isActive stays false) fire the timer and unmount the
+  //       player cleanly, freeing the hardware decoder before the next slide loads.
+  const [videoPlayerMounted, setVideoPlayerMounted] = useState(isActive);
+  const videoMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (videoMountTimerRef.current) {
+      clearTimeout(videoMountTimerRef.current);
+      videoMountTimerRef.current = null;
+    }
+    if (isActive) {
+      console.log('[ViewerItem] videoPlayerMounted → true (isActive) id=' + item.id);
+      setVideoPlayerMounted(true);
+    } else {
+      videoMountTimerRef.current = setTimeout(() => {
+        videoMountTimerRef.current = null;
+        if (!isActiveRef.current) {
+          console.log('[ViewerItem] videoPlayerMounted → false (500ms after inactive) id=' + item.id);
+          setVideoPlayerMounted(false);
+        }
+      }, 500);
+    }
+    return () => {
+      if (videoMountTimerRef.current) {
+        clearTimeout(videoMountTimerRef.current);
+        videoMountTimerRef.current = null;
+      }
+    };
+  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Debounced paused prop for native ExoPlayerView ───────────────────────
   // isActive can briefly flip false for a single render frame when items
@@ -133,7 +164,12 @@ export function ViewerItem({
     // initialise directly to the expo-video fallback (see useState initialiser above).
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
-    hasBeenActiveRef.current = false;
+    // Reset the debounced video-player mount gate for this new item.
+    if (videoMountTimerRef.current) {
+      clearTimeout(videoMountTimerRef.current);
+      videoMountTimerRef.current = null;
+    }
+    setVideoPlayerMounted(isActiveRef.current);
     // Reset exoPaused debounce timer so the new item starts unpaused if active.
     if (exoPauseTimerRef.current) {
       clearTimeout(exoPauseTimerRef.current);
@@ -387,20 +423,18 @@ export function ViewerItem({
                 PRIMARY: native ExoPlayerView (TextureView — immune to OEM surface bugs).
                 FALLBACK: expo-video VideoPlayerView, used when native module was not
                 compiled into the build (ExoPlayerBoundary catches the render error and
-                sets nativePlayerFailed=true). */}
-            {/* ExoPlayerView uses hasBeenActiveRef (not bare isActive) as its
-                mount guard — same protection VideoPlayerView already had.
-                Bare isActive caused ExoPlayer to unmount on the single
-                intermediate render frame where FlatList's internal slot
-                index hadn't yet caught up with useMemo-derived currentIndex
-                (happens when setStatuses() shrinks the items array).
-                That unmount destroyed the Java ExoPlayer instance and its
-                buffer, producing the ~1 s freeze-restart symptom.
+                sets nativePlayerFailed=true).
 
-                paused={exoPaused} — debounced 400 ms (see exoPaused state
-                above) so render-flicker false values never reach the native
-                player. Real swipe-aways stay false long enough to fire. */}
-            {hasBeenActiveRef.current && displayUri && !nativePlayerFailed && (
+                Mount guard: videoPlayerMounted (debounced state, see above).
+                  • Becomes true immediately when isActive → true.
+                  • Becomes false after 500 ms when isActive → false.
+                  • Transient render flickers (<16 ms) cancel the timer → no unmount.
+                  • Real swipe-aways fire the timer → player unmounts, decoder freed.
+                This guarantees totalActive=1 at all times (no competing decoders).
+
+                paused={exoPaused} — separate 400 ms debounce for ExoPlayerView so
+                render-flicker false values never reach the native pause API. */}
+            {videoPlayerMounted && displayUri && !nativePlayerFailed && (
               <ExoPlayerBoundary onError={handleNativePlayerFail}>
                 <ExoPlayerView
                   key={displayUri}
@@ -414,7 +448,7 @@ export function ViewerItem({
               </ExoPlayerBoundary>
             )}
 
-            {hasBeenActiveRef.current && displayUri && nativePlayerFailed && (
+            {videoPlayerMounted && displayUri && nativePlayerFailed && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}

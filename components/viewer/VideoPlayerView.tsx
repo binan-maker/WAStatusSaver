@@ -102,10 +102,17 @@ export function VideoPlayerView({
 
   useEffect(() => {
     // ── Mount log ─────────────────────────────────────────────────────────
+    // totalActive MUST always be 1.  If you see 2+ the debounced mount gate
+    // in ViewerItem is not working — two video players are competing for the
+    // hardware decoder.
     _mountedCount++;
-    console.log('[VideoPlayer] MOUNTED totalActive=' + _mountedCount + (
-      _mountedCount > 1 ? ' ⚠️ MULTIPLE PLAYERS' : ''
-    ));
+    const mountTag = _mountedCount > 1
+      ? ' ⚠️ MULTIPLE PLAYERS — decoder conflict!'
+      : ' ✅ sole player';
+    console.log(
+      '[VideoPlayer] MOUNTED totalActive=' + _mountedCount + mountTag +
+      ' uri=' + fileUri.slice(fileUri.lastIndexOf('/') + 1, fileUri.lastIndexOf('/') + 40),
+    );
 
     const timeUpdateSub = player.addListener('timeUpdate', (event: any) => {
       if ((event.currentTime ?? 0) > 0) confirmPlaying();
@@ -115,7 +122,8 @@ export function VideoPlayerView({
       console.log(
         '[VideoPlayer] statusChange status=' + event.status +
         ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?') +
-        ' buffered=' + (player.bufferedPosition?.toFixed(2) ?? '?'),
+        ' buffered=' + (player.bufferedPosition?.toFixed(2) ?? '?') +
+        (event.status === 'error' ? ' error=' + (event.error?.message ?? 'unknown') : ''),
       );
       if (event.status === 'error') {
         onError(event.error?.message ?? 'Playback error');
@@ -125,7 +133,8 @@ export function VideoPlayerView({
     const playingSub = player.addListener('playingChange', (event: any) => {
       console.log(
         '[VideoPlayer] playingChange isPlaying=' + event.isPlaying +
-        ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?'),
+        ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?') +
+        ' buffered=' + (player.bufferedPosition?.toFixed(2) ?? '?'),
       );
     });
 
