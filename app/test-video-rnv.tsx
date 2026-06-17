@@ -1,12 +1,3 @@
-ction viewer to react-native-video.
- *
- * ❌ Both screens freeze
- *    → The issue is the file itself or the codec.
- *      The URI scheme (content:// throttle, bad codec, partial file, etc.)
- *      is the root cause — not the player library.
- *
- * Navigate here from Test Screen B (yellow "→ Test Screen C" button).
- */
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, ActivityIndicator, StyleSheet,

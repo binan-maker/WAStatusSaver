@@ -140,6 +140,12 @@ export default function ViewerScreen() {
   const flatListRef = useRef<FlatList>(null);
   const prevIndex = useRef(currentIndex);
 
+  // ── Diagnostic refs — track previous values to identify change source ────
+  const _prevCurrentIndex = useRef(currentIndex);
+  const _prevItemsLength = useRef(items.length);
+  const _prevCurrentItemId = useRef(currentItemId);
+  const _prevStatusesLength = useRef(statuses.length);
+
   // Scroll to the opening item when the viewer is first shown (or id changes).
   useEffect(() => {
     if (prevIdRef.current !== id) {
@@ -153,6 +159,51 @@ export default function ViewerScreen() {
       }
     }
   }, [id, currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Diagnostic: statuses.length watcher (confirms background scan fired) ─
+  useEffect(() => {
+    const prev = _prevStatusesLength.current;
+    _prevStatusesLength.current = statuses.length;
+    if (prev === statuses.length) return;
+    console.log(
+      '[Viewer] ⚠ statuses.length changed:', prev, '→', statuses.length,
+      '| items.length:', items.length,
+      '| currentIndex:', currentIndex,
+    );
+  }); // no dep array — runs every render, cheap guard inside
+
+  // ── Diagnostic: currentIndex / items watcher ──────────────────────────
+  useEffect(() => {
+    const prevIdx   = _prevCurrentIndex.current;
+    const prevLen   = _prevItemsLength.current;
+    const prevId    = _prevCurrentItemId.current;
+
+    const idxChanged  = prevIdx !== currentIndex;
+    const lenChanged  = prevLen !== items.length;
+    const itemIdChanged = prevId !== currentItemId;
+
+    _prevCurrentIndex.current   = currentIndex;
+    _prevItemsLength.current    = items.length;
+    _prevCurrentItemId.current  = currentItemId;
+
+    if (!idxChanged && !lenChanged && !itemIdChanged) return;
+
+    const activeItem = items[currentIndex];
+    const reason =
+      itemIdChanged && idxChanged ? 'BOTH currentItemId and items shifted' :
+      itemIdChanged               ? 'currentItemId changed (user swiped)' :
+      idxChanged                  ? 'items array shifted (background scan / statuses update)' :
+                                    'items.length changed only';
+
+    console.log(
+      '[Viewer] 🔴 INDEX/ITEMS CHANGED\n',
+      '  reason        :', reason, '\n',
+      '  currentIndex  :', prevIdx, '→', currentIndex, '\n',
+      '  items.length  :', prevLen, '→', items.length, '\n',
+      '  currentItemId :', prevId, '→', currentItemId, '\n',
+      '  activeItem.id :', activeItem?.id ?? 'NONE (out of bounds!)',
+    );
+  }); // no dep array — runs every render, cheap guard inside
 
   // Prefetch adjacent images
   useEffect(() => {

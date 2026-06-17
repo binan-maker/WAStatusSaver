@@ -72,6 +72,31 @@ export function ViewerItem({
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const { prepareStatusForViewing } = useMedia();
 
+  // ── Change-only render log ────────────────────────────────────────────────
+  const _prevIsActiveRef = useRef(isActive);
+  const _prevIsNearActiveRef = useRef(isNearActive);
+  const _isActiveFlipped =
+    _prevIsActiveRef.current !== isActive ||
+    _prevIsNearActiveRef.current !== isNearActive;
+  if (_isActiveFlipped) {
+    console.log(
+      '[ViewerItem] isActive/isNearActive CHANGED — id:', item.id,
+      '|', _prevIsActiveRef.current, '->', isActive,
+      '/', _prevIsNearActiveRef.current, '->', isNearActive,
+    );
+    _prevIsActiveRef.current = isActive;
+    _prevIsNearActiveRef.current = isNearActive;
+  } else {
+    console.log('[ViewerItem] render (props unchanged) — id:', item.id, '| isActive:', isActive, '| isNearActive:', isNearActive);
+  }
+
+  useEffect(() => {
+    console.log('[ViewerItem] mount — id:', item.id);
+    return () => {
+      console.log('[ViewerItem] unmount — id:', item.id);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const cachedThumb = useThumbnail(item.id);
 
   const [displayUri, setDisplayUri] = useState<string | null>(null);
@@ -103,6 +128,7 @@ export function ViewerItem({
   const videoMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    console.log('[ViewerItem] videoMount effect fired — id:', item.id, '| isActive:', isActive);
     if (videoMountTimerRef.current) {
       clearTimeout(videoMountTimerRef.current);
       videoMountTimerRef.current = null;
@@ -111,17 +137,28 @@ export function ViewerItem({
     if (isActive) {
       const existingPlayers = getActiveMountedCount();
       if (existingPlayers === 0) {
+        console.log('[ViewerItem] setVideoPlayerMounted=true (immediate, existingPlayers=0) — id:', item.id);
         setVideoPlayerMounted(true);
       } else {
         videoMountTimerRef.current = setTimeout(() => {
           videoMountTimerRef.current = null;
-          if (isActiveRef.current) setVideoPlayerMounted(true);
+          if (isActiveRef.current) {
+            console.log('[ViewerItem] setVideoPlayerMounted=true (64ms, prev player cleared) — id:', item.id);
+            setVideoPlayerMounted(true);
+          } else {
+            console.log('[ViewerItem] setVideoPlayerMounted=true SKIPPED (no longer active at 64ms) — id:', item.id);
+          }
         }, 64);
       }
     } else {
       videoMountTimerRef.current = setTimeout(() => {
         videoMountTimerRef.current = null;
-        if (!isActiveRef.current) setVideoPlayerMounted(false);
+        if (!isActiveRef.current) {
+          console.log('[ViewerItem] setVideoPlayerMounted=false (32ms debounce fired) — id:', item.id);
+          setVideoPlayerMounted(false);
+        } else {
+          console.log('[ViewerItem] setVideoPlayerMounted=false CANCELLED (active again at 32ms) — id:', item.id);
+        }
       }, 32);
     }
 
@@ -138,6 +175,11 @@ export function ViewerItem({
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isSAF = initialSource.startsWith('content://');
+
+  // ── Track displayUri changes ──────────────────────────────────────────────
+  useEffect(() => {
+    console.log('[ViewerItem] displayUri changed →', displayUri, '— id:', item.id);
+  }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reset everything when item changes ──────────────────────────────────
   useEffect(() => {

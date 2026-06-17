@@ -50,8 +50,10 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
 
   useEffect(() => {
     _mountedCount++;
+    console.log('[VideoPlayerView] mount — uri:', fileUri, '| totalMounted:', _mountedCount);
     return () => {
       _mountedCount--;
+      console.log('[VideoPlayerView] unmount — uri:', fileUri, '| totalMounted:', _mountedCount);
       if (pauseTimerRef.current) {
         clearTimeout(pauseTimerRef.current);
         pauseTimerRef.current = null;
