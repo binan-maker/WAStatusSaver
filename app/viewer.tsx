@@ -185,15 +185,27 @@ export default function ViewerScreen() {
     controlsOpacity.setValue(1);
   }, [currentIndex, currentItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // showControlsRef mirrors showControls so toggleControls never needs
+  // showControls in its deps — keeping it stable for the lifetime of the
+  // viewer screen. Without this, every tap recreates toggleControls →
+  // recreates renderItem → ALL visible ViewerItems re-render → unexpected
+  // ViewerItem render #3/#4 UNEXPECTED RERENDER logs → surface recreation.
+  const showControlsRef = useRef(showControls);
+  showControlsRef.current = showControls;
+
   const toggleControls = useCallback(() => {
-    const next = !showControls;
+    const next = !showControlsRef.current;
+    showControlsRef.current = next;
     setShowControls(next);
     Animated.timing(controlsOpacity, {
       toValue: next ? 1 : 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [showControls, controlsOpacity]);
+  // controlsOpacity is useRef(..).current — never changes. toggleControls
+  // is now effectively stable for the full lifetime of the viewer screen.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlsOpacity]);
 
   // ── Memoized renderItem ─────────────────────────────────────────────────────
   // Inline arrow functions cause FlatList to rerender ALL visible cells on

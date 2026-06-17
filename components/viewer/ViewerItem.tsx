@@ -198,8 +198,12 @@ export const ViewerItem = React.memo(function ViewerItem({
   }, [initialSource, isSAF, item.id, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Callbacks for VideoPlayerView ────────────────────────────────────────
+  // No isVideoPlayingRef guard — always animate thumbnail to 0 when called.
+  // VideoPlayerView calls this on EVERY onReadyForDisplay (including loop
+  // boundaries with repeat={true}). Animating from 0→0 is a native no-op,
+  // so repeated calls are free. Removing the guard lets the thumbnail cover
+  // the brief black frame at each ExoPlayer loop transition.
   const handlePlaying = useCallback(() => {
-    if (isVideoPlayingRef.current) return;
     isVideoPlayingRef.current = true;
     Animated.timing(thumbnailOpacity, {
       toValue: 0,

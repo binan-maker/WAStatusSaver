@@ -27,7 +27,7 @@
  * fileUri changes (= different item or tap-to-retry). All callbacks are
  * created at module level or with [] deps so they never cause re-renders.
  */
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import Video, { type OnVideoErrorData } from 'react-native-video';
 
@@ -95,13 +95,16 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   onPlaying,
   onError,
 }: VideoPlayerViewProps) {
-  const hasCalledOnPlaying = useRef(false);
-
+  // Always call onPlaying on every onReadyForDisplay — no hasCalledOnPlaying gate.
+  //
+  // With repeat={true} ExoPlayer fires onReadyForDisplay at every loop boundary.
+  // Blocking repeated calls left the thumbnail at opacity 0 with nothing covering
+  // the brief black frame at the loop transition → visible black flash, especially
+  // in light mode. ViewerItem's handlePlaying is idempotent: animating to toValue 0
+  // when the thumbnail is already at 0 is a native no-op with zero visual effect.
   const handleReadyForDisplay = useCallback(() => {
-    if (hasCalledOnPlaying.current) return;
-    hasCalledOnPlaying.current = true;
     onPlaying();
-  // onPlaying is stable in ViewerItem (useCallback [])
+  // onPlaying is stable in ViewerItem (useCallback [thumbnailOpacity — never changes])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
