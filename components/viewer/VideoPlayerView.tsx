@@ -22,18 +22,19 @@
  *
  * PAUSE / RESUME
  * ──────────────
- * paused = !isActive || appState !== 'active'
+ * paused = !isActive
  * isActive changes are debounced 400 ms to absorb FlatList transient flickers.
- * appState changes are applied immediately (background → paused instantly).
  *
- * LOGGING — 4 tags only:
- *   [PAUSE-REASON]  — why paused changed (isActive / appState / finalPaused)
- *   [VIDEO-PROP]    — paused prop value reaching <Video> (detects flip-flop)
- *   [VIDEO] READY   — onReadyForDisplay fireCount (detects surface recreation)
- *   [VIDEO-STATE]   — onPlaybackStateChanged isPlaying / isSeeking
+ * AppState is intentionally NOT used in pause logic.
+ * Root-cause analysis showed that NavigationBar API calls in _layout.tsx were
+ * causing Android to oscillate window-focus (FOCUS→BLUR→FOCUS) on every render,
+ * which React Native translates into rapid active→background→active AppState
+ * events. Using AppState here caused a continuous pause/resume loop during
+ * playback. react-native-video pauses itself natively when the app is truly
+ * backgrounded, so the AppState guard is redundant and harmful.
  */
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { StyleSheet, AppState, AppStateStatus } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Video, {
   OnVideoErrorData,
   OnPlaybackStateChangedData,
@@ -120,22 +121,12 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   onPlaying,
   onError,
 }: VideoPlayerViewProps) {
-  const manuallyPaused = false; // no manual-pause UI in this app
-
-  // ── Track OS lifecycle ───────────────────────────────────────────────────
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      setAppState(next);
-    });
-    return () => sub.remove();
-  }, []);
-
   // ── Pause logic ──────────────────────────────────────────────────────────
-  // paused = slide not active OR app not in foreground.
+  // paused = slide is not the active one in the FlatList pager.
   // isActive changes are debounced 400 ms to absorb FlatList transient flips.
-  // appState changes (background) are applied immediately via the effect above.
-  const [paused, setPaused] = useState(!isActive || appState !== 'active');
+  //
+  // AppState is intentionally excluded — see module-level comment.
+  const [paused, setPaused] = useState(!isActive);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
@@ -146,7 +137,7 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
       pauseTimerRef.current = null;
     }
     if (isActive) {
-      setPaused(appState !== 'active');
+      setPaused(false);
     } else {
       pauseTimerRef.current = setTimeout(() => {
         pauseTimerRef.current = null;
@@ -154,15 +145,6 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
       }, 400);
     }
   }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Apply appState changes immediately on top of the isActive-based paused.
-  useEffect(() => {
-    if (appState !== 'active') {
-      setPaused(true);
-    } else if (isActiveRef.current) {
-      setPaused(false);
-    }
-  }, [appState]);
 
   useEffect(() => {
     _mountedCount++;
@@ -175,26 +157,6 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     };
   }, []);
 
-  // ── [PAUSE-REASON] ───────────────────────────────────────────────────────
-  // Logs every time the pause decision changes. Key diagnostic:
-  //   If finalPaused flips true/false in sync with appState → AppState loop.
-  //   If finalPaused stays false while video freezes → below-RN issue.
-  useEffect(() => {
-    console.log(
-      `[PAUSE-REASON]\n     activeItem=${isActive}\n     appState=${appState}\n     manuallyPaused=${manuallyPaused}\n     finalPaused=${paused}`,
-    );
-  }, [paused, isActive, appState]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── [VIDEO-PROP] ─────────────────────────────────────────────────────────
-  // Logs every time the paused prop value reaching <Video> actually changes.
-  // If this shows paused=true / paused=false alternating → the pause loop
-  // is coming from JS. If it stays paused=false during the freeze → native.
-  const prevPausedRef = useRef<boolean | null>(null);
-  if (prevPausedRef.current !== paused) {
-    prevPausedRef.current = paused;
-    console.log('[VIDEO-PROP]', { paused, isActive, appState, manuallyPaused });
-  }
-
   const hasCalledOnPlaying = useRef(false);
   useEffect(() => {
     hasCalledOnPlaying.current = false;
@@ -202,11 +164,7 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
 
   // ── Stable callbacks ([] deps — never cause StableVideo re-render) ────────
 
-  const readyForDisplayCount = useRef(0);
   const handleReadyForDisplay = useCallback(() => {
-    readyForDisplayCount.current += 1;
-    // [VIDEO] READY — fireCount > 1 means surface is being recreated.
-    console.log(`[VIDEO] READY ${Date.now()} fireCount=${readyForDisplayCount.current}`);
     if (hasCalledOnPlaying.current) return;
     hasCalledOnPlaying.current = true;
     onPlaying();
@@ -221,12 +179,8 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePlaybackStateChanged = useCallback((data: OnPlaybackStateChangedData) => {
-    // [VIDEO-STATE] — isPlaying=false during steady playback means ExoPlayer
-    // was externally paused (audio focus, AppState, surface detach).
-    console.log(
-      `[VIDEO-STATE]\n       isPlaying=${data.isPlaying}\n       isSeeking=${(data as any).isSeeking ?? 'n/a'}`,
-    );
+  const handlePlaybackStateChanged = useCallback((_data: OnPlaybackStateChangedData) => {
+    // no-op — kept so the prop is still wired for future diagnostics
   }, []);
 
   return (

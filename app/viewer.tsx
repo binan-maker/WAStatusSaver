@@ -7,7 +7,6 @@ import {
   FlatList,
   Platform,
   StatusBar,
-  AppState,
   Alert,
   ActivityIndicator,
   BackHandler,
@@ -51,34 +50,6 @@ export default function ViewerScreen() {
       loadStatuses();
     }
   }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
-
-  // ── [APPSTATE] — OS lifecycle events (change / focus / blur) ────────────
-  useEffect(() => {
-    const stateSub = AppState.addEventListener('change', next => {
-      console.log(`[APPSTATE] ${Date.now()} state=${next}`);
-    });
-    const focusSub = AppState.addEventListener('focus' as any, () => {
-      console.log(`[APPSTATE] ${Date.now()} FOCUS`);
-    });
-    const blurSub = AppState.addEventListener('blur' as any, () => {
-      console.log(`[APPSTATE] ${Date.now()} BLUR`);
-    });
-    return () => {
-      stateSub.remove();
-      focusSub.remove();
-      blurSub.remove();
-    };
-  }, []);
-
-  // ── [VIEWER] — screen focus / blur ───────────────────────────────────────
-  useFocusEffect(
-    useCallback(() => {
-      console.log(`[VIEWER] ${Date.now()} FOCUS`);
-      return () => {
-        console.log(`[VIEWER] ${Date.now()} BLUR`);
-      };
-    }, [])
-  );
 
   // Always-black system bars on mount only — never from an AppState listener.
   // Repeating these calls on every 'active' event causes a Window-config-change
