@@ -174,8 +174,12 @@ async function generateOne(item: ThumbItem): Promise<void> {
   //   SafReaderModule.generateThumbnail runs Android's hardware-accelerated
   //   MediaMetadataRetriever entirely in Java — no JS bridge overhead, no
   //   second process hop. It writes atomically via .tmp+rename itself.
+  //   A 3 s timeout guards against the MediaMetadataRetriever hang seen on
+  //   MIUI / HyperOS and Samsung OneUI: setDataSource(context, uri) never
+  //   throws and never resolves for certain SAF content:// URIs, which
+  //   stalls the entire queue. On timeout we fall through to the JS path.
   //
-  // JS FALLBACK (Expo Go / no native module):
+  // JS FALLBACK (Expo Go / no native module / native timeout):
   //   expo-video-thumbnails — also hardware-accelerated but crosses the
   //   JS bridge twice (request + result) and writes to a temp dir that
   //   we then have to move into our managed cache dir.
@@ -183,32 +187,53 @@ async function generateOne(item: ThumbItem): Promise<void> {
   if (!dir) return;
   const dest = `${dir}vid_${safeFilename(item.id)}.jpg`;
 
+  // Helper: run expo-video-thumbnails and move result into managed dest.
+  async function jsThumb(): Promise<void> {
+    const tmp = `${dest}.tmp`;
+    const result = await VideoThumbnails.getThumbnailAsync(item.uri, {
+      time: 0,
+      quality: 0.5,
+    });
+    try { await FileSystem.deleteAsync(tmp, { idempotent: true }); } catch {}
+    await FileSystem.copyAsync({ from: result.uri, to: tmp });
+    try { await FileSystem.deleteAsync(dest, { idempotent: true }); } catch {}
+    await FileSystem.moveAsync({ from: tmp, to: dest });
+    try { await FileSystem.deleteAsync(result.uri, { idempotent: true }); } catch {}
+  }
+
   try {
     if (SafReaderModule.isAvailable()) {
-      // Native Java path — fastest, no bridge overhead for data transfer.
-      // The source URI may be a content:// SAF URI or a file:// local path;
-      // Java handles both via setDataSource(context, uri) vs setDataSource(path).
-      await SafReaderModule.generateThumbnail(item.uri, dest, 0);
+      // Native Java path with a hard 3 s timeout.
+      // If it resolves in time: done.  If it times out or throws: fall back
+      // to expo-video-thumbnails below so the queue never stalls.
+      let nativeOk = false;
+      try {
+        await Promise.race([
+          SafReaderModule.generateThumbnail(item.uri, dest, 0).then(() => { nativeOk = true; }),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('thumb_timeout')), 3000),
+          ),
+        ]);
+      } catch {
+        // Native timed out or threw — fall back to JS path.
+        __DEV__ && console.log('[ThumbnailCache] native thumb failed/timed-out, falling back:', item.id);
+      }
+      if (!nativeOk) {
+        // JS fallback — expo-video-thumbnails handles content:// via the
+        // Expo media module which uses ContentResolver correctly.
+        await jsThumb();
+      }
     } else {
-      // JS bridge path — expo-video-thumbnails.
-      const tmp = `${dest}.tmp`;
-      const result = await VideoThumbnails.getThumbnailAsync(item.uri, {
-        time: 0,
-        quality: 0.5,
-      });
-      try { await FileSystem.deleteAsync(tmp, { idempotent: true }); } catch {}
-      await FileSystem.copyAsync({ from: result.uri, to: tmp });
-      try { await FileSystem.deleteAsync(dest, { idempotent: true }); } catch {}
-      await FileSystem.moveAsync({ from: tmp, to: dest });
-      try { await FileSystem.deleteAsync(result.uri, { idempotent: true }); } catch {}
+      await jsThumb();
     }
     memMap[item.id] = dest;
     schedulePersist();
     notify(item.id, dest);
   } catch {
-    // Codec error / OEM bug / unsupported container. Silently skip — the
-    // grid will fall back to expo-image's videoTimestamp path for this
-    // single item and the next scan will retry.
+    // Codec error / unsupported container / both paths failed.
+    // Silently skip — the grid shows the blurhash placeholder for this
+    // item; the next loadStatuses() scan will retry.
+    __DEV__ && console.log('[ThumbnailCache] both paths failed for:', item.id);
   }
 }
 
@@ -232,20 +257,34 @@ async function processQueue(): Promise<void> {
       const next = queue.shift();
       if (!next) break;
       await generateOne(next);
-      // Idle gap between items. ~80 ms keeps the JS thread fully available
+      // Idle gap between items. ~150 ms keeps the JS thread fully available
       // for touch / scroll handlers — the user's input always wins over
       // background thumbnail work.
       await new Promise((r) => setTimeout(r, 150));
     }
   } finally {
     processing = false;
+    // If items were enqueued while we were processing (e.g. after a cancel
+    // that stopped the loop early but left new items in the queue), kick
+    // off a fresh cycle now that processing is free.
+    if (queue.length > 0) {
+      // Use setTimeout(0) to yield before re-entering so the call stack
+      // never grows unboundedly and React can batch any pending state updates.
+      setTimeout(processQueue, 0);
+    }
   }
 }
 
 function cancel(): void {
   cancelToken++;
   queue = [];
-  processing = false;
+  // Do NOT set processing = false here. The running processQueue loop will
+  // see cancelToken !== myToken on its next iteration, exit cleanly, and
+  // set processing = false itself in its finally block.
+  // Setting processing = false here creates a race: if enqueue() is called
+  // before the old processQueue's finally runs, a second processQueue starts
+  // in parallel, and then the first finally sets processing = false again,
+  // allowing a third — duplicate runs corrupt the queue order.
 }
 
 async function prune(currentIds: Set<string>): Promise<void> {
