@@ -54,8 +54,11 @@
             "usesCleartextTraffic": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
+            "minSdkVersion": 24,
             "abiFilters": [
-              "arm64-v8a"
+              "arm64-v8a",
+              "armeabi-v7a",
+              "x86_64"
             ]
           }
         }
@@ -82,7 +85,8 @@
           "savePhotosPermission": "Allow StatusVault to save photos and videos",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "./plugins/with-max-compat.js"
     ],
     "experiments": {
       "typedRoutes": true,
