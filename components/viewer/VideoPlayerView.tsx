@@ -27,7 +27,7 @@
  * fileUri changes (= different item or tap-to-retry). All callbacks are
  * created at module level or with [] deps so they never cause re-renders.
  */
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import Video, { type OnVideoErrorData } from 'react-native-video';
 
@@ -62,11 +62,6 @@ const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
   // [VIDEO-SOURCE] fires once per URI change.
   // file://  → cache copy succeeded, SAF is out of the playback path ✓
   // content:// → URI leaked through — should never happen after our guard
-  useEffect(() => {
-    if (!__DEV__) return;
-    const scheme = p.fileUri.startsWith('content://') ? '⚠️  content://' : 'file://';
-    console.log('[VIDEO-SOURCE]', scheme, p.fileUri.slice(0, 120));
-  }, [p.fileUri]);
 
   return (
     <Video
