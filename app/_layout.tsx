@@ -3,7 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { Platform, AppState, AppStateStatus, InteractionManager } from 'react-native';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import { useStableStatusBar } from '@/hooks/useStableStatusBar';
 import {
   useFonts,
@@ -17,7 +17,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MediaProvider } from '@/contexts/MediaContext';
 import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
-import { useStatusReminder } from '@/hooks/media/useStatusReminder';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 
 // ── Production console hygiene ───────────────────────────────────────────
@@ -110,11 +109,6 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
   );
 }
 
-function DeferredStartupTasks() {
-  useStatusReminder();
-  return null;
-}
-
 function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
   const { colors, resolved } = useTheme();
 
@@ -144,29 +138,7 @@ function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
 }
 
 function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
-  const [deferredReady, setDeferredReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const handle = InteractionManager.runAfterInteractions(() => {
-      const t = setTimeout(() => {
-        if (!cancelled) setDeferredReady(true);
-      }, 800);
-      return () => clearTimeout(t);
-    });
-    return () => {
-      cancelled = true;
-      // @ts-ignore
-      handle?.cancel?.();
-    };
-  }, []);
-
-  return (
-    <>
-      <AppContentBody showOnboarding={showOnboarding} />
-      {deferredReady && <DeferredStartupTasks />}
-    </>
-  );
+  return <AppContentBody showOnboarding={showOnboarding} />;
 }
 
 const RootLayout = () => {
