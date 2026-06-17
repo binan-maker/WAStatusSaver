@@ -4,7 +4,15 @@ import {
   TouchableOpacity, Platform, ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import Video, { OnLoadData, OnProgressData, OnVideoErrorData } from 'react-native-video';
+import Video, {
+  OnLoadData,
+  OnProgressData,
+  OnVideoErrorData,
+  OnBufferData,
+  OnPlaybackStateChangedData,
+  OnAudioFocusChangedData,
+  OnBandwidthUpdateData,
+} from 'react-native-video';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useMedia, StatusItem } from '@/contexts/MediaContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,8 +33,12 @@ function fmt(n: number): string {
   return `${n.toLocaleString()} bytes (${(n / 1024 / 1024).toFixed(2)} MB)`;
 }
 
+function ts(): string {
+  return `T+${Date.now() % 1_000_000}ms`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// RNVPlayer — renders a react-native-video <Video> with the raw URI.
+// RNVPlayer — react-native-video with full decoder/playback diagnostics
 // ─────────────────────────────────────────────────────────────────────────────
 function RNVPlayer({
   uri,
@@ -35,12 +47,104 @@ function RNVPlayer({
   uri: string;
   onStatus: (s: string) => void;
 }) {
-  const onLoad = (_data: OnLoadData) => onStatus('readyToPlay');
-  const onProgress = (_data: OnProgressData) => {};
-  const onError = (e: OnVideoErrorData) =>
-    onStatus(`error — ${e.error.errorString ?? JSON.stringify(e.error)}`);
-  const onBuffer = ({ isBuffering }: { isBuffering: boolean }) =>
-    onStatus(isBuffering ? 'buffering…' : 'buffer-ready');
+  const lastProgressTime = useRef<number>(-1);
+  const lastProgressWallClock = useRef<number>(Date.now());
+
+  // ── config dump on first render ─────────────────────────────────────────────
+  const configDumped = useRef(false);
+  if (!configDumped.current) {
+    configDumped.current = true;
+    console.log(
+      '[RNV-C] CONFIG DUMP',
+      '\n  uri:', uri,
+      '\n  paused: false (autoplay)',
+      '\n  repeat: true',
+      '\n  controls: false',
+      '\n  muted: false',
+      '\n  useTextureView: TRUE (switched from SurfaceView)',
+      '\n  resizeMode: contain',
+      '\n  progressUpdateInterval: 100ms',
+      '\n  ignoreSilentSwitch: ignore',
+      '\n  bufferConfig: (default — not overridden)',
+    );
+  }
+
+  // ── readyForDisplay fire counter ─────────────────────────────────────────────
+  const readyForDisplayCount = useRef(0);
+  const onReadyForDisplay = () => {
+    readyForDisplayCount.current += 1;
+    console.log(
+      `[RNV-C] READY-FOR-DISPLAY ${ts()}`,
+      `fireCount=${readyForDisplayCount.current}`,
+      readyForDisplayCount.current > 1 ? '⚠️ REPEATED — possible SurfaceView recreation' : '',
+    );
+  };
+
+  // ── onLoad ──────────────────────────────────────────────────────────────────
+  const onLoad = (data: OnLoadData) => {
+    console.log(
+      `[RNV-C] LOAD ${ts()}`,
+      '\n  duration:', data.duration,
+      '\n  naturalSize:', JSON.stringify(data.naturalSize),
+      '\n  audioTracks:', data.audioTracks?.length ?? 0,
+      '\n  textTracks:', data.textTracks?.length ?? 0,
+    );
+    onStatus('readyToPlay');
+  };
+
+  // ── onBuffer ────────────────────────────────────────────────────────────────
+  const onBuffer = (data: OnBufferData) => {
+    const stall =
+      data.isBuffering && lastProgressTime.current >= 0
+        ? ` — stalled at currentTime≈${lastProgressTime.current.toFixed(3)}s (wall+${Date.now() - lastProgressWallClock.current}ms since last progress)`
+        : '';
+    console.log(`[RNV-C] BUFFER ${data.isBuffering} ${ts()}${stall}`);
+    onStatus(data.isBuffering ? 'buffering…' : 'buffer-ready');
+  };
+
+  // ── onProgress ──────────────────────────────────────────────────────────────
+  const onProgress = (data: OnProgressData) => {
+    const wall = Date.now();
+    const delta = data.currentTime - lastProgressTime.current;
+    const wallDelta = wall - lastProgressWallClock.current;
+    lastProgressTime.current = data.currentTime;
+    lastProgressWallClock.current = wall;
+
+    console.log(
+      `[RNV-C] PROGRESS ${ts()}`,
+      `currentTime=${data.currentTime.toFixed(3)}s`,
+      `Δvideo=${delta >= 0 ? '+' : ''}${delta.toFixed(3)}s`,
+      `Δwall=${wallDelta}ms`,
+      `seekable=${data.seekableDuration?.toFixed(1) ?? '?'}s`,
+      `playable=${data.playableDuration?.toFixed(1) ?? '?'}s`,
+    );
+  };
+
+  // ── onEnd ───────────────────────────────────────────────────────────────────
+  const onEnd = () => {
+    console.log(`[RNV-C] END ${ts()} (repeat should restart)`);
+  };
+
+  // ── onError ─────────────────────────────────────────────────────────────────
+  const onError = (e: OnVideoErrorData) => {
+    console.log(`[RNV-C] ERROR ${ts()}`, JSON.stringify(e, null, 2));
+    onStatus(`error — ${e.error?.errorString ?? JSON.stringify(e.error)}`);
+  };
+
+  // ── onPlaybackStateChanged ───────────────────────────────────────────────────
+  const onPlaybackStateChanged = (data: OnPlaybackStateChangedData) => {
+    console.log(`[RNV-C] PLAYBACK-STATE ${ts()}`, JSON.stringify(data));
+  };
+
+  // ── onAudioFocusChanged ──────────────────────────────────────────────────────
+  const onAudioFocusChanged = (data: OnAudioFocusChangedData) => {
+    console.log(`[RNV-C] AUDIO-FOCUS ${ts()}`, JSON.stringify(data));
+  };
+
+  // ── onBandwidthUpdate ────────────────────────────────────────────────────────
+  const onBandwidthUpdate = (data: OnBandwidthUpdateData) => {
+    console.log(`[RNV-C] BANDWIDTH ${ts()}`, JSON.stringify(data));
+  };
 
   return (
     <Video
@@ -50,10 +154,17 @@ function RNVPlayer({
       repeat
       controls={false}
       muted={false}
+      useTextureView
+      progressUpdateInterval={100}
       onLoad={onLoad}
-      onProgress={onProgress}
-      onError={onError}
+      onReadyForDisplay={onReadyForDisplay}
       onBuffer={onBuffer}
+      onProgress={onProgress}
+      onEnd={onEnd}
+      onError={onError}
+      onPlaybackStateChanged={onPlaybackStateChanged}
+      onAudioFocusChanged={onAudioFocusChanged}
+      onBandwidthUpdate={onBandwidthUpdate}
       playInBackground={false}
       ignoreSilentSwitch="ignore"
     />
@@ -138,7 +249,7 @@ export default function TestVideoRNVScreen() {
         contentContainerStyle={s.overlayContent}
         pointerEvents="box-none"
       >
-        <Text style={s.title}>TEST SCREEN C — react-native-video (same URI)</Text>
+        <Text style={s.title}>TEST SCREEN C — react-native-video (diagnostics)</Text>
         <Text style={s.sub}>Android API {Platform.Version} · {phase}</Text>
 
         <Row label="URI type" value={isSAF ? 'SAF content:// (Android 11+)' : 'file:// (Android ≤10 or saved)'} />
@@ -155,14 +266,20 @@ export default function TestVideoRNVScreen() {
         />
 
         <View style={s.box}>
-          <Text style={s.boxTitle}>HOW TO READ THIS SCREEN</Text>
+          <Text style={s.boxTitle}>DIAGNOSTIC LOG TAGS (filter in Logcat)</Text>
           <Text style={s.boxText}>
-            {'✅ Plays  +  expo-video freezes\n' +
-             '   → Bug is inside expo-video / Media3.\n' +
-             '   Fix: switch production viewer to react-native-video.\n\n' +
-             '❌ Both freeze\n' +
-             '   → The URI/codec is the root cause, not the library.\n' +
-             '   Check codec, content:// throttle, or partial file in Screen A.'}
+            {'[RNV-C] LOAD       — duration, resolution, tracks\n' +
+             '[RNV-C] BUFFER     — true=stalling / false=recovered\n' +
+             '                     includes currentTime + wall-clock delta\n' +
+             '[RNV-C] PROGRESS   — currentTime, Δvideo, Δwall, seekable, playable\n' +
+             '[RNV-C] END        — loop boundary\n' +
+             '[RNV-C] ERROR      — full JSON error object\n' +
+             '[RNV-C] CONFIG DUMP — surface/buffer/paused config snapshot\n\n' +
+             'FREEZE DIAGNOSIS:\n' +
+             '• BUFFER true fires + PROGRESS stops → decoder starvation\n' +
+             '• PROGRESS Δvideo < Δwall/1000 → decode slower than realtime\n' +
+             '• playable stays low → ExoPlayer not pre-buffering\n' +
+             '• No BUFFER + Progress frozen → SurfaceView/render issue'}
           </Text>
         </View>
 

@@ -38,6 +38,7 @@ export default function ViewerScreen() {
     deleteFromSaved,
     loadStatuses,
     hasPermission,
+    prepareStatusForViewing,
   } = useMedia();
 
   const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
@@ -250,6 +251,34 @@ export default function ViewerScreen() {
     }).start();
   }, [showControls, controlsOpacity]);
 
+  // ── Render counter ──────────────────────────────────────────────────────────
+  const _viewerRenderCount = useRef(0);
+  _viewerRenderCount.current += 1;
+  console.log(
+    `[Viewer] render #${_viewerRenderCount.current}`,
+    `currentIndex=${currentIndex}`,
+    `items=${items.length}`,
+    `showControls=${showControls}`,
+    _viewerRenderCount.current > 3 ? '⚠️ frequent rerender — check context churn' : '',
+  );
+
+  // ── Memoized renderItem ─────────────────────────────────────────────────────
+  // Inline arrow functions cause FlatList to rerender ALL visible cells on
+  // every ViewerScreen render. Wrapping with useCallback keeps the reference
+  // stable during steady-state playback. ViewerItem is React.memo-wrapped with
+  // a prop comparator, so it only re-renders when something actually changes.
+  const renderItem = useCallback(({ item, index }: { item: StatusItem | SavedItem; index: number }) => (
+    <ViewerItem
+      item={item}
+      isActive={index === currentIndex}
+      isNearActive={Math.abs(index - currentIndex) <= 1}
+      onToggleControls={toggleControls}
+      showControls={showControls}
+      controlsOpacity={controlsOpacity}
+      prepareStatusForViewing={prepareStatusForViewing}
+    />
+  ), [currentIndex, toggleControls, showControls, controlsOpacity, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleIndexSettled = useCallback((event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SW);
     if (index < 0 || index >= items.length || index === prevIndex.current) return;
@@ -307,16 +336,7 @@ export default function ViewerScreen() {
         disableIntervalMomentum
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
-        renderItem={({ item, index }) => (
-          <ViewerItem
-            item={item}
-            isActive={index === currentIndex}
-            isNearActive={Math.abs(index - currentIndex) <= 1}
-            onToggleControls={toggleControls}
-            showControls={showControls}
-            controlsOpacity={controlsOpacity}
-          />
-        )}
+        renderItem={renderItem}
         onScrollToIndexFailed={(info) => {
           flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
         }}

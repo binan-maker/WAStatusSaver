@@ -44,9 +44,9 @@ import Reanimated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { VideoPlayerView, getActiveMountedCount } from './VideoPlayerView';
+import { VideoPlayerView } from './VideoPlayerView';
 import { Ionicons } from '@expo/vector-icons';
-import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
+import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
 import { useThumbnail } from '@/hooks/media/useThumbnail';
 import { createStyles, SW, SH } from './viewerStyles';
@@ -60,17 +60,22 @@ export interface ViewerItemProps {
   onToggleControls: () => void;
   showControls: boolean;
   controlsOpacity: Animated.Value;
+  prepareStatusForViewing: (item: StatusItem, options: { forPlayback: boolean }) => Promise<string | null>;
 }
 
-export function ViewerItem({
+export const ViewerItem = React.memo(function ViewerItem({
   item,
   isActive,
   isNearActive,
   onToggleControls,
+  prepareStatusForViewing,
 }: ViewerItemProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { prepareStatusForViewing } = useMedia();
+
+  // ── Render counter ────────────────────────────────────────────────────────
+  const renderCount = useRef(0);
+  renderCount.current += 1;
 
   // ── Change-only render log ────────────────────────────────────────────────
   const _prevIsActiveRef = useRef(isActive);
@@ -80,14 +85,19 @@ export function ViewerItem({
     _prevIsNearActiveRef.current !== isNearActive;
   if (_isActiveFlipped) {
     console.log(
-      '[ViewerItem] isActive/isNearActive CHANGED — id:', item.id,
+      `[ViewerItem] render #${renderCount.current} — isActive/isNearActive CHANGED`,
+      'id:', item.id,
       '|', _prevIsActiveRef.current, '->', isActive,
       '/', _prevIsNearActiveRef.current, '->', isNearActive,
     );
     _prevIsActiveRef.current = isActive;
     _prevIsNearActiveRef.current = isNearActive;
   } else {
-    console.log('[ViewerItem] render (props unchanged) — id:', item.id, '| isActive:', isActive, '| isNearActive:', isNearActive);
+    console.log(
+      `[ViewerItem] render #${renderCount.current} — props UNCHANGED`,
+      'id:', item.id, '| isActive:', isActive,
+      renderCount.current > 1 ? '⚠️ UNEXPECTED rerender — check parent memo / context churn' : '',
+    );
   }
 
   useEffect(() => {
@@ -113,62 +123,11 @@ export function ViewerItem({
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
-  // ── Debounced video-player mount gate ────────────────────────────────────
-  // Ensures totalActive=1 at all times — no competing decoders.
-  //
-  //   UNMOUNT — 32ms debounce when isActive → false
-  //     Transient FlatList flickers (16ms) cancel before firing → no unmount.
-  //     Real swipe-aways stay false → fires → player gone.
-  //
-  //   MOUNT — immediate if no other player alive; 64ms delay otherwise
-  //     If count=0 the decoder is free → mount now.
-  //     If count>0 the old player is still in its 32ms unmount window →
-  //     wait 64ms so the old player is guaranteed gone first.
-  const [videoPlayerMounted, setVideoPlayerMounted] = useState(isActive);
-  const videoMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    console.log('[ViewerItem] videoMount effect fired — id:', item.id, '| isActive:', isActive);
-    if (videoMountTimerRef.current) {
-      clearTimeout(videoMountTimerRef.current);
-      videoMountTimerRef.current = null;
-    }
-
-    if (isActive) {
-      const existingPlayers = getActiveMountedCount();
-      if (existingPlayers === 0) {
-        console.log('[ViewerItem] setVideoPlayerMounted=true (immediate, existingPlayers=0) — id:', item.id);
-        setVideoPlayerMounted(true);
-      } else {
-        videoMountTimerRef.current = setTimeout(() => {
-          videoMountTimerRef.current = null;
-          if (isActiveRef.current) {
-            console.log('[ViewerItem] setVideoPlayerMounted=true (64ms, prev player cleared) — id:', item.id);
-            setVideoPlayerMounted(true);
-          } else {
-            console.log('[ViewerItem] setVideoPlayerMounted=true SKIPPED (no longer active at 64ms) — id:', item.id);
-          }
-        }, 64);
-      }
-    } else {
-      videoMountTimerRef.current = setTimeout(() => {
-        videoMountTimerRef.current = null;
-        if (!isActiveRef.current) {
-          console.log('[ViewerItem] setVideoPlayerMounted=false (32ms debounce fired) — id:', item.id);
-          setVideoPlayerMounted(false);
-        } else {
-          console.log('[ViewerItem] setVideoPlayerMounted=false CANCELLED (active again at 32ms) — id:', item.id);
-        }
-      }, 32);
-    }
-
-    return () => {
-      if (videoMountTimerRef.current) {
-        clearTimeout(videoMountTimerRef.current);
-        videoMountTimerRef.current = null;
-      }
-    };
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Video stays mounted for as long as this item is within the FlatList
+  // window (isNearActive=true). isActive controls only the paused prop
+  // inside VideoPlayerView — we never unmount the player on navigation.
+  // Mounting/unmounting the decoder on every swipe was the root cause of
+  // the visible freeze: destroy → reload → stutter.
 
   const initialSource = useMemo(() => {
     return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
@@ -188,13 +147,6 @@ export function ViewerItem({
     setVideoError(null);
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
-
-    // Reset the debounced video-player mount gate for the new item.
-    if (videoMountTimerRef.current) {
-      clearTimeout(videoMountTimerRef.current);
-      videoMountTimerRef.current = null;
-    }
-    setVideoPlayerMounted(isActiveRef.current);
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-show thumbnail when slide becomes inactive so swipe-back looks right.
@@ -436,11 +388,13 @@ export function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* Video player — mounts only when this slide is active AND
-                displayUri is ready (copy complete).
-                key={displayUri}: fresh player instance for every new URI
-                so swipe-back to same video always gets a clean state. */}
-            {videoPlayerMounted && displayUri && (
+            {/* Video player — stays mounted once displayUri is ready.
+                Navigation between items only flips isActive (→ paused),
+                it never unmounts the player. Mounting/unmounting the
+                decoder on every swipe was the root cause of the freeze.
+                key={displayUri}: new player instance only when the URI
+                actually changes (different item or retry). */}
+            {!!displayUri && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
@@ -494,4 +448,12 @@ export function ViewerItem({
       )}
     </View>
   );
-}
+}, (prev, next) =>
+  prev.item.id === next.item.id &&
+  prev.isActive === next.isActive &&
+  prev.isNearActive === next.isNearActive &&
+  prev.onToggleControls === next.onToggleControls &&
+  prev.showControls === next.showControls &&
+  prev.controlsOpacity === next.controlsOpacity &&
+  prev.prepareStatusForViewing === next.prepareStatusForViewing,
+);

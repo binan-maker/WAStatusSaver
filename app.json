@@ -82,6 +82,7 @@
       ],
       "expo-web-browser",
       "expo-video",
+      "./plugins/with-rnv-surface-logs",
       [
         "expo-media-library",
         {
