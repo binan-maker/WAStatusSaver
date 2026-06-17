@@ -379,7 +379,6 @@ export const ViewerItem = React.memo(function ViewerItem({
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
-                isActive={isActive}
                 onPlaying={handlePlaying}
                 onError={handleError}
               />

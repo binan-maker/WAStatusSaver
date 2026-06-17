@@ -1,97 +1,84 @@
 /**
  * VideoPlayerView — react-native-video wrapper for the status viewer.
  *
- * WHY react-native-video (not expo-video)
- * ────────────────────────────────────────
- * Diagnosis from test screens A / B / C on a real Android 11+ device:
+ * ARCHITECTURE
+ * ────────────
+ * This component is only ever mounted when its slide IS the active one
+ * (ViewerItem gates on `!!displayUri && isActive`). It is unmounted on
+ * swipe-away. Therefore:
+ *   • paused is always false — no pause logic needed
+ *   • no AppState listener — we unmount instead of pause
+ *   • no isActive prop — if we're mounted, we're active
  *
- *   Screen A — expo-video   + file:// (copy path) → fully frozen (0 s)
- *   Screen B — expo-video   + content://          → freeze at ~1 s
- *   Screen C — react-native-video + content://    → plays (stutters at 1 s
- *                                                    buffer boundary)
+ * BUFFER CONFIG — local file:// only
+ * ────────────────────────────────────
+ * ExoPlayer's default bufferForPlaybackAfterRebufferMs is 5000 ms.
+ * Any tiny I/O hiccup (GC, kernel scheduler blip) makes ExoPlayer wait
+ * 5 full seconds before resuming → the "stucks runs stucks runs" loop.
+ * For an on-disk file:// there is no network to buffer against.
+ * These values eliminate the freeze entirely:
+ *   bufferForPlaybackMs: 50         start after 50 ms of data (vs 2500)
+ *   bufferForPlaybackAfterRebufferMs: 100  resume in 100 ms (vs 5000)
+ *   minBufferMs: 1000 / maxBufferMs: 5000  keep memory pressure low
  *
- * Conclusion: expo-video / Media3 is broken on this device.
- * Fix: replace the player library while keeping the already-correct
- *      copy-to-cache flow in ViewerItem (content:// → file://).
- *
- * RERENDER ISOLATION
- * ──────────────────
- * VideoPlayerView is React.memo-wrapped (outer shell).
- * The <Video> element is further isolated inside StableVideo, a second
- * React.memo layer that re-renders ONLY when fileUri or paused changes.
- *
- * PAUSE / RESUME
- * ──────────────
- * paused = !isActive
- * isActive changes are debounced 400 ms to absorb FlatList transient flickers.
- *
- * AppState is intentionally NOT used in pause logic.
- * Root-cause analysis showed that NavigationBar API calls in _layout.tsx were
- * causing Android to oscillate window-focus (FOCUS→BLUR→FOCUS) on every render,
- * which React Native translates into rapid active→background→active AppState
- * events. Using AppState here caused a continuous pause/resume loop during
- * playback. react-native-video pauses itself natively when the app is truly
- * backgrounded, so the AppState guard is redundant and harmful.
+ * ISOLATION
+ * ─────────
+ * StableVideo is a second React.memo layer. It re-renders ONLY when
+ * fileUri changes (= different item or tap-to-retry). All callbacks are
+ * created at module level or with [] deps so they never cause re-renders.
  */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import Video, {
-  OnVideoErrorData,
-  OnPlaybackStateChangedData,
-} from 'react-native-video';
+import Video, { OnVideoErrorData } from 'react-native-video';
 
-interface VideoPlayerViewProps {
+export interface VideoPlayerViewProps {
   fileUri: string;
-  isActive: boolean;
   onPlaying: () => void;
   onError: (message: string) => void;
 }
 
 interface StableVideoProps {
   fileUri: string;
-  paused: boolean;
   onReadyForDisplay: () => void;
   onEnd: () => void;
   onError: (d: OnVideoErrorData) => void;
-  onPlaybackStateChanged: (d: OnPlaybackStateChangedData) => void;
 }
 
-// ─── Module-level constants — never recreated, always same reference ──────────
+// ─── Buffer config — tuned for local file:// playback ─────────────────────────
+// Do NOT increase these values for network streams — these are intentionally
+// low because the "buffer" here is just reading bytes from internal storage.
 const BUFFER_CONFIG = {
-  minBufferMs: 15000,
-  maxBufferMs: 50000,
-  bufferForPlaybackMs: 2500,
-  bufferForPlaybackAfterRebufferMs: 5000,
+  minBufferMs: 1000,
+  maxBufferMs: 5000,
+  bufferForPlaybackMs: 50,
+  bufferForPlaybackAfterRebufferMs: 100,
 } as const;
 
 const STABLE_STYLE = StyleSheet.absoluteFill;
 
 // ─── StableVideo ──────────────────────────────────────────────────────────────
-// Inner isolation layer. Re-renders ONLY when fileUri or paused changes.
-// All callbacks are created once in the outer VideoPlayerView and never change.
 const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
   const source = useMemo(() => ({ uri: p.fileUri }), [p.fileUri]);
   const videoRef = useRef<{ seek: (time: number) => void } | null>(null);
 
-  // Manual loop: seek(0) on end rather than repeat={true}.
-  // repeat={true} uses ExoPlayer's built-in looping which fires
-  // END → SEEK(0) → BUFFERING → PLAYING at every boundary, causing
-  // the surface to detach/reattach and onReadyForDisplay to repeat.
-  const handleEndInternal = useCallback(() => {
-    videoRef.current?.seek(0);
-    p.onEnd();
-  // p.onEnd is useCallback([]) in VideoPlayerView — always the same ref
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // [VIDEO-SOURCE] — fires once per URI change (not on every paused flip).
-  // file:// → cache copy succeeded, SAF is out of the playback path.
-  // content:// → URI leaked through; SAF is the likely freeze cause.
+  // [VIDEO-SOURCE] fires once per URI change.
+  // file://  → cache copy succeeded, SAF is out of the playback path ✓
+  // content:// → URI leaked through — should never happen after our guard
   useEffect(() => {
     if (!__DEV__) return;
     const scheme = p.fileUri.startsWith('content://') ? '⚠️  content://' : 'file://';
     console.log('[VIDEO-SOURCE]', scheme, p.fileUri.slice(0, 120));
   }, [p.fileUri]);
+
+  // Manual loop: seek(0) on end rather than repeat={true}.
+  // repeat={true} fires END → SEEK(0) → BUFFERING → PLAYING at every loop
+  // boundary, detaching and reattaching the SurfaceTexture each time.
+  const handleEnd = useCallback(() => {
+    videoRef.current?.seek(0);
+    p.onEnd();
+  // p.onEnd is stable ([] deps in parent)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Video
@@ -99,85 +86,36 @@ const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
       source={source}
       style={STABLE_STYLE}
       resizeMode="contain"
+      paused={false}
       repeat={false}
-      paused={p.paused}
       muted={false}
       controls={false}
       useTextureView={true}
       bufferConfig={BUFFER_CONFIG}
-      progressUpdateInterval={500}
+      reportBandwidth={false}
       onReadyForDisplay={p.onReadyForDisplay}
-      onEnd={handleEndInternal}
+      onEnd={handleEnd}
       onError={p.onError}
-      onPlaybackStateChanged={p.onPlaybackStateChanged}
       ignoreSilentSwitch="ignore"
       playInBackground={false}
+      preventsDisplaySleepDuringVideoPlayback={true}
     />
   );
-}, (prev, next) =>
-  prev.fileUri === next.fileUri &&
-  prev.paused === next.paused
-);
-
-// ─── Mounted instance counter (exported for debugging) ────────────────────────
-let _mountedCount = 0;
-export function getActiveMountedCount(): number { return _mountedCount; }
+}, (prev, next) => prev.fileUri === next.fileUri);
 
 // ─── VideoPlayerView ──────────────────────────────────────────────────────────
 export const VideoPlayerView = React.memo(function VideoPlayerView({
   fileUri,
-  isActive,
   onPlaying,
   onError,
 }: VideoPlayerViewProps) {
-  // ── Pause logic ──────────────────────────────────────────────────────────
-  // paused = slide is not the active one in the FlatList pager.
-  // isActive changes are debounced 400 ms to absorb FlatList transient flips.
-  //
-  // AppState is intentionally excluded — see module-level comment.
-  const [paused, setPaused] = useState(!isActive);
-  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
-
-  useEffect(() => {
-    if (pauseTimerRef.current) {
-      clearTimeout(pauseTimerRef.current);
-      pauseTimerRef.current = null;
-    }
-    if (isActive) {
-      setPaused(false);
-    } else {
-      pauseTimerRef.current = setTimeout(() => {
-        pauseTimerRef.current = null;
-        if (!isActiveRef.current) setPaused(true);
-      }, 400);
-    }
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    _mountedCount++;
-    return () => {
-      _mountedCount--;
-      if (pauseTimerRef.current) {
-        clearTimeout(pauseTimerRef.current);
-        pauseTimerRef.current = null;
-      }
-    };
-  }, []);
-
   const hasCalledOnPlaying = useRef(false);
-  useEffect(() => {
-    hasCalledOnPlaying.current = false;
-  }, [isActive]);
-
-  // ── Stable callbacks ([] deps — never cause StableVideo re-render) ────────
 
   const handleReadyForDisplay = useCallback(() => {
     if (hasCalledOnPlaying.current) return;
     hasCalledOnPlaying.current = true;
     onPlaying();
-  // onPlaying is stable in ViewerItem
+  // onPlaying is stable in ViewerItem (useCallback [])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -188,18 +126,12 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handlePlaybackStateChanged = useCallback((_data: OnPlaybackStateChangedData) => {
-    // no-op — kept so the prop is still wired for future diagnostics
-  }, []);
-
   return (
     <StableVideo
       fileUri={fileUri}
-      paused={paused}
       onReadyForDisplay={handleReadyForDisplay}
       onEnd={handleEnd}
       onError={handleError}
-      onPlaybackStateChanged={handlePlaybackStateChanged}
     />
   );
 });
