@@ -28,7 +28,6 @@ export default function ViewerScreen() {
   const { colors: COLORS, resolved } = useTheme();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
-
   const {
     statuses,
     savedItems,
@@ -53,38 +52,59 @@ export default function ViewerScreen() {
     }
   }, [isSavedView, statuses.length, hasPermission, loadStatuses]);
 
-  // Always-black system bars while viewer is open
+  // ── [APPSTATE] — OS lifecycle events (change / focus / blur) ────────────
+  useEffect(() => {
+    const stateSub = AppState.addEventListener('change', next => {
+      console.log(`[APPSTATE] ${Date.now()} state=${next}`);
+    });
+    const focusSub = AppState.addEventListener('focus' as any, () => {
+      console.log(`[APPSTATE] ${Date.now()} FOCUS`);
+    });
+    const blurSub = AppState.addEventListener('blur' as any, () => {
+      console.log(`[APPSTATE] ${Date.now()} BLUR`);
+    });
+    return () => {
+      stateSub.remove();
+      focusSub.remove();
+      blurSub.remove();
+    };
+  }, []);
+
+  // ── [VIEWER] — screen focus / blur ───────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      console.log(`[VIEWER] ${Date.now()} FOCUS`);
+      return () => {
+        console.log(`[VIEWER] ${Date.now()} BLUR`);
+      };
+    }, [])
+  );
+
+  // Always-black system bars on mount only — never from an AppState listener.
+  // Repeating these calls on every 'active' event causes a Window-config-change
+  // → window-focus-loss → AppState inactive/active loop every ~300 ms.
   const themeRestoreRef = useRef({ resolved, bg: COLORS.BACKGROUND });
   useEffect(() => {
     themeRestoreRef.current = { resolved, bg: COLORS.BACKGROUND };
   }, [resolved, COLORS.BACKGROUND]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    StatusBar.setHidden(false, 'none');
+    StatusBar.setTranslucent(false);
+    StatusBar.setBarStyle('light-content', true);
+    StatusBar.setBackgroundColor('#000000', true);
+    NavigationBar.setButtonStyleAsync('light').catch(() => {});
+    SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Thumbnail I/O pause while viewer is open; restore bars on blur.
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== 'android') return;
-
-      // Stop thumbnail background I/O while the viewer is open.
-      // MediaMetadataRetriever (thumbnail generation) competes with the video
-      // player for the hardware decoder and storage bandwidth, which causes the
-      // play→freeze→play stutter on mid-range devices. Thumbnails that were
-      // already generated are still in memMap; any pending ones will be
-      // re-enqueued when the next loadStatuses() scan runs after the viewer closes.
       ThumbnailCache.pause();
-
-      const applyDarkBars = () => {
-        StatusBar.setHidden(false, 'none');
-        StatusBar.setTranslucent(false);
-        StatusBar.setBarStyle('light-content', true);
-        StatusBar.setBackgroundColor('#000000', true);
-        NavigationBar.setButtonStyleAsync('light').catch(() => {});
-        SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
-      };
-      applyDarkBars();
-      const sub = AppState.addEventListener('change', (state) => {
-        if (state === 'active') applyDarkBars();
-      });
       return () => {
-        sub.remove();
         const { resolved: r } = themeRestoreRef.current;
         const isDark = r === 'dark';
         StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
@@ -141,12 +161,6 @@ export default function ViewerScreen() {
   const flatListRef = useRef<FlatList>(null);
   const prevIndex = useRef(currentIndex);
 
-  // ── Diagnostic refs — track previous values to identify change source ────
-  const _prevCurrentIndex = useRef(currentIndex);
-  const _prevItemsLength = useRef(items.length);
-  const _prevCurrentItemId = useRef(currentItemId);
-  const _prevStatusesLength = useRef(statuses.length);
-
   // Scroll to the opening item when the viewer is first shown (or id changes).
   useEffect(() => {
     if (prevIdRef.current !== id) {
@@ -160,51 +174,6 @@ export default function ViewerScreen() {
       }
     }
   }, [id, currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Diagnostic: statuses.length watcher (confirms background scan fired) ─
-  useEffect(() => {
-    const prev = _prevStatusesLength.current;
-    _prevStatusesLength.current = statuses.length;
-    if (prev === statuses.length) return;
-    console.log(
-      '[Viewer] ⚠ statuses.length changed:', prev, '→', statuses.length,
-      '| items.length:', items.length,
-      '| currentIndex:', currentIndex,
-    );
-  }); // no dep array — runs every render, cheap guard inside
-
-  // ── Diagnostic: currentIndex / items watcher ──────────────────────────
-  useEffect(() => {
-    const prevIdx   = _prevCurrentIndex.current;
-    const prevLen   = _prevItemsLength.current;
-    const prevId    = _prevCurrentItemId.current;
-
-    const idxChanged  = prevIdx !== currentIndex;
-    const lenChanged  = prevLen !== items.length;
-    const itemIdChanged = prevId !== currentItemId;
-
-    _prevCurrentIndex.current   = currentIndex;
-    _prevItemsLength.current    = items.length;
-    _prevCurrentItemId.current  = currentItemId;
-
-    if (!idxChanged && !lenChanged && !itemIdChanged) return;
-
-    const activeItem = items[currentIndex];
-    const reason =
-      itemIdChanged && idxChanged ? 'BOTH currentItemId and items shifted' :
-      itemIdChanged               ? 'currentItemId changed (user swiped)' :
-      idxChanged                  ? 'items array shifted (background scan / statuses update)' :
-                                    'items.length changed only';
-
-    console.log(
-      '[Viewer] 🔴 INDEX/ITEMS CHANGED\n',
-      '  reason        :', reason, '\n',
-      '  currentIndex  :', prevIdx, '→', currentIndex, '\n',
-      '  items.length  :', prevLen, '→', items.length, '\n',
-      '  currentItemId :', prevId, '→', currentItemId, '\n',
-      '  activeItem.id :', activeItem?.id ?? 'NONE (out of bounds!)',
-    );
-  }); // no dep array — runs every render, cheap guard inside
 
   // Prefetch adjacent images
   useEffect(() => {
@@ -250,17 +219,6 @@ export default function ViewerScreen() {
       useNativeDriver: true,
     }).start();
   }, [showControls, controlsOpacity]);
-
-  // ── Render counter ──────────────────────────────────────────────────────────
-  const _viewerRenderCount = useRef(0);
-  _viewerRenderCount.current += 1;
-  console.log(
-    `[Viewer] render #${_viewerRenderCount.current}`,
-    `currentIndex=${currentIndex}`,
-    `items=${items.length}`,
-    `showControls=${showControls}`,
-    _viewerRenderCount.current > 3 ? '⚠️ frequent rerender — check context churn' : '',
-  );
 
   // ── Memoized renderItem ─────────────────────────────────────────────────────
   // Inline arrow functions cause FlatList to rerender ALL visible cells on
