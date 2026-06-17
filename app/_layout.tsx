@@ -128,7 +128,14 @@ function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
 
   useEffect(() => {
     applyImmersiveMode(resolved === 'dark');
-  }, [colors, resolved]);
+  // `colors` is intentionally excluded — it's an object reference that can
+  // change identity on re-renders without the actual theme changing.
+  // Including it would re-fire NavigationBar.setButtonStyleAsync() on every
+  // render, causing Android window-focus oscillation (FOCUS→BLUR→FOCUS) that
+  // React Native translates into rapid AppState active→background→active events.
+  // `resolved` ('dark' | 'light') is the only value that actually matters here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolved]);
 
   return (
     <MediaProvider>
