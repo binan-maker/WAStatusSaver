@@ -1079,7 +1079,9 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     const rawDest = tempUri.replace('file://', '');
     const useNativeCopy = SafReaderModule.isAvailable();
 
-    const copyPromise: Promise<string> = enqueueCopy(async () => {
+    // Extracted so the same retry loop is reused by both the playback and
+    // non-playback paths below.
+    const copyFn = async (): Promise<string> => {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           if (useNativeCopy) {
@@ -1106,7 +1108,27 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
         }
       }
       throw new Error(`Cache copy failed for ${item.name}`);
-    }).finally(() => {
+    };
+
+    // ── Playback vs background copy strategy ─────────────────────────────────
+    // PLAYBACK (forPlayback=true):
+    //   Bypass the shared copy queue entirely — a video open is user-visible
+    //   and must never wait behind in-flight saves or share-export operations.
+    //   enqueueCopy caps at 2 concurrent copies; if both slots are taken by
+    //   background saves the playback copy would queue for 30+ seconds, showing
+    //   a frozen thumbnail ("stuck video" on Android 11+).
+    //   Run the copy immediately with a 12 s timeout. On mid-range Android 11+
+    //   devices the SAF ContentResolver can hang for 10–15 s (MIUI / Samsung
+    //   OneUI); 12 s lets one real attempt land before showing "tap to retry".
+    //
+    // NON-PLAYBACK (save, share, pre-cache):
+    //   Use the queue as before — controlled concurrency prevents ContentResolver
+    //   saturation and respects the 30 s background-copy timeout.
+    const runCopy: Promise<string> = opts?.forPlayback
+      ? withTimeout(copyFn(), 12000, undefined as any, `SAF playback copy ${item.name}`)
+      : enqueueCopy(copyFn);
+
+    const copyPromise: Promise<string> = runCopy.finally(() => {
       copyInFlight.delete(item.id);
     }) as Promise<string>;
 
