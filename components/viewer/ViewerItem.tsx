@@ -73,40 +73,6 @@ export const ViewerItem = React.memo(function ViewerItem({
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
 
-  // ── Render counter ────────────────────────────────────────────────────────
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-
-  // ── Change-only render log ────────────────────────────────────────────────
-  const _prevIsActiveRef = useRef(isActive);
-  const _prevIsNearActiveRef = useRef(isNearActive);
-  const _isActiveFlipped =
-    _prevIsActiveRef.current !== isActive ||
-    _prevIsNearActiveRef.current !== isNearActive;
-  if (_isActiveFlipped) {
-    console.log(
-      `[ViewerItem] render #${renderCount.current} — isActive/isNearActive CHANGED`,
-      'id:', item.id,
-      '|', _prevIsActiveRef.current, '->', isActive,
-      '/', _prevIsNearActiveRef.current, '->', isNearActive,
-    );
-    _prevIsActiveRef.current = isActive;
-    _prevIsNearActiveRef.current = isNearActive;
-  } else {
-    console.log(
-      `[ViewerItem] render #${renderCount.current} — props UNCHANGED`,
-      'id:', item.id, '| isActive:', isActive,
-      renderCount.current > 1 ? '⚠️ UNEXPECTED rerender — check parent memo / context churn' : '',
-    );
-  }
-
-  useEffect(() => {
-    console.log('[ViewerItem] mount — id:', item.id);
-    return () => {
-      console.log('[ViewerItem] unmount — id:', item.id);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const cachedThumb = useThumbnail(item.id);
 
   const [displayUri, setDisplayUri] = useState<string | null>(null);
@@ -134,11 +100,6 @@ export const ViewerItem = React.memo(function ViewerItem({
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isSAF = initialSource.startsWith('content://');
-
-  // ── Track displayUri changes ──────────────────────────────────────────────
-  useEffect(() => {
-    console.log('[ViewerItem] displayUri changed →', displayUri, '— id:', item.id);
-  }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reset everything when item changes ──────────────────────────────────
   useEffect(() => {
@@ -205,8 +166,19 @@ export const ViewerItem = React.memo(function ViewerItem({
     prepareStatusForViewing(item as StatusItem, { forPlayback: true })
       .then((fileUri) => {
         if (!hasPreparedRef.current) return; // cancelled by item change
-        if (fileUri) {
+        if (fileUri && !fileUri.startsWith('content://')) {
+          // Only accept file:// paths — a content:// URI passed to ExoPlayer
+          // causes the SAF-freeze loop (DocumentProvider too slow to keep the
+          // buffer filled on Android 11+).
           setDisplayUri(fileUri);
+        } else if (fileUri?.startsWith('content://')) {
+          // prepareStatusForViewing returned the raw SAF URI instead of a
+          // cached copy. This should not happen for videos, but if it does,
+          // surface the retry overlay rather than passing content:// to the
+          // player and triggering the freeze.
+          if (__DEV__) console.warn('[ViewerItem] content:// leaked to displayUri — forcing retry', fileUri);
+          hasPreparedRef.current = false;
+          setVideoError('Could not load video — tap to retry');
         } else {
           hasPreparedRef.current = false;
           setVideoError('Could not load video — tap to retry');
