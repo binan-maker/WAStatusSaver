@@ -14,7 +14,7 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
+
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/media/MediaCard';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
@@ -186,12 +186,11 @@ export default function SavedScreen() {
         </>
       ) : (
         <>
-        <FlashList
+        <FlatList
           data={filtered}
           keyExtractor={(item) => item.id + item.savedAt}
           numColumns={GRID_COLUMNS}
           extraData={filter}
-          estimatedItemSize={CARD_SIZE}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -205,11 +204,10 @@ export default function SavedScreen() {
           contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
           showsVerticalScrollIndicator={false}
           scrollEnabled
-          // Same memory caps as the home grids (see app/(tabs)/index.tsx).
-          // Saved items are pure file:// thumbnails so removeClippedSubviews
-          // is safe and frees ~80-150 MB on long lists.
           removeClippedSubviews
-          drawDistance={750}
+          windowSize={5}
+          maxToRenderPerBatch={12}
+          initialNumToRender={12}
         />
         </>
       )}

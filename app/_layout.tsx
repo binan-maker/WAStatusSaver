@@ -5,13 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { useStableStatusBar } from '@/hooks/useStableStatusBar';
-import {
-  useFonts,
-  Nunito_400Regular,
-  Nunito_600SemiBold,
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
-} from '@expo-google-fonts/nunito';
+import { useFonts } from 'expo-font';
 import * as NavigationBar from 'expo-navigation-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -143,10 +137,10 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
 
 const RootLayout = () => {
   const [fontsLoaded] = useFonts({
-    Nunito_400Regular,
-    Nunito_600SemiBold,
-    Nunito_700Bold,
-    Nunito_800ExtraBold,
+    Nunito_400Regular: require('../assets/fonts/Nunito_400Regular.ttf'),
+    Nunito_600SemiBold: require('../assets/fonts/Nunito_600SemiBold.ttf'),
+    Nunito_700Bold: require('../assets/fonts/Nunito_700Bold.ttf'),
+    Nunito_800ExtraBold: require('../assets/fonts/Nunito_800ExtraBold.ttf'),
   });
   const [loadingDone, setLoadingDone] = useState(false);
   const [splashHidden, setSplashHidden] = useState(false);

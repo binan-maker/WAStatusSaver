@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FlashList } from '@shopify/flash-list';
+
 import { Image as ExpoImage } from 'expo-image';
 import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
@@ -428,11 +428,6 @@ export default function StatusesScreen() {
     [handlePressAny, handleSaveAny, handleShareAny],
   );
 
-  const overrideItemLayout = useCallback((layout: any) => {
-    layout.size = CARD_SIZE;
-    layout.span = 1;
-  }, []);
-
   const getItemLayout = useCallback(
     (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
       length: ROW_HEIGHT,
@@ -659,12 +654,11 @@ export default function StatusesScreen() {
               onAction={refresh}
             />
           ) : visitedTabs.images ? (
-            <FlashList
+            <FlatList
               data={filteredImages}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
-              estimatedItemSize={CARD_SIZE}
-              overrideItemLayout={overrideItemLayout}
+              getItemLayout={getItemLayout}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -677,14 +671,10 @@ export default function StatusesScreen() {
               renderItem={renderImageItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              // ANDROID 11+ MEMORY CAP: Image grid uses ExpoImage thumbnails
-              // (no live SurfaceView), so removeClippedSubviews is safe and
-              // saves the GC ~80-150 MB on long lists. drawDistance=750 is the
-              // sweet spot — large enough to keep the next row warm so scroll
-              // feels instant, small enough to avoid eagerly decoding 30+
-              // off-screen bitmaps that blow the JS heap on cold launch.
               removeClippedSubviews
-              drawDistance={750}
+              windowSize={5}
+              maxToRenderPerBatch={12}
+              initialNumToRender={12}
             />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
@@ -706,12 +696,11 @@ export default function StatusesScreen() {
               onAction={refresh}
             />
           ) : visitedTabs.videos ? (
-            <FlashList
+            <FlatList
               data={filteredVideos}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
-              estimatedItemSize={CARD_SIZE}
-              overrideItemLayout={overrideItemLayout}
+              getItemLayout={getItemLayout}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -724,12 +713,10 @@ export default function StatusesScreen() {
               renderItem={renderVideoItem}
               contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
               showsVerticalScrollIndicator={false}
-              // Same caps as the image grid above. Video cells in MediaCard
-              // are static thumbnails (not live VideoViews), so clipping
-              // off-screen subviews is safe here too. The dedicated viewer
-              // is the only place we keep removeClippedSubviews=false.
               removeClippedSubviews
-              drawDistance={750}
+              windowSize={5}
+              maxToRenderPerBatch={12}
+              initialNumToRender={12}
             />
           ) : (
             <LoadingShimmer count={GRID_COLUMNS * 8} />
