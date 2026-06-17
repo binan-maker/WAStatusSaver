@@ -1,37 +1,29 @@
 /**
- * TEST SCREEN B — direct content:// playback (NO copy, NO cache)
+ * TEST SCREEN C — react-native-video (same URI as Screen B)
  *
- * Passes the original SAF content:// URI straight into expo-video.
- * No prepareStatusForViewing(). No FileSystem.copyAsync(). No temp file.
+ * Takes the EXACT same file URI that Screen B passes to expo-video and
+ * feeds it into react-native-video instead. Zero other changes.
  *
- * Purpose:
- *   Test Screen A (copy then play) showed a freeze. This screen tells us
- *   whether the freeze is in the COPY PATH or in expo-video itself.
+ * HOW TO READ THE RESULT
+ * ──────────────────────
+ * ✅ react-native-video plays  AND  expo-video freezes
+ *    → The bug is inside expo-video / Media3 on this device.
+ *      Fix: switch the production viewer to react-native-video.
  *
- *   ┌────────────────────────────────────────────────────────────────────┐
- *   │ If THIS screen plays without freezing:                             │
- *   │   → expo-video handles content:// fine on Android 11+             │
- *   │   → the freeze is in the copy (partial file or cache write issue)  │
- *   │   → FIX: skip the copy entirely for playback; play content:// raw  │
- *   │                                                                    │
- *   │ If THIS screen ALSO freezes:                                       │
- *   │   → expo-video itself cannot sustain playback on this device       │
- *   │   → the freeze is in Media3/ExoPlayer on this Android/OEM build    │
- *   │   → FIX: file an issue against expo-video or switch player library │
- *   └────────────────────────────────────────────────────────────────────┘
+ * ❌ Both screens freeze
+ *    → The issue is the file itself or the codec.
+ *      The URI scheme (content:// throttle, bad codec, partial file, etc.)
+ *      is the root cause — not the player library.
  *
- * Note: WhatsApp's SAF DocumentProvider may throttle reads.
- * If content:// plays the first 1s then also freezes → buffer starvation
- * from WhatsApp's slow ContentProvider → copy IS required but must be 100%
- * complete before the player mounts (size-match check in Test Screen A).
+ * Navigate here from Test Screen B (yellow "→ Test Screen C" button).
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, ActivityIndicator, StyleSheet,
   TouchableOpacity, Platform, ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import Video, { OnLoadData, OnProgressData, OnVideoErrorData } from 'react-native-video';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useMedia, StatusItem } from '@/contexts/MediaContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,31 +45,36 @@ function fmt(n: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DirectPlayer — renders a single VideoView with the raw content:// URI.
+// RNVPlayer — renders a react-native-video <Video> with the raw URI.
 // ─────────────────────────────────────────────────────────────────────────────
-function DirectPlayer({
-  contentUri,
+function RNVPlayer({
+  uri,
   onStatus,
-}: { contentUri: string; onStatus: (s: string) => void }) {
-  const player = useVideoPlayer({ uri: contentUri }, (p) => {
-    p.loop = true;
-    p.muted = false;
-    p.play();
-  });
-
-  useEffect(() => {
-    const sub = player.addListener('statusChange', (e: any) => {
-      onStatus(e.status + (e.error ? ` — ${e.error.message}` : ''));
-    });
-    return () => { sub.remove(); try { player.release(); } catch {} };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+}: {
+  uri: string;
+  onStatus: (s: string) => void;
+}) {
+  const onLoad = (_data: OnLoadData) => onStatus('readyToPlay');
+  const onProgress = (_data: OnProgressData) => {};
+  const onError = (e: OnVideoErrorData) =>
+    onStatus(`error — ${e.error.errorString ?? JSON.stringify(e.error)}`);
+  const onBuffer = ({ isBuffering }: { isBuffering: boolean }) =>
+    onStatus(isBuffering ? 'buffering…' : 'buffer-ready');
 
   return (
-    <VideoView
-      player={player}
+    <Video
+      source={{ uri }}
       style={StyleSheet.absoluteFill}
-      nativeControls={false}
-      contentFit="contain"
+      resizeMode="contain"
+      repeat
+      controls={false}
+      muted={false}
+      onLoad={onLoad}
+      onProgress={onProgress}
+      onError={onError}
+      onBuffer={onBuffer}
+      playInBackground={false}
+      ignoreSilentSwitch="ignore"
     />
   );
 }
@@ -85,13 +82,13 @@ function DirectPlayer({
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TestVideoDirectScreen() {
+export default function TestVideoRNVScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { statuses, savedItems } = useMedia();
 
   type Phase = 'finding' | 'measuring' | 'ready' | 'error';
   const [phase, setPhase] = useState<Phase>('finding');
-  const [contentUri, setContentUri] = useState('');
+  const [uri, setUri] = useState('');
   const [srcSize, setSrcSize] = useState<number | null>(null);
   const [playerStatus, setPlayerStatus] = useState('—');
   const [errorMsg, setErrorMsg] = useState('');
@@ -107,13 +104,12 @@ export default function TestVideoDirectScreen() {
     if (!item) { setPhase('error'); setErrorMsg(`Item not found: ${id}`); return; }
     if (item.type !== 'video') { setPhase('error'); setErrorMsg('Not a video'); return; }
 
-    const uri: string = 'localUri' in item ? (item as any).localUri : item.uri;
-    setContentUri(uri);
-    setIsSAF(uri.startsWith('content://'));
+    const resolvedUri: string = 'localUri' in item ? (item as any).localUri : item.uri;
+    setUri(resolvedUri);
+    setIsSAF(resolvedUri.startsWith('content://'));
 
-    // Measure the source size from ContentResolver before creating the player.
     setPhase('measuring');
-    measureSize(uri).then((sz) => {
+    measureSize(resolvedUri).then((sz) => {
       setSrcSize(sz);
       setPhase('ready');
     });
@@ -121,46 +117,39 @@ export default function TestVideoDirectScreen() {
 
   const verdict =
     playerStatus === '—' ? 'waiting for player…' :
-    playerStatus.startsWith('readyToPlay') ? '▶ readyToPlay — playing' :
-    playerStatus.startsWith('loading') ? '⏳ loading' :
-    playerStatus.startsWith('idle') ? '⏸ idle' :
-    playerStatus.includes('error') ? `❌ error: ${playerStatus}` :
+    playerStatus === 'readyToPlay' ? '▶ readyToPlay — playing' :
+    playerStatus === 'buffer-ready' ? '▶ buffer-ready — playing' :
+    playerStatus.startsWith('buffering') ? '⏳ buffering…' :
+    playerStatus.includes('error') ? `❌ ${playerStatus}` :
     playerStatus;
 
   return (
     <View style={s.root}>
-      {/* Back */}
       <TouchableOpacity style={s.back} onPress={() => router.back()}>
         <Ionicons name="arrow-back" size={22} color="#fff" />
       </TouchableOpacity>
 
-      {/* Video */}
-      {phase === 'ready' && contentUri && (
-        <DirectPlayer
-          key={contentUri}
-          contentUri={contentUri}
-          onStatus={setPlayerStatus}
-        />
-      )}
+      {phase === 'ready' && uri ? (
+        <RNVPlayer key={uri} uri={uri} onStatus={setPlayerStatus} />
+      ) : null}
 
-      {/* Info overlay */}
       <ScrollView
         style={s.overlay}
         contentContainerStyle={s.overlayContent}
         pointerEvents="box-none"
       >
-        <Text style={s.title}>TEST SCREEN B — direct content:// (NO COPY)</Text>
+        <Text style={s.title}>TEST SCREEN C — react-native-video (same URI)</Text>
         <Text style={s.sub}>Android API {Platform.Version} · {phase}</Text>
 
         <Row label="URI type" value={isSAF ? 'SAF content:// (Android 11+)' : 'file:// (Android ≤10 or saved)'} />
-        <Row label="Source URI" value={contentUri.slice(0, 140)} />
+        <Row label="Source URI" value={uri.slice(0, 140)} />
         <Row
           label="Source size (ContentResolver)"
           value={srcSize != null ? fmt(srcSize) : '…'}
           warn={srcSize === 0 || srcSize === -2}
         />
         <Row
-          label="Player status"
+          label="Player status (react-native-video)"
           value={verdict}
           warn={playerStatus.includes('error')}
         />
@@ -168,28 +157,27 @@ export default function TestVideoDirectScreen() {
         <View style={s.box}>
           <Text style={s.boxTitle}>HOW TO READ THIS SCREEN</Text>
           <Text style={s.boxText}>
-            {'✅ Plays without freeze → expo-video handles content:// fine.\n' +
-             '   The production freeze is in the COPY (partial file).\n' +
-             '   Fix: remove the cache copy for playback; use content:// directly.\n\n' +
-             '❌ Freezes at ~1s → same as Test Screen A.\n' +
-             '   WhatsApp ContentProvider throttles reads → buffer starvation.\n' +
-             '   The COPY is required AND must be 100% complete (size match).\n' +
-             '   Check Test Screen A size-match row to confirm.'}
+            {'✅ Plays  +  expo-video freezes\n' +
+             '   → Bug is inside expo-video / Media3.\n' +
+             '   Fix: switch production viewer to react-native-video.\n\n' +
+             '❌ Both freeze\n' +
+             '   → The URI/codec is the root cause, not the library.\n' +
+             '   Check codec, content:// throttle, or partial file in Screen A.'}
           </Text>
         </View>
 
         <TouchableOpacity
-          style={s.btn2}
-          onPress={() => router.push({ pathname: '/test-video-rnv', params: { id } })}
+          style={s.btnNav}
+          onPress={() => router.push({ pathname: '/test-video-direct', params: { id } })}
         >
-          <Text style={s.btn2Text}>→ Test Screen C — react-native-video (same URI)</Text>
+          <Text style={s.btnNavText}>← Test Screen B — expo-video direct content://</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={s.btn2}
+          style={s.btnNav}
           onPress={() => router.push({ pathname: '/test-video', params: { id } })}
         >
-          <Text style={s.btn2Text}>← Back to Test Screen A (copy then play)</Text>
+          <Text style={s.btnNavText}>← Test Screen A — copy then play</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -233,7 +221,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.88)',
   },
   overlayContent: { padding: 14, gap: 6 },
-  title: { color: '#FFB800', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  title: { color: '#00C48C', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   sub: { color: 'rgba(255,255,255,0.4)', fontSize: 10, marginBottom: 6 },
   row: { gap: 2 },
   rowLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -244,15 +232,15 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 8, padding: 10,
   },
-  boxTitle: { color: '#FFB800', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, marginBottom: 6 },
+  boxTitle: { color: '#00C48C', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, marginBottom: 6 },
   boxText: { color: 'rgba(255,255,255,0.6)', fontSize: 10, lineHeight: 16 },
-  btn2: {
-    marginTop: 10,
-    backgroundColor: 'rgba(0,196,140,0.1)',
-    borderWidth: 1, borderColor: 'rgba(0,196,140,0.4)',
+  btnNav: {
+    marginTop: 6,
+    backgroundColor: 'rgba(0,196,140,0.08)',
+    borderWidth: 1, borderColor: 'rgba(0,196,140,0.35)',
     borderRadius: 8, padding: 10, alignItems: 'center',
   },
-  btn2Text: { color: '#00C48C', fontSize: 12, fontWeight: '600' },
+  btnNavText: { color: '#00C48C', fontSize: 12, fontWeight: '600' },
   loadOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.85)',
