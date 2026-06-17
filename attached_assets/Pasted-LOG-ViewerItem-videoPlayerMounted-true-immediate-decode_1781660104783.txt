@@ -1,0 +1,35 @@
+LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F2e3e499cecce4762a16b18eec90db187_whatsapp
+ LOG  [SAFcopy] fast-path check name=2e3e499cecce4762a16b18eec90db187.mp4 original=unknown cached=3132KB complete=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=34.48
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.55 buffered=34.48
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.58 buffered=34.48
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.91 buffered=34.48
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → delaying mount 64ms (existing=1) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F1c29c694db9a4e0dab6d55d1e5129b99_whatsapp
+ LOG  [SAFcopy] fast-path check name=1c29c694db9a4e0dab6d55d1e5129b99.mp4 original=unknown cached=1370KB complete=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F2e3e499cecce4762a16b18eec90db187_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (64ms delay done) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F1c29c694db9a4e0dab6d55d1e5129b99_whatsapp
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] UNMOUNTED totalActive=0
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.01 buffered=9.88
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.13 buffered=10.77
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.61 buffered=10.77
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → delaying mount 64ms (existing=1) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F31b5ba3ef51e49deb9bbda60e6063853_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F1c29c694db9a4e0dab6d55d1e5129b99_whatsapp
+ LOG  [VideoPlayer] UNMOUNTED totalActive=0
+ LOG  [ViewerItem] videoPlayerMounted → true (64ms delay done) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F31b5ba3ef51e49deb9bbda60e6063853_whatsapp
+ LOG  [SAFcopy] copy attempt=1 name=31b5ba3ef51e49deb9bbda60e6063853.mp4 original=unknown copied=2973KB ok=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=0.00
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.00 buffered=9.61
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.00 buffered=14.01
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.00 buffered=18.30

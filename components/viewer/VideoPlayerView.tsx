@@ -1,44 +1,43 @@
 /**
  * VideoPlayerView — expo-video player for a single viewer slide.
  *
- * ── WHY THIS COMPONENT EXISTS ────────────────────────────────────────────────
- * key={displayUri} in the parent forces a completely fresh player (and fresh
- * useVideoPlayer hook) for every new file:// URI.  That avoids stale-player
- * state across slides.
+ * ── WHY React.memo ───────────────────────────────────────────────────────────
+ * ViewerItem re-renders frequently due to unrelated state changes (exoPaused,
+ * videoPlayerMounted, thumbnailOpacity animations, etc.).  Without memo, each
+ * ViewerItem re-render also re-renders VideoPlayerView, which re-renders the
+ * native VideoView underneath it.  On Android 11+ a VideoView re-render
+ * temporarily detaches its SurfaceTexture from ExoPlayer.  ExoPlayer loses its
+ * render surface, stops producing frames, and emits playingChange=false with a
+ * full buffer — the "freeze after 1 second" symptom.  React.memo stops this:
+ * if fileUri / isActive / callbacks haven't changed, VideoPlayerView is skipped
+ * entirely.  The URI-type log fires on every render; with memo it should appear
+ * exactly ONCE per mount.  Seeing it twice means props changed unexpectedly.
  *
  * ── PLAYBACK STRATEGY ────────────────────────────────────────────────────────
- * p.play() inside useVideoPlayer sets ExoPlayer's playWhenReady=true before
- * the surface attaches.  ExoPlayer holds that flag and starts automatically
- * the moment the SurfaceTexture is ready — no external nudge needed.
+ * p.play() in useVideoPlayer sets playWhenReady=true before the surface
+ * attaches.  ExoPlayer holds that flag and starts automatically once the
+ * SurfaceTexture is ready.  A secondary nudge fires from statusChange=
+ * readyToPlay for Android 11+ devices where the surface sometimes attaches
+ * after the status event fires.
  *
- * Previous versions added recovery timers and nudge schedules that called
- * player.play() repeatedly after mount.  Those extra calls interrupted
- * ExoPlayer's internal buffer-fill pipeline, causing the play→freeze→play
- * loop on Android 11+.  Removing them lets ExoPlayer manage its own startup
- * and buffering without JS interference.
+ * ── RECOVERY ─────────────────────────────────────────────────────────────────
+ * On Android 11+, playingChange=false can fire unexpectedly while the video
+ * has buffer and no error (SurfaceTexture lifecycle issue or audio-focus blip).
+ * A single-shot 500 ms delayed play() re-nudges ExoPlayer.  The 500 ms gap
+ * prevents interrupting codec initialization — the repeated-timer approach
+ * that caused the old play→freeze→play loop.  A ref flag ensures this fires
+ * at most once per player instance per active session.
  *
  * ── PAUSE DEBOUNCE ───────────────────────────────────────────────────────────
  * isActive can briefly flip false→true within a single React render batch
- * (e.g. when a background setStatuses() call shifts item indices).  Calling
- * player.pause() on a transient false fires even though playback should
- * continue.  A 400 ms debounce absorbs those flickers: real swipe-aways keep
- * isActive=false long enough for the timeout to fire; render-only flickers
- * cancel the timeout before it runs.
+ * (e.g. when a background setStatuses() call shifts item indices).  A 400 ms
+ * debounce absorbs those flickers: real swipe-aways keep isActive=false long
+ * enough for the timeout to fire; render-only flickers cancel it.
  *
  * ── NATIVE CONTROLS ──────────────────────────────────────────────────────────
- * nativeControls={true} delegates the play/pause button, seek bar, and
- * fullscreen toggle to expo-video's built-in Android/iOS player UI.
- *
- * ── THUMBNAIL FADE ───────────────────────────────────────────────────────────
- * timeUpdate fires every 250 ms ONLY when frames are actually advancing to the
- * screen (currentTime > 0).  That is the signal we use to fade the poster
- * thumbnail out.  It is more reliable than playingChange because it confirms
- * real rendering, not just an internal ExoPlayer state flip.
- *
- * ── SWIPE-BACK ───────────────────────────────────────────────────────────────
- * When isActive flips false→true the parent has already reset thumbnailOpacity
- * to 1, so we reset hasCalledOnPlaying so onPlaying() can fire again and fade
- * the thumbnail back out.
+ * nativeControls=false — the Android MediaController overlay was removed.
+ * On Android 11+ it could temporarily steal audio focus and trigger a pause.
+ * The viewer's own controls overlay handles any UI the user needs.
  */
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet } from 'react-native';
@@ -68,7 +67,12 @@ export function getActiveMountedCount(): number {
   return _mountedCount;
 }
 
-export function VideoPlayerView({
+// ── React.memo wrapper ────────────────────────────────────────────────────────
+// Props: fileUri (changes on new slide via key=), isActive, onPlaying (stable
+// useCallback ref), onError (stable useCallback ref).
+// When ViewerItem re-renders without changing these props, VideoPlayerView is
+// skipped — no VideoView re-render, no SurfaceTexture disruption.
+export const VideoPlayerView = React.memo(function VideoPlayerView({
   fileUri,
   isActive,
   onPlaying,
@@ -78,15 +82,18 @@ export function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
-  // True after the first effect run — prevents calling player.play() twice on
-  // mount.  useVideoPlayer initializer already sets playWhenReady=true; a
-  // second play() call interrupts ExoPlayer's buffer-fill pipeline.
+  // Skips the isActive effect on first mount — useVideoPlayer initializer
+  // already called p.play(), a second call interrupts codec initialization.
   const didMountRef = useRef(false);
-  // Timer ref for the pause debounce — cleared whenever isActive returns true
-  // before the timeout fires, so render-flicker false values never reach pause().
+  // Pause debounce timer.
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Single-shot recovery flag — allows at most one recovery play() per active
+  // session. Resets when isActive goes true (new swipe-to slide).
+  const recoveryFiredRef = useRef(false);
 
   // ── URI diagnostic log ────────────────────────────────────────────────────
+  // Fires on every render. With React.memo should appear ONCE per mount.
+  // Seeing it twice means a prop changed — investigate the caller.
   const uriType = fileUri.startsWith('file://')
     ? 'FILE'
     : fileUri.startsWith('content://')
@@ -100,7 +107,8 @@ export function VideoPlayerView({
     // timeUpdate fires every 250 ms only when frames are advancing.
     p.timeUpdateEventInterval = 0.25;
     // Sets playWhenReady=true — ExoPlayer starts as soon as the surface
-    // attaches.  No further play() calls are needed from JS.
+    // attaches. The statusChange=readyToPlay handler provides a secondary
+    // nudge for Android 11+ where the surface may arrive asynchronously.
     p.play();
   });
 
@@ -112,9 +120,6 @@ export function VideoPlayerView({
 
   useEffect(() => {
     // ── Mount log ─────────────────────────────────────────────────────────
-    // totalActive MUST always be 1.  If you see 2+ the debounced mount gate
-    // in ViewerItem is not working — two video players are competing for the
-    // hardware decoder.
     _mountedCount++;
     const mountTag = _mountedCount > 1
       ? ' ⚠️ MULTIPLE PLAYERS — decoder conflict!'
@@ -137,6 +142,16 @@ export function VideoPlayerView({
       );
       if (event.status === 'error') {
         onError(event.error?.message ?? 'Playback error');
+        return;
+      }
+      // Android 11+ secondary nudge: player became ready but hasn't started.
+      // This covers the race where playWhenReady=true was set in the
+      // initializer before the VideoView's SurfaceTexture was available.
+      // The statusChange event fires on the player thread where the surface
+      // IS attached, so play() here is safe and won't interrupt buffering.
+      if (event.status === 'readyToPlay' && isActiveRef.current && !player.playing) {
+        console.log('[VideoPlayer] readyToPlay but not playing → nudge play()');
+        try { player.play(); } catch {}
       }
     });
 
@@ -146,6 +161,36 @@ export function VideoPlayerView({
         ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?') +
         ' buffered=' + (player.bufferedPosition?.toFixed(2) ?? '?'),
       );
+
+      if (event.isPlaying) {
+        // Playback is live — reset the recovery gate so a future unexpected
+        // stop (after a real frame advance) can trigger one more recovery.
+        recoveryFiredRef.current = false;
+        return;
+      }
+
+      // isPlaying went false while this slide is active with no error and
+      // available buffer — unexpected stop (Android 11+ SurfaceTexture blip
+      // or audio-focus transient loss).  Schedule a single recovery play()
+      // 500 ms later.  500 ms gap prevents interrupting codec init (the
+      // repeated-timer approach that caused the old play→freeze loop).
+      if (isActiveRef.current && !recoveryFiredRef.current) {
+        recoveryFiredRef.current = true;
+        setTimeout(() => {
+          const buffered = player.bufferedPosition ?? 0;
+          const stillStopped = !player.playing && player.status === 'readyToPlay';
+          const stillActive = isActiveRef.current;
+          console.log(
+            '[VideoPlayer] recovery check: stillActive=' + stillActive +
+            ' stillStopped=' + stillStopped +
+            ' buffered=' + buffered.toFixed(2),
+          );
+          if (stillActive && stillStopped && buffered > 0.1) {
+            console.log('[VideoPlayer] recovery → play()');
+            try { player.play(); } catch {}
+          }
+        }, 500);
+      }
     });
 
     return () => {
@@ -166,12 +211,9 @@ export function VideoPlayerView({
   //
   // Skips the initial mount (useVideoPlayer initializer already called p.play()).
   //
-  // Pause is DEBOUNCED — isActive can briefly flip false during a render batch
-  // caused by a background setStatuses() call.  Calling pause() immediately on
-  // a transient false stops a fully-buffered video for no reason.  A 400 ms
-  // delay means:
-  //   • Render flicker (false then true within one batch): timer cancelled, no pause.
-  //   • Real swipe-away (stays false): timer fires, player pauses cleanly.
+  // Pause is DEBOUNCED 400 ms — isActive can briefly flip false during a render
+  // batch caused by a background setStatuses() call. Real swipe-aways stay
+  // false long enough; render flickers cancel the timer before it fires.
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
@@ -185,14 +227,9 @@ export function VideoPlayerView({
 
     if (isActive) {
       hasCalledOnPlaying.current = false;
-      // Only call play() when the player is not already playing.
-      // Calling play() on an already-playing ExoPlayer interrupts its
-      // internal buffer-fill pipeline on Android 11+ — that is the
-      // play→freeze→play symptom at ~0.7 s.  If isActive briefly flipped
-      // false→true (render flicker) and the pause debounce cancelled the
-      // pause, the player never stopped; calling play() again here would
-      // trigger the same buffer interruption the original didMountRef guard
-      // was added to prevent.
+      recoveryFiredRef.current = false;
+      // Only call play() when not already playing — calling it on an active
+      // ExoPlayer interrupts its buffer-fill pipeline on Android 11+.
       try { if (!player.playing) player.play(); } catch {}
     } else {
       pauseTimerRef.current = setTimeout(() => {
@@ -208,8 +245,8 @@ export function VideoPlayerView({
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      nativeControls={true}
+      nativeControls={false}
       contentFit="contain"
     />
   );
-}
+});
