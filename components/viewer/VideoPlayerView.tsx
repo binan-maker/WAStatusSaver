@@ -29,7 +29,7 @@
  */
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import Video, { OnVideoErrorData } from 'react-native-video';
+import Video, { type OnVideoErrorData } from 'react-native-video';
 
 export interface VideoPlayerViewProps {
   fileUri: string;
@@ -40,7 +40,6 @@ export interface VideoPlayerViewProps {
 interface StableVideoProps {
   fileUri: string;
   onReadyForDisplay: () => void;
-  onEnd: () => void;
   onError: (d: OnVideoErrorData) => void;
 }
 
@@ -59,7 +58,6 @@ const STABLE_STYLE = StyleSheet.absoluteFill;
 // ─── StableVideo ──────────────────────────────────────────────────────────────
 const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
   const source = useMemo(() => ({ uri: p.fileUri }), [p.fileUri]);
-  const videoRef = useRef<{ seek: (time: number) => void } | null>(null);
 
   // [VIDEO-SOURCE] fires once per URI change.
   // file://  → cache copy succeeded, SAF is out of the playback path ✓
@@ -70,31 +68,19 @@ const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
     console.log('[VIDEO-SOURCE]', scheme, p.fileUri.slice(0, 120));
   }, [p.fileUri]);
 
-  // Manual loop: seek(0) on end rather than repeat={true}.
-  // repeat={true} fires END → SEEK(0) → BUFFERING → PLAYING at every loop
-  // boundary, detaching and reattaching the SurfaceTexture each time.
-  const handleEnd = useCallback(() => {
-    videoRef.current?.seek(0);
-    p.onEnd();
-  // p.onEnd is stable ([] deps in parent)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <Video
-      ref={videoRef as any}
       source={source}
       style={STABLE_STYLE}
       resizeMode="contain"
       paused={false}
-      repeat={false}
+      repeat={true}
       muted={false}
       controls={false}
       useTextureView={true}
       bufferConfig={BUFFER_CONFIG}
       reportBandwidth={false}
       onReadyForDisplay={p.onReadyForDisplay}
-      onEnd={handleEnd}
       onError={p.onError}
       ignoreSilentSwitch="ignore"
       playInBackground={false}
@@ -119,8 +105,6 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleEnd = useCallback(() => {}, []);
-
   const handleError = useCallback((e: OnVideoErrorData) => {
     onError(e.error?.errorString ?? 'Playback error');
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,7 +114,6 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     <StableVideo
       fileUri={fileUri}
       onReadyForDisplay={handleReadyForDisplay}
-      onEnd={handleEnd}
       onError={handleError}
     />
   );

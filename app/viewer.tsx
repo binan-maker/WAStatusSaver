@@ -70,12 +70,16 @@ export default function ViewerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Thumbnail I/O pause while viewer is open; restore bars on blur.
+  // Thumbnail I/O pause while viewer is open; restore on blur.
+  // pause() sets isPaused so any in-flight thumbnail decoder op bails at
+  // its next await boundary instead of competing with ExoPlayer.
+  // resume() clears isPaused so the queue can run again after the viewer closes.
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS !== 'android') return;
       ThumbnailCache.pause();
       return () => {
+        ThumbnailCache.resume();
+        if (Platform.OS !== 'android') return;
         const { resolved: r } = themeRestoreRef.current;
         const isDark = r === 'dark';
         StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
