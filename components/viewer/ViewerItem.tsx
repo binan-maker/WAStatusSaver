@@ -1,3 +1,26 @@
+/**
+ * ViewerItem — single slide in the full-screen status viewer.
+ *
+ * VIDEO PLAYER ARCHITECTURE (Android 11+ SAF)
+ * ───────────────────────────────────────────
+ * The custom native ExoPlayerView module requires Java source files at
+ * modules/exo-player/android/ that are not present in this repo, so
+ * UIManager.hasViewManagerConfig('ExoPlayerView') always returns false
+ * and the module is always unavailable. All video playback therefore goes
+ * through expo-video (VideoPlayerView). The ExoPlayerView/ExoPlayerBoundary
+ * code has been removed to eliminate the state changes (nativePlayerFailed,
+ * exoPaused) they caused — those state updates triggered ViewerItem re-renders
+ * while a video was playing, which detached and reattached the VideoView's
+ * SurfaceTexture and contributed to the Android 11+ freeze.
+ *
+ * URI PREPARATION
+ * ───────────────
+ * SAF content:// URIs are always copied to a local file:// path before
+ * the player mounts (prepareStatusForViewing with forPlayback:true).
+ * hasPreparedRef tracks whether preparation is in progress or complete
+ * for the current item so the prepare effect never fires twice, even if
+ * isNearActive/isActive toggle while the async copy is running.
+ */
 import React, {
   useState,
   useRef,
@@ -22,8 +45,6 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { VideoPlayerView, getActiveMountedCount } from './VideoPlayerView';
-import { ExoPlayerView, isAvailable as exoPlayerIsAvailable } from '@/modules/exo-player';
-import { ExoPlayerBoundary } from './ExoPlayerBoundary';
 import { Ionicons } from '@expo/vector-icons';
 import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
@@ -41,14 +62,6 @@ export interface ViewerItemProps {
   controlsOpacity: Animated.Value;
 }
 
-// Module-level flag — set to true either at load time (UIManager check in
-// isAvailable() returns false) or on the first ExoPlayerBoundary catch.
-// Once true it stays true for the whole app session so ExoPlayerView is
-// never rendered again and the "View config not found" error never fires.
-//
-// Evaluated once at module load — isAvailable() is synchronous.
-let exoPlayerModuleUnavailable = !exoPlayerIsAvailable();
-
 export function ViewerItem({
   item,
   isActive,
@@ -63,44 +76,29 @@ export function ViewerItem({
 
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
-  // Initialises from the module-level flag so subsequent items instantly go to
-  // the expo-video fallback without ever trying to render ExoPlayerView again.
-  const [nativePlayerFailed, setNativePlayerFailed] = useState(exoPlayerModuleUnavailable);
 
-  // Thumbnail fades from 1 (fully visible) to 0 (hidden) once video plays.
-  // Using Animated.Value so the fade is smooth and never flickers.
+  // Thumbnail fades from 1→0 once video starts playing.
   const thumbnailOpacity = useRef(new Animated.Value(1)).current;
   const isVideoPlayingRef = useRef(false);
 
-  const prepareCancelRef = useRef(false);
+  // Tracks whether URI preparation has been initiated for the current item.
+  // Using a ref (not state) means starting the async copy doesn't re-render
+  // the component, which keeps the player unmolested during file I/O.
+  const hasPreparedRef = useRef(false);
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
 
   // ── Debounced video-player mount gate ────────────────────────────────────
-  // Goal: totalActive=1 at all times — only the active slide has a player.
+  // Ensures totalActive=1 at all times — no competing decoders.
   //
-  // Two-timer strategy (solves the overlap the 500 ms approach created):
+  //   UNMOUNT — 32ms debounce when isActive → false
+  //     Transient FlatList flickers (16ms) cancel before firing → no unmount.
+  //     Real swipe-aways stay false → fires → player gone.
   //
-  //   UNMOUNT — 32 ms debounce when isActive → false
-  //     • Transient FlatList reconciliation flickers (isActive false for one
-  //       render frame ≈ 16 ms) cancel the timer before it fires → no unmount.
-  //     • Real swipe-aways stay false → timer fires at 32 ms → player gone.
-  //
-  //   MOUNT — immediate if no other player is alive; 64 ms delay otherwise
-  //     • getActiveMountedCount() reads the module-level counter in
-  //       VideoPlayerView.  If it is 0 the decoder is free → mount now.
-  //     • If it is > 0 another slide's player is still alive (will unmount
-  //       in ≤ 32 ms) → wait 64 ms so the old player is guaranteed gone first.
-  //
-  // Timeline for a normal swipe A→B (both effects fire in the same render):
-  //   T=0  ms  old slide A: starts 32 ms unmount timer
-  //   T=0  ms  new slide B: sees count=1 → starts 64 ms mount timer
-  //   T=32 ms  A unmounts → totalActive=0
-  //   T=64 ms  B mounts  → totalActive=1  ✅ no overlap
-  //
-  // Timeline for transient false on current slide:
-  //   T=0  ms  isActive=false → 32 ms unmount timer starts
-  //   T=16 ms  isActive=true  → cancel timer; count=1 (self still alive)
-  //            → 64 ms mount timer (redundant but harmless; self already mounted)
-  //            → setVideoPlayerMounted(true) is a no-op (already true)  ✅
+  //   MOUNT — immediate if no other player alive; 64ms delay otherwise
+  //     If count=0 the decoder is free → mount now.
+  //     If count>0 the old player is still in its 32ms unmount window →
+  //     wait 64ms so the old player is guaranteed gone first.
   const [videoPlayerMounted, setVideoPlayerMounted] = useState(isActive);
   const videoMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -117,17 +115,13 @@ export function ViewerItem({
       } else {
         videoMountTimerRef.current = setTimeout(() => {
           videoMountTimerRef.current = null;
-          if (isActiveRef.current) {
-            setVideoPlayerMounted(true);
-          }
+          if (isActiveRef.current) setVideoPlayerMounted(true);
         }, 64);
       }
     } else {
       videoMountTimerRef.current = setTimeout(() => {
         videoMountTimerRef.current = null;
-        if (!isActiveRef.current) {
-          setVideoPlayerMounted(false);
-        }
+        if (!isActiveRef.current) setVideoPlayerMounted(false);
       }, 32);
     }
 
@@ -135,39 +129,6 @@ export function ViewerItem({
       if (videoMountTimerRef.current) {
         clearTimeout(videoMountTimerRef.current);
         videoMountTimerRef.current = null;
-      }
-    };
-  }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Debounced paused prop for native ExoPlayerView ───────────────────────
-  // isActive can briefly flip false for a single render frame when items
-  // re-indexes (FlatList reconciliation lag vs. useMemo-derived currentIndex).
-  // Passing `paused={!isActive}` directly would pause the native ExoPlayer on
-  // that transient false, causing a stutter.  A 400 ms debounce absorbs
-  // the flicker — real swipe-aways keep isActive=false long enough for the
-  // timeout to fire; render-flickers cancel the timer before it runs.
-  const [exoPaused, setExoPaused] = useState(!isActive);
-  const exoPauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
-
-  useEffect(() => {
-    if (exoPauseTimerRef.current) {
-      clearTimeout(exoPauseTimerRef.current);
-      exoPauseTimerRef.current = null;
-    }
-    if (isActive) {
-      setExoPaused(false);
-    } else {
-      exoPauseTimerRef.current = setTimeout(() => {
-        exoPauseTimerRef.current = null;
-        if (!isActiveRef.current) setExoPaused(true);
-      }, 400);
-    }
-    return () => {
-      if (exoPauseTimerRef.current) {
-        clearTimeout(exoPauseTimerRef.current);
-        exoPauseTimerRef.current = null;
       }
     };
   }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -180,30 +141,21 @@ export function ViewerItem({
 
   // ── Reset everything when item changes ──────────────────────────────────
   useEffect(() => {
-    prepareCancelRef.current = true;
+    hasPreparedRef.current = false;
     setDisplayUri(null);
     setVideoError(null);
-    // nativePlayerFailed is NOT reset here — ExoPlayer availability is a device-level
-    // fact for this build. Once the module-level flag is set, all subsequent items
-    // initialise directly to the expo-video fallback (see useState initialiser above).
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
-    // Reset the debounced video-player mount gate for this new item.
+
+    // Reset the debounced video-player mount gate for the new item.
     if (videoMountTimerRef.current) {
       clearTimeout(videoMountTimerRef.current);
       videoMountTimerRef.current = null;
     }
     setVideoPlayerMounted(isActiveRef.current);
-    // Reset exoPaused debounce timer so the new item starts unpaused if active.
-    if (exoPauseTimerRef.current) {
-      clearTimeout(exoPauseTimerRef.current);
-      exoPauseTimerRef.current = null;
-    }
-    setExoPaused(!isActiveRef.current);
-    prepareCancelRef.current = false;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-show thumbnail when slide becomes inactive (for next swipe-back)
+  // Re-show thumbnail when slide becomes inactive so swipe-back looks right.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
@@ -213,48 +165,65 @@ export function ViewerItem({
   }, [isActive, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Prepare URI ──────────────────────────────────────────────────────────
+  // hasPreparedRef gates this effect so it runs at most once per item.
+  // displayUri is intentionally NOT in the dependency array — including it
+  // caused React to run the effect cleanup (setting a cancel flag) every time
+  // setDisplayUri was called, which silently dropped the copy result for
+  // the next swipe-to-same-item scenario.
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
+        // Fully out of the window — free the display URI so the player
+        // is not mounted for off-screen items.
         setDisplayUri(null);
         setVideoError(null);
+        hasPreparedRef.current = false;
       }
       return;
     }
 
-    if (displayUri) return;
+    // Already started or completed preparation for this item.
+    if (hasPreparedRef.current) return;
+
+    // Don't start SAF copy until the slide is actually active.
+    // Images are cheap and can be set immediately for adjacent slides.
+    if (item.type !== 'image' && !isActive) return;
+
+    hasPreparedRef.current = true;
 
     if (item.type === 'image') {
       setDisplayUri(initialSource);
       return;
     }
 
-    if (!isActive) return;
-
     if (!isSAF) {
+      // Legacy file:// (saved items or Android ≤10 paths) — play directly.
       setDisplayUri(initialSource);
       return;
     }
 
-    prepareCancelRef.current = false;
+    // SAF content:// video — MUST copy to local file:// before the player
+    // mounts. ExoPlayer cannot reliably stream from the SAF ContentProvider
+    // on Android 11+: the DocumentProvider process is too slow to refill
+    // ExoPlayer's buffer, so playback freezes at ~1s every time.
     setVideoError(null);
 
     prepareStatusForViewing(item as StatusItem, { forPlayback: true })
       .then((fileUri) => {
-        if (prepareCancelRef.current) return;
+        if (!hasPreparedRef.current) return; // cancelled by item change
         if (fileUri) {
           setDisplayUri(fileUri);
         } else {
+          hasPreparedRef.current = false;
           setVideoError('Could not load video — tap to retry');
         }
       })
       .catch(() => {
-        if (prepareCancelRef.current) return;
+        if (!hasPreparedRef.current) return;
+        hasPreparedRef.current = false;
         setVideoError('Could not load video — tap to retry');
       });
-
-    return () => { prepareCancelRef.current = true; };
-  }, [initialSource, isSAF, item, isNearActive, isActive, displayUri, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialSource, isSAF, item.id, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Callbacks for VideoPlayerView ────────────────────────────────────────
   const handlePlaying = useCallback(() => {
@@ -271,15 +240,9 @@ export function ViewerItem({
     setVideoError('Tap to retry');
   }, []);
 
-  // Called by ExoPlayerBoundary when the native view throws at render time,
-  // meaning the native module wasn't compiled into this build — fall back to expo-video.
-  // Sets the module-level flag so no future ViewerItem ever attempts ExoPlayerView again.
-  const handleNativePlayerFail = useCallback(() => {
-    exoPlayerModuleUnavailable = true;
-    setNativePlayerFailed(true);
-  }, []);
-
   const handleRetry = useCallback(() => {
+    // Reset ALL state so the prepare effect re-runs from scratch.
+    hasPreparedRef.current = false;
     setVideoError(null);
     setDisplayUri(null);
     thumbnailOpacity.setValue(1);
@@ -431,38 +394,11 @@ export function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* Video player — mounts as soon as displayUri is ready.
-                key={displayUri} ensures a fresh player for each new file:// URI.
-
-                PRIMARY: native ExoPlayerView (TextureView — immune to OEM surface bugs).
-                FALLBACK: expo-video VideoPlayerView, used when native module was not
-                compiled into the build (ExoPlayerBoundary catches the render error and
-                sets nativePlayerFailed=true).
-
-                Mount guard: videoPlayerMounted (debounced state, see above).
-                  • Becomes true immediately when isActive → true.
-                  • Becomes false after 500 ms when isActive → false.
-                  • Transient render flickers (<16 ms) cancel the timer → no unmount.
-                  • Real swipe-aways fire the timer → player unmounts, decoder freed.
-                This guarantees totalActive=1 at all times (no competing decoders).
-
-                paused={exoPaused} — separate 400 ms debounce for ExoPlayerView so
-                render-flicker false values never reach the native pause API. */}
-            {videoPlayerMounted && displayUri && !nativePlayerFailed && (
-              <ExoPlayerBoundary onError={handleNativePlayerFail}>
-                <ExoPlayerView
-                  key={displayUri}
-                  style={StyleSheet.absoluteFill}
-                  fileUri={displayUri}
-                  paused={exoPaused}
-                  muted={false}
-                  onPlayerReady={handlePlaying}
-                  onPlayerError={handleError}
-                />
-              </ExoPlayerBoundary>
-            )}
-
-            {videoPlayerMounted && displayUri && nativePlayerFailed && (
+            {/* Video player — mounts only when this slide is active AND
+                displayUri is ready (copy complete).
+                key={displayUri}: fresh player instance for every new URI
+                so swipe-back to same video always gets a clean state. */}
+            {videoPlayerMounted && displayUri && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
@@ -472,9 +408,9 @@ export function ViewerItem({
               />
             )}
 
-            {/* Thumbnail poster — always behind the video, fades to 0 once
-                playingChange fires. Never shows a spinner or play button.
-                Opacity animates smoothly: 1 (covering) → 0 (transparent). */}
+            {/* Thumbnail poster — covers the black frame while copy is in
+                progress and while the decoder warms up. Fades to invisible
+                once the first real frame is confirmed via timeUpdate > 0. */}
             <Animated.View
               style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
               pointerEvents="none"
@@ -491,7 +427,7 @@ export function ViewerItem({
               />
             </Animated.View>
 
-            {/* Retry overlay — only shown on actual playback error */}
+            {/* Retry overlay — only shown on confirmed playback error */}
             {videoError && (
               <TouchableOpacity
                 style={[

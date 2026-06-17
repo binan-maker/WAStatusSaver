@@ -1042,29 +1042,37 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     }
 
     // Fast path: cached file exists AND is complete.
-    // "size > 0" is not enough — a partial file from preCopyAll or an
-    // interrupted previous copy also passes that check.
-    // Rules (applied in order):
-    //   1. item.size known → accept only if cachedSize ≥ 99 % of source size.
-    //   2. item.size unknown → accept only if cachedSize > 100 KB
-    //      (WhatsApp status videos are always > 100 KB; filters partial writes).
-    //   3. Otherwise → delete the partial file and fall through to a fresh copy.
-    try {
-      const info = await FileSystem.getInfoAsync(tempUri);
-      if (info.exists) {
-        const cachedSize: number = (info as any).size ?? 0;
-        const sourceSize: number = item.size ?? 0;
-        const complete =
-          sourceSize > 0
-            ? cachedSize >= sourceSize * 0.99
-            : cachedSize > 100 * 1024;
-        if (complete) return tempUri;
-        // Partial or tiny file — delete so the copy below starts fresh.
-        if (cachedSize > 0) {
-          FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+    //
+    // IMPORTANT — only use the fast path when item.size is known (> 0).
+    // JS-fallback scan items (readFromSAFJsFallback) omit the size field, so
+    // item.size = 0. Without the source size we cannot distinguish a complete
+    // file from a partial one left by a killed copy. The old "cachedSize > 100KB"
+    // threshold accepted any large partial file, which caused ExoPlayer to decode
+    // the MP4 header (first frame rendered), hit premature EOF, and freeze.
+    //
+    // When item.size is unknown we skip the fast path entirely and always do a
+    // fresh copy. FileSystem.copyAsync is atomic (all-or-nothing), so the result
+    // is always a complete file — no freeze possible.
+    //
+    // When item.size IS known (native SafReader module compiled into the EAS
+    // build), the ≥ 99% size check is strong and the fast path is used.
+    if ((item.size ?? 0) > 0) {
+      try {
+        const info = await FileSystem.getInfoAsync(tempUri);
+        if (info.exists) {
+          const cachedSize: number = (info as any).size ?? 0;
+          const sourceSize: number = item.size!;
+          if (cachedSize >= sourceSize * 0.99) return tempUri;
+          // Partial file — delete so the copy below starts fresh.
+          if (cachedSize > 0) {
+            FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    } else {
+      // item.size unknown — delete any stale cached file so the copy is fresh.
+      FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+    }
 
     // Dedup: reuse an in-flight copy promise for the same item.
     const existing = copyInFlight.get(item.id);

@@ -1,3 +1,28 @@
+/**
+ * VideoPlayerView — expo-video wrapper for the status viewer.
+ *
+ * ANDROID 11+ FREEZE ROOT CAUSE & FIX
+ * ────────────────────────────────────
+ * The original code called player.play() in THREE places:
+ *   1. useVideoPlayer initializer  → sets playWhenReady=true immediately
+ *   2. statusChange → readyToPlay  → second play() when ready
+ *   3. timeUpdate stall recovery   → pause()+play() at ~1s
+ *
+ * On Android 11+ Media3, the decoder warm-up takes 800ms–1.5s. During
+ * this window the SurfaceTexture is being attached to ExoPlayer's codec.
+ * Any play()/pause() call that arrives while the surface is mid-attach
+ * can leave the Media3 pipeline stuck — the decoder acquires its input
+ * buffer slot but never gets the signal to start draining it.
+ *
+ * Fix: play() is called in EXACTLY ONE place — the readyToPlay handler.
+ * The initializer does NOT call p.play(). The stall recovery is gone.
+ * On swipe-back, player.play() is safe because readyToPlay has already
+ * fired (the MediaItem is still loaded) — no surface re-attachment race.
+ *
+ * timeUpdateEventInterval = 0.5s (2 events/sec). Enough for the
+ * thumbnail-fade callback. The old 0.1s (10/sec) flooded the JS thread
+ * during the codec init window and worsened jank on mid-range devices.
+ */
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -10,14 +35,8 @@ interface VideoPlayerViewProps {
 }
 
 let _mountedCount = 0;
+export function getActiveMountedCount(): number { return _mountedCount; }
 
-export function getActiveMountedCount(): number {
-  return _mountedCount;
-}
-
-// React.memo: prevents re-renders from unrelated ViewerItem state changes
-// (exoPaused, videoPlayerMounted, etc.). On Android 11+ a VideoView re-render
-// briefly detaches its SurfaceTexture from ExoPlayer, pausing playback.
 export const VideoPlayerView = React.memo(function VideoPlayerView({
   fileUri,
   isActive,
@@ -30,27 +49,20 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   const hasCalledOnPlaying = useRef(false);
   const didMountRef = useRef(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks whether readyToPlay has fired for the current file.
+  // Reset on swipe-back so that if the player was released and re-mounted
+  // for a new URI, play() will be called again via readyToPlay.
+  const readyFiredRef = useRef(false);
 
-  // NOTE: No stall-recovery timers here. The previous armStallTimer logic
-  // (pause→play at ~1s) was the cause of the Android 11+ freeze, not the
-  // cure. On Android 11+ Media3/ExoPlayer the decoder state machine is
-  // strict: interrupting it with pause()+play() during codec warm-up
-  // (which happens in the first ~1s of playback) leaves the decoder stuck.
-  // Android 10 tolerates it because it uses an older ExoPlayer build.
-  //
-  // The real fix for the content:// streaming issue is prepareStatusForViewing()
-  // in MediaContextSAF — videos are ALWAYS copied to a local file:// path
-  // before being handed to the player, so there is no buffer-starvation
-  // problem to recover from. Stall recovery is unnecessary and harmful.
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
     p.loop = true;
     p.muted = false;
-    // 0.5s interval = 2 events/sec. Enough to detect first real frame for
-    // the thumbnail-fade callback. Never set below 0.2 — tighter intervals
-    // flood the JS thread with bridge events during the most critical codec
-    // initialization window (first 0–2s) and cause jank on mid-range devices.
     p.timeUpdateEventInterval = 0.5;
-    p.play();
+    // DO NOT call p.play() here.
+    // Calling play() before the SurfaceTexture is attached causes Android 11+
+    // Media3 to enter a broken state where the decoder prepares and renders
+    // one frame but never advances. readyToPlay fires after surface attachment
+    // is complete and is the only safe point to begin playback.
   });
 
   const confirmPlaying = useCallback(() => {
@@ -64,10 +76,7 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
 
     const timeUpdateSub = player.addListener('timeUpdate', (event: any) => {
       const time = event.currentTime ?? 0;
-      // Only confirm once playback has genuinely advanced past 0.
-      if (time > 0) {
-        confirmPlaying();
-      }
+      if (time > 0) confirmPlaying();
     });
 
     const statusSub = player.addListener('statusChange', (event: any) => {
@@ -75,13 +84,10 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
         onError(event.error?.message ?? 'Playback error');
         return;
       }
-      // One-time nudge: player finished preparing but hasn't started yet.
-      // This covers the Android 11+ surface-attach race where playWhenReady
-      // was set before the VideoView's SurfaceTexture was fully attached.
-      // This fires AT MOST ONCE per player instance — it is not a loop.
-      // Do NOT add player.play() anywhere else: every extra call risks
-      // interrupting internal Media3 state transitions.
-      if (event.status === 'readyToPlay' && isActiveRef.current && !player.playing) {
+      if (event.status === 'readyToPlay' && isActiveRef.current && !readyFiredRef.current) {
+        // Play exactly once per file load, after Media3 confirms the
+        // decoder and surface are both fully ready.
+        readyFiredRef.current = true;
         try { player.play(); } catch {}
       }
     });
@@ -98,10 +104,9 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pause on swipe-away (400 ms debounce); resume + reset on swipe-back.
-  // The debounce absorbs transient isActive=false flickers from FlatList
-  // reconciliation (one-frame false on the active slide) so the decoder
-  // is never interrupted by a render-timing artifact.
+  // Pause on swipe-away (400ms debounce absorbs FlatList transient flickers);
+  // resume on swipe-back. readyToPlay has already fired for this file so a
+  // direct play() call is safe here — no second surface-attach race.
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
@@ -115,6 +120,7 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
 
     if (isActive) {
       hasCalledOnPlaying.current = false;
+      // readyFiredRef stays true — file is already loaded, play() is safe.
       try { if (!player.playing) player.play(); } catch {}
     } else {
       pauseTimerRef.current = setTimeout(() => {

@@ -1,0 +1,63 @@
+
+  - [?] expo-web-browser (15.0.11)
+
+
+> Task :react-native-worklets:buildCMakeDebug[arm64-v8a][worklets]
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\WA\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5c4f581j\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\WA\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5c4f581j\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-screens:buildCMakeDebug[arm64-v8a]
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\WA\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\485i4jf2\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\WA\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\485i4jf2\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-screens:buildCMakeDebug[armeabi-v7a]
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.armeabi-v7a\libreactnative.so' to 'D:\WA\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\485i4jf2\obj\armeabi-v7a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.armeabi-v7a\libreactnative.so' to 'D:\WA\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\485i4jf2\obj\armeabi-v7a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-worklets:buildCMakeDebug[armeabi-v7a][worklets]
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.armeabi-v7a\libreactnative.so' to 'D:\WA\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5c4f581j\obj\armeabi-v7a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.armeabi-v7a\libreactnative.so' to 'D:\WA\node_modules\react-native-worklets\android\build\intermediates\cxx\Debug\5c4f581j\obj\armeabi-v7a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///D:/WA/android/app/src/main/java/com/binan/statussaver/MainApplication.kt:7:21 Unresolved reference 'exoplayer'.
+e: file:///D:/WA/android/app/src/main/java/com/binan/statussaver/MainApplication.kt:8:21 Unresolved reference 'safreader'.
+
+> Task :expo-modules-core:buildCMakeDebug[arm64-v8a]
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\WA\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\2v504h4t\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\Administrator\.gradle\caches\8.14.3\transforms\b2680b08f1e2cb52f3dff51eef1dacfb\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\WA\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\2v504h4t\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+[Incubating] Problems report is available at: file:///D:/WA/android/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 20s
+306 actionable tasks: 139 executed, 143 from cache, 24 up-to-date
+Error: D:\WA\android\gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeDevServerPort=8081 -PreactNativeArchitectures=arm64-v8a,armeabi-v7a exited with non-zero code: 1
+Error: D:\WA\android\gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeDevServerPort=8081 -PreactNativeArchitectures=arm64-v8a,armeabi-v7a exited with non-zero code: 1
+    at ChildProcess.completionListener (D:\WA\node_modules\@expo\spawn-async\src\spawnAsync.ts:167:13)
+    at Object.onceWrapper (node:events:623:26)
+    at ChildProcess.emit (node:events:508:28)
+    at ChildProcess.cp.emit (D:\WA\node_modules\cross-spawn\lib\enoent.js:34:29)
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:294:12)
+    ...
+    at spawnAsync (D:\WA\node_modules\@expo\spawn-async\src\spawnAsync.ts:39:21)
+    at spawnGradleAsync (D:\WA\node_modules\expo\node_modules\@expo\cli\src\start\platforms\android\gradle.ts:134:28)
+    at assembleAsync (D:\WA\node_modules\expo\node_modules\@expo\cli\src\start\platforms\android\gradle.ts:83:16)
+    at runAndroidAsync (D:\WA\node_modules\expo\node_modules\@expo\cli\src\run\android\runAndroidAsync.ts:62:24)
