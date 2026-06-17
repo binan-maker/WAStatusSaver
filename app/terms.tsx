@@ -29,21 +29,6 @@ function Section({ title, content }: SectionProps) {
   );
 }
 
-function PricingRow({ plan, duration, price, note }: { plan: string; duration: string; price: string; note?: string }) {
-  const COLORS = useThemeColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  return (
-    <View style={styles.priceRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.priceRowPlan}>{plan}</Text>
-        <Text style={styles.priceRowDuration}>{duration}</Text>
-        {note && <Text style={styles.priceRowNote}>{note}</Text>}
-      </View>
-      <Text style={styles.priceRowAmount}>{price}</Text>
-    </View>
-  );
-}
-
 export default function TermsScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
@@ -69,7 +54,7 @@ export default function TermsScreen() {
             <Text style={styles.heroBadgeText}>Legal Document</Text>
           </View>
           <Text style={styles.heroTitle}>Terms &amp; Conditions</Text>
-          <Text style={styles.heroMeta}>Last updated: April 22, 2026 · App version 1.3.7</Text>
+          <Text style={styles.heroMeta}>Last updated: June 17, 2026 · App version 1.4.0</Text>
         </View>
 
         <View style={styles.highlight}>
@@ -88,64 +73,24 @@ export default function TermsScreen() {
           content="You may use StatusVault for personal, non-commercial purposes only. You agree not to copy, modify, distribute, or reverse-engineer the app. You are solely responsible for ensuring you have permission to save and share any status media, and for complying with WhatsApp's Terms of Service and applicable copyright laws."
         />
 
-        <Text style={styles.sectionTitle}>3. Subscription Pricing</Text>
-        <Text style={[styles.sectionContent, { marginBottom: SPACING.SM }]}>
-          All prices are in Indian Rupees (INR), inclusive of taxes. Subscriptions are one-time payments — nothing auto-renews.
-        </Text>
-        <View style={styles.pricingCard}>
-          <PricingRow plan="Monthly" duration="30 days" price="₹29" note="Remove all ads" />
-          <View style={styles.priceRowDivider} />
-          <PricingRow plan="3 Months" duration="90 days" price="₹79" note="Ad-free for 3 months" />
-          <View style={styles.priceRowDivider} />
-          <PricingRow plan="Yearly" duration="365 days" price="₹149" note="Full year + priority support" />
-        </View>
-        <Text style={[styles.sectionContent, { marginTop: SPACING.SM }]}>
-          If you purchase while an existing subscription is active, the new duration stacks on top — you never lose a day you paid for.
-        </Text>
-
         <Section
-          title="4. Refund & Cancellation Policy"
-          content={"All sales are final as digital goods cannot be returned. Limited refunds are available only in the cases described below.\n\n— GOOGLE PLAY STORE —\nRefunds are governed entirely by Google Play's standard refund policy. You can request a refund from the Play Store app within 48 hours of purchase (Play Store → Profile → Payments & subscriptions → Order history). Beyond 48 hours, refunds are at Google's sole discretion. We do not handle Play Store refunds directly.\n\n— INDUS APP STORE / OTHER STORES (Razorpay) —\nA refund request will be considered ONLY if you contact us within 48 HOURS of purchase via email at ahmedsameerbinan2@gmail.com with your Razorpay Payment ID, AND any one of the following applies:\n• You were charged but Pro was not activated due to a verified technical failure on our side.\n• You were charged twice for the same plan period.\n• The app is fundamentally non-functional on your device and we cannot resolve the issue within 14 days of your report.\n\nIMPORTANT — DEDUCTIONS APPLIED TO REFUNDS (Razorpay only):\nApproved refunds are NOT issued at the full purchase amount. The following non-recoverable amounts will be deducted from your refund:\n• Payment-gateway processing fee (~2–3% charged by Razorpay, non-refundable to us)\n• GST and any applicable taxes already remitted to the government\n• Platform / store commission already remitted to the app store\n• A flat ₹10 administrative handling charge per refund\n\nThe net refund amount will therefore be lower than the price you paid. By making a purchase, you accept these deductions.\n\nNOT ELIGIBLE FOR REFUND:\n• Change of mind, accidental purchase after 48 hours, or buyer's remorse.\n• 1-Month plan (₹29) — gateway fees consume most of the value, so refunds are not offered for change-of-mind on this plan.\n• Custom ROMs or non-standard Android forks where the app cannot run.\n• Loss of access caused by changes you made to your own Google account.\n• Removal of the app from any store after your purchase.\n• Subscriptions consumed for more than 7 days of active use.\n• Accounts deleted via the in-app 'Delete Account' option (this voluntarily forfeits any remaining Pro time).\n• Free-Pro days earned through the Invite & Earn ladder or any influencer/giveaway code (these have zero monetary value).\n\nPROCESSING TIME:\nApproved refund decisions are made within 5 business days. Approved net refunds are credited to the original payment method within 7–10 business days.\n\nANTI-ABUSE: Initiating a bank chargeback in lieu of using this refund process will result in a permanent ban from future purchases and revocation of all earned free-Pro time."}
-        />
-
-        <Section
-          title="5. Payment Processing"
-          content={"StatusVault uses different payment systems depending on which app store you installed it from:\n\n• Google Play Store: Payments are handled entirely by Google Play Billing. Google processes the transaction and issues a receipt to your Gmail. We never receive your card or UPI details. Purchases appear on your Google Play account.\n\n• Indus App Store / Other stores: Payments are processed by Razorpay Software Private Limited, an RBI-licensed payment aggregator. We never store your card number, UPI PIN, or bank credentials. Accepted methods: UPI, credit/debit cards, net banking, and wallets.\n\nIn both cases, subscription status is verified server-side and stored in Firebase Firestore linked to your Firebase UID."}
-        />
-
-        <Section
-          title="5a. Account Deletion & Loss of Pro Access"
-          content={"You may permanently delete your StatusVault account at any time from Settings → Delete Account. The following consequences are FINAL and IRREVERSIBLE:\n\n• Any active Pro subscription is immediately and permanently forfeited. No refund (full or partial) will be issued for remaining paid days.\n• Earned free-Pro days from referrals or influencer codes are erased and cannot be restored.\n• Referral history, invite code, and ladder progress are erased.\n• Your Firebase Authentication entry is queued for deletion. Subscription records are retained for 90 days for audit before permanent purge.\n• Re-installing the app or signing back in with the same Google account will NOT restore lost Pro time.\n\nWhat is preserved on your device after deletion:\n• Statuses already saved to your gallery's 'StatusVault' album remain on your device storage and are NOT deleted by the app.\n\nBy tapping 'Delete Account' you confirm you have read and accepted these consequences."}
-        />
-
-        <Section
-          title="6. Advertisements"
-          content="The free tier displays advertisements served by Google AdMob. By using the free tier, you acknowledge and consent to ad display. Ads are fully removed for the duration of an active Pro subscription, an active rewarded-ad bonus period, or any free-Pro time earned through the Invite & Earn ladder or an influencer / giveaway code."
-        />
-
-        <Section
-          title="7. Invite & Earn and Influencer Codes"
-          content={"Personal invite codes: Every signed-in user automatically receives a unique 6-character invite code. Inviting friends advances you up the Reward Ladder — 3 friends grant 48 hours of free Pro, 10 friends grant 1 week, 50 friends grant 1 month, 100 friends grant 3 months, and 500 friends grant 1.5 years (548 days). Earned days STACK on top of any existing Pro time and are credited automatically once the friend signs in.\n\nInfluencer / giveaway codes: Limited-quantity codes distributed by partners can be redeemed once per user from the Subscription screen. Each code grants the duration set by the campaign (commonly 90 days). Codes cannot be redeemed if you already have an active Pro subscription, and one device fingerprint can only redeem a given code once.\n\nFraud protection: Self-referral, duplicate-account abuse, and chargeback abuse will result in revocation of any free-Pro time granted and may lead to a permanent ban from future code redemption. We reserve the right to retire, suspend, or change reward thresholds at any time; existing earned-Pro days are not retroactively reduced."}
-        />
-
-        <Section
-          title="8. Disclaimer of Warranties"
+          title="3. Disclaimer of Warranties"
           content={"StatusVault is provided 'as is' without warranties of any kind. We do not guarantee uninterrupted or error-free operation. The app's ability to access WhatsApp statuses depends on WhatsApp's storage behaviour, which is outside our control and may change with WhatsApp updates."}
         />
 
         <Section
-          title="9. Limitation of Liability"
+          title="4. Limitation of Liability"
           content="To the maximum extent permitted by law, the Developer shall not be liable for any indirect, incidental, or consequential damages. Our total liability for any claim shall not exceed the amount you paid to us in the 12 months preceding the claim."
         />
 
         <Section
-          title="10. Governing Law"
+          title="5. Governing Law"
           content="These Terms are governed by the laws of India. Disputes shall be subject to the exclusive jurisdiction of Indian courts. Consumer disputes may also be addressed through India's National Consumer Disputes Redressal Commission (NCDRC)."
         />
 
         <Section
-          title="11. Contact Us"
-          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021.\n\nFor Google Play billing disputes: Use the Play Store app or contact Google Play Support.\nFor Razorpay billing disputes: Contact Razorpay Support at razorpay.com/support."}
+          title="6. Contact Us"
+          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021."}
         />
 
         <View style={styles.footer}>
@@ -261,45 +206,6 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     fontSize: FONT_SIZE.SM,
     color: COLORS.TEXT_SECONDARY,
     lineHeight: 22,
-  },
-  pricingCard: {
-    backgroundColor: COLORS.SURFACE,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    borderRadius: RADIUS.MD,
-    overflow: 'hidden',
-    marginVertical: SPACING.SM,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.MD,
-  },
-  priceRowDivider: {
-    height: 1,
-    backgroundColor: COLORS.BORDER,
-  },
-  priceRowPlan: {
-    fontSize: FONT_SIZE.MD,
-    fontWeight: '700',
-    color: COLORS.TEXT,
-    fontFamily: 'Nunito_700Bold',
-  },
-  priceRowDuration: {
-    fontSize: FONT_SIZE.XS,
-    color: COLORS.TEXT_MUTED,
-    marginTop: 1,
-  },
-  priceRowNote: {
-    fontSize: FONT_SIZE.XS,
-    color: COLORS.TEXT_SECONDARY,
-    marginTop: 2,
-  },
-  priceRowAmount: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: COLORS.PRIMARY,
-    fontFamily: 'Nunito_800ExtraBold',
   },
   footer: {
     marginTop: SPACING.XL,

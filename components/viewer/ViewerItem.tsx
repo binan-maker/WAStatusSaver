@@ -7,7 +7,7 @@
  * modules/exo-player/android/ that are not present in this repo, so
  * UIManager.hasViewManagerConfig('ExoPlayerView') always returns false
  * and the module is always unavailable. All video playback therefore goes
- * through expo-video (VideoPlayerView). The ExoPlayerView/ExoPlayerBoundary
+ * through react-native-video (VideoPlayerView). The ExoPlayerView/ExoPlayerBoundary
  * code has been removed to eliminate the state changes (nativePlayerFailed,
  * exoPaused) they caused — those state updates triggered ViewerItem re-renders
  * while a video was playing, which detached and reattached the VideoView's
