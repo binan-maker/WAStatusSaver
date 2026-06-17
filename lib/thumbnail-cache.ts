@@ -232,7 +232,6 @@ async function generateOne(item: ThumbItem): Promise<void> {
         ]);
       } catch {
         // Native timed out or threw — fall back to JS path.
-        __DEV__ && console.log('[ThumbnailCache] native thumb failed/timed-out, falling back:', item.id);
       }
       if (!nativeOk) {
         if (isPaused) return; // don't start JS fallback if viewer opened during native attempt
@@ -251,7 +250,6 @@ async function generateOne(item: ThumbItem): Promise<void> {
     // Codec error / unsupported container / both paths failed.
     // Silently skip — the grid shows the blurhash placeholder for this
     // item; the next loadStatuses() scan will retry.
-    __DEV__ && console.log('[ThumbnailCache] both paths failed for:', item.id);
   }
 }
 

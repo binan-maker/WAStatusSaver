@@ -111,7 +111,6 @@ export function withTimeout<T>(
     const t = setTimeout(() => {
       if (settled) return;
       settled = true;
-      if (label) __DEV__ && console.log(`[Timeout] ${label} timed out after ${ms}ms`);
       resolve(fallback);
     }, ms);
     p.then(

@@ -182,7 +182,6 @@ export const ViewerItem = React.memo(function ViewerItem({
           // cached copy. This should not happen for videos, but if it does,
           // surface the retry overlay rather than passing content:// to the
           // player and triggering the freeze.
-          if (__DEV__) console.warn('[ViewerItem] content:// leaked to displayUri — forcing retry', fileUri);
           hasPreparedRef.current = false;
           setVideoError('Could not load video — tap to retry');
         } else {

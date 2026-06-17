@@ -619,7 +619,6 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
         }
         return items;
       } catch (e) {
-        __DEV__ && console.warn('[SAF-Native] failed, falling back to JS:', e);
       }
     }
 
@@ -802,7 +801,6 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
               results.push(...list);
               if (safEntries.length > 1) await new Promise(r => setTimeout(r, 50));
             } catch (e) {
-              __DEV__ && console.warn(`[SAF] Failed to read ${source}:`, e);
             }
           }
           return results;

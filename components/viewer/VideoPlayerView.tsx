@@ -27,11 +27,7 @@
  * fileUri changes (= different item or tap-to-retry). All callbacks are
  * created at module level or with [] deps so they never cause re-renders.
  */
-<<<<<<< HEAD
 import React, { useCallback, useMemo } from 'react';
-=======
-import React, { useEffect, useCallback, useMemo } from 'react';
->>>>>>> b1a7c231310a45f142cd53035c61f7e78f96d4e0
 import { StyleSheet } from 'react-native';
 import Video, { type OnVideoErrorData } from 'react-native-video';
 
@@ -48,8 +44,6 @@ interface StableVideoProps {
 }
 
 // ─── Buffer config — tuned for local file:// playback ─────────────────────────
-// Do NOT increase these values for network streams — these are intentionally
-// low because the "buffer" here is just reading bytes from internal storage.
 const BUFFER_CONFIG = {
   minBufferMs: 1000,
   maxBufferMs: 5000,
@@ -62,18 +56,6 @@ const STABLE_STYLE = StyleSheet.absoluteFill;
 // ─── StableVideo ──────────────────────────────────────────────────────────────
 const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
   const source = useMemo(() => ({ uri: p.fileUri }), [p.fileUri]);
-
-  // [VIDEO-SOURCE] fires once per URI change.
-  // file://  → cache copy succeeded, SAF is out of the playback path ✓
-  // content:// → URI leaked through — should never happen after our guard
-<<<<<<< HEAD
-=======
-  useEffect(() => {
-    if (!__DEV__) return;
-    const scheme = p.fileUri.startsWith('content://') ? '⚠️  content://' : 'file://';
-    console.log('[VIDEO-SOURCE]', scheme, p.fileUri.slice(0, 120));
-  }, [p.fileUri]);
->>>>>>> b1a7c231310a45f142cd53035c61f7e78f96d4e0
 
   return (
     <Video
@@ -102,16 +84,8 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   onPlaying,
   onError,
 }: VideoPlayerViewProps) {
-  // Always call onPlaying on every onReadyForDisplay — no hasCalledOnPlaying gate.
-  //
-  // With repeat={true} ExoPlayer fires onReadyForDisplay at every loop boundary.
-  // Blocking repeated calls left the thumbnail at opacity 0 with nothing covering
-  // the brief black frame at the loop transition → visible black flash, especially
-  // in light mode. ViewerItem's handlePlaying is idempotent: animating to toValue 0
-  // when the thumbnail is already at 0 is a native no-op with zero visual effect.
   const handleReadyForDisplay = useCallback(() => {
     onPlaying();
-  // onPlaying is stable in ViewerItem (useCallback [thumbnailOpacity — never changes])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

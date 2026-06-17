@@ -14,7 +14,6 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
 import { useMedia, SavedItem } from '@/contexts/MediaContext';
 import { MediaCard } from '@/components/media/MediaCard';

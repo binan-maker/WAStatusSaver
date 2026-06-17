@@ -15,7 +15,6 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useMedia } from '@/contexts/MediaContext';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
@@ -119,7 +118,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const deviceName = Device.modelName || Device.deviceName || 'Unknown Device';
+  const deviceName = (Platform.constants as Record<string, string>).Model || 'Unknown Device';
   const osVersion =
     Platform.OS === 'android' ? `Android ${androidVersion}` : `iOS ${Platform.Version}`;
 

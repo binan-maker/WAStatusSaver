@@ -20,8 +20,6 @@ export const useStableStatusBar = (options?: {
     StatusBar.setBackgroundColor(backgroundColor, true);
     StatusBar.setTranslucent(translucent);
 
-    SystemUI.setBackgroundColorAsync(backgroundColor).catch(() => {
-      __DEV__ && console.log('[StatusBar] Using fallback mode');
-    });
+    SystemUI.setBackgroundColorAsync(backgroundColor).catch(() => {});
   }, []);
 };

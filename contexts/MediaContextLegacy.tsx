@@ -224,7 +224,6 @@ export function MediaProviderLegacy({ children }: { children: ReactNode }) {
 
   // No SAF on legacy devices — stub
   const requestSAF = useCallback(async (_source?: StatusSource, _manual?: boolean) => {
-    __DEV__ && console.log('[Legacy] requestSAF called but not supported on Android <11');
   }, []);
 
   // ── Legacy file reader ────────────────────────────────────────────────────
