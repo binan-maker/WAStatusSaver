@@ -44,8 +44,7 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
     p.loop = true;
     p.muted = false;
-    p.timeUpdateEventInterval = 0.25;
-    p.play();
+p.timeUpdateEventInterval = 0.1;    p.play();
   });
 
   const confirmPlaying = useCallback(() => {
@@ -61,26 +60,40 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     }
   }, []);
 
-  // Arms (or re-arms) the stall watchdog. Called on every timeUpdate so the
-  // timer only fires when frames genuinely stop advancing.
-  const armStallTimer = useCallback(() => {
-    clearStallTimer();
-    if (stallCountRef.current >= MAX_RECOVERY_ATTEMPTS) return;
-    stallTimerRef.current = setTimeout(() => {
-      stallTimerRef.current = null;
-      if (
-        isActiveRef.current &&
-        player.status === 'readyToPlay' &&
-        !player.playing &&
-        (player.bufferedPosition ?? 0) > 0.1
-      ) {
-        stallCountRef.current++;
-        try { player.play(); } catch {}
-        // Re-arm so we catch a second stall after this recovery.
-        armStallTimer();
-      }
-    }, STALL_TIMEOUT_MS);
-  }, [player, clearStallTimer]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lastTimeRef = useRef(0);
+
+const armStallTimer = useCallback(() => {
+  clearStallTimer();
+
+  if (stallCountRef.current >= MAX_RECOVERY_ATTEMPTS) return;
+
+  stallTimerRef.current = setTimeout(() => {
+    stallTimerRef.current = null;
+
+    if (!isActiveRef.current) return;
+
+    const currentTime = player.currentTime ?? 0;
+
+    if (
+      player.status === 'readyToPlay' &&
+      currentTime <= lastTimeRef.current + 0.05
+    ) {
+      stallCountRef.current++;
+
+      try {
+        player.pause();
+      } catch {}
+
+      setTimeout(() => {
+        try {
+          player.play();
+        } catch {}
+      }, 100);
+
+      armStallTimer();
+    }
+  }, 1000);
+}, [player]);
 
   useEffect(() => {
     _mountedCount++;
@@ -88,13 +101,17 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     // Arm immediately — catches cases where the player loads but never starts.
     armStallTimer();
 
+    
     const timeUpdateSub = player.addListener('timeUpdate', (event: any) => {
-      if ((event.currentTime ?? 0) > 0) {
-        confirmPlaying();
-        // Frames are advancing — reset the stall countdown.
-        armStallTimer();
-      }
-    });
+  const time = event.currentTime ?? 0;
+
+  lastTimeRef.current = time;
+
+  if (time > 0) {
+    confirmPlaying();
+    armStallTimer();
+  }
+});
 
     const statusSub = player.addListener('statusChange', (event: any) => {
       if (event.status === 'error') {
@@ -161,10 +178,10 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
 
   return (
     <VideoView
-      player={player}
-      style={StyleSheet.absoluteFill}
-      nativeControls={false}
-      contentFit="contain"
-    />
+  player={player}
+  style={StyleSheet.absoluteFill}
+  nativeControls={false}
+  contentFit="cover"
+/>
   );
 });
