@@ -166,7 +166,15 @@ export function VideoPlayerView({
 
     if (isActive) {
       hasCalledOnPlaying.current = false;
-      try { player.play(); } catch {}
+      // Only call play() when the player is not already playing.
+      // Calling play() on an already-playing ExoPlayer interrupts its
+      // internal buffer-fill pipeline on Android 11+ — that is the
+      // play→freeze→play symptom at ~0.7 s.  If isActive briefly flipped
+      // false→true (render flicker) and the pause debounce cancelled the
+      // pause, the player never stopped; calling play() again here would
+      // trigger the same buffer interruption the original didMountRef guard
+      // was added to prevent.
+      try { if (!player.playing) player.play(); } catch {}
     } else {
       pauseTimerRef.current = setTimeout(() => {
         pauseTimerRef.current = null;
