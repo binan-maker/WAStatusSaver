@@ -1,0 +1,175 @@
+Now we have enough evidence.
+
+Your logs show:
+
+```txt
+buffered=44.22
+playing=true
+playing=false at 1.07s
+```
+
+A video with **44 seconds already buffered** cannot freeze because of storage.
+
+That means:
+
+```txt
+NOT SAF
+NOT file copy
+NOT cache
+NOT thumbnail
+NOT Android 11 storage
+```
+
+The player is being **paused/stopped by code**.
+
+### The smoking gun in your code
+
+In `VideoPlayerView.tsx`:
+
+```ts
+useEffect(() => {
+  if (!didMountRef.current) {
+    didMountRef.current = true;
+    return;
+  }
+
+  try {
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  } catch {}
+}, [isActive]);
+```
+
+If `isActive` briefly becomes:
+
+```txt
+true
+↓
+false
+```
+
+for even one render,
+
+your player pauses immediately.
+
+And your logs show the stop happening almost exactly after startup.
+
+---
+
+## Add this log NOW
+
+Inside that effect:
+
+```ts
+useEffect(() => {
+  console.log(
+    '[ACTIVE EFFECT]',
+    'isActive=',
+    isActive
+  );
+
+  if (!didMountRef.current) {
+    didMountRef.current = true;
+    return;
+  }
+
+  try {
+    if (isActive) {
+      console.log('[PLAY CALLED]');
+      player.play();
+    } else {
+      console.log('[PAUSE CALLED]');
+      player.pause();
+    }
+  } catch {}
+}, [isActive]);
+```
+
+---
+
+## Also add this
+
+In `ViewerItem.tsx`:
+
+```ts
+useEffect(() => {
+  console.log(
+    '[ViewerItem]',
+    item.id,
+    'isActive=',
+    isActive,
+    'isNearActive=',
+    isNearActive
+  );
+}, [isActive, isNearActive]);
+```
+
+---
+
+### What I expect to see
+
+Very likely:
+
+```txt
+isActive=true
+Video starts
+
+0.8 seconds later
+
+isActive=false
+PAUSE CALLED
+
+playing=false
+```
+
+If that appears, we've found the bug.
+
+---
+
+### Another thing I would test immediately
+
+Temporarily comment out:
+
+```ts
+player.pause();
+```
+
+Change to:
+
+```ts
+if (isActive) {
+  player.play();
+}
+```
+
+for one test build only.
+
+If the freezes disappear completely:
+
+```txt
+ROOT CAUSE FOUND
+```
+
+and the issue is your active-slide logic, not video playback.
+
+---
+
+### Based on the evidence so far
+
+Confidence:
+
+```txt
+SAF issue           0%
+Copy issue          0%
+Buffering issue     0%
+Thumbnail issue     0%
+
+isActive pause bug  80%
+FlatList visibility 15%
+Expo-video bug       5%
+```
+
+The next log we need is whether `isActive` changes around the exact moment that `playingChange=false` occurs. That is the most likely explanation for a fully buffered video stopping at 1.07 seconds.

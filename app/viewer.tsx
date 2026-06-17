@@ -117,43 +117,42 @@ export default function ViewerScreen() {
     return statuses.filter(s => s.type === start.type);
   }, [isSavedView, savedItems, statuses, id]);
 
-  const initialIndex = useMemo(() => {
-    const idx = items.findIndex(it => it.id === id || decodeURIComponent(it.id) === id);
-    return idx === -1 ? 0 : idx;
-  }, [items, id]);
+  // ── Active-item tracking ────────────────────────────────────────────────
+  // We track the active item by ID (not by index) so that background calls to
+  // setStatuses() — e.g. the 1 500 ms file-existence sweep in loadStatusesCache —
+  // that remove stale entries and shift indices never cause isActive to flip false
+  // on the currently playing video.
+  //
+  // currentIndex is derived synchronously inside the same render that recomputes
+  // items, so isActive={index === currentIndex} is always correct with zero lag.
+  // A post-render useEffect re-sync would be one frame too late and still let one
+  // intermediate render through with the wrong index, triggering player.pause().
+  const [currentItemId, setCurrentItemId] = useState<string>(id);
 
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  // Derived synchronously — never stale across items shifts.
+  const currentIndex = useMemo(() => {
+    const idx = items.findIndex(
+      it => it.id === currentItemId || decodeURIComponent(it.id) === currentItemId,
+    );
+    return idx !== -1 ? idx : 0;
+  }, [items, currentItemId]);
+
   const flatListRef = useRef<FlatList>(null);
-  const prevIndex = useRef(initialIndex);
-  // Source of truth for which item is active — tracked by ID so background
-  // setStatuses() calls that remove stale files (and shift indices) never
-  // incorrectly flip isActive=false on the currently playing item.
-  const currentItemIdRef = useRef<string>(items[initialIndex]?.id ?? id);
+  const prevIndex = useRef(currentIndex);
 
+  // Scroll to the opening item when the viewer is first shown (or id changes).
   useEffect(() => {
     if (prevIdRef.current !== id) {
       prevIdRef.current = id;
-      if (items.length > 0 && initialIndex >= 0) {
-        currentItemIdRef.current = items[initialIndex]?.id ?? id;
-        setCurrentIndex(initialIndex);
-        prevIndex.current = initialIndex;
+      setCurrentItemId(id);
+      prevIndex.current = currentIndex;
+      if (currentIndex > 0) {
         setTimeout(() => {
-          flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
+          flatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
         }, 50);
       }
     }
-  }, [initialIndex, items.length, id]);
-
-  // Re-sync currentIndex whenever items changes (e.g. background cache validation
-  // removes deleted files via setStatuses).  Without this, removing an item before
-  // the current one shifts all indices down, causing isActive=false on the viewer.
-  useEffect(() => {
-    const newIndex = items.findIndex(it => it.id === currentItemIdRef.current);
-    if (newIndex !== -1 && newIndex !== prevIndex.current) {
-      setCurrentIndex(newIndex);
-      prevIndex.current = newIndex;
-    }
-  }, [items]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, currentIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefetch adjacent images
   useEffect(() => {
@@ -203,8 +202,8 @@ export default function ViewerScreen() {
   const handleIndexSettled = useCallback((event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SW);
     if (index < 0 || index >= items.length || index === prevIndex.current) return;
-    currentItemIdRef.current = items[index]?.id ?? currentItemIdRef.current;
-    setCurrentIndex(index);
+    const newId = items[index]?.id;
+    if (newId) setCurrentItemId(newId);
     setShowControls(true);
     controlsOpacity.setValue(1);
     prevIndex.current = index;
@@ -250,7 +249,7 @@ export default function ViewerScreen() {
         data={items}
         horizontal
         pagingEnabled
-        initialScrollIndex={initialIndex > 0 ? initialIndex : undefined}
+        initialScrollIndex={currentIndex > 0 ? currentIndex : undefined}
         getItemLayout={(_, index) => ({ length: SW, offset: SW * index, index })}
         onMomentumScrollEnd={handleIndexSettled}
         decelerationRate="fast"
