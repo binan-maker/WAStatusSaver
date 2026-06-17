@@ -1086,9 +1086,16 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           const verify = await FileSystem.getInfoAsync(tempUri);
           const verifySize: number = (verify as any).size ?? 0;
           const sourceSize: number = item.size ?? 0;
+          // Mirror the fast-path threshold: when source size is unknown,
+          // require > 100 KB so a partial write (even one with size > 0)
+          // is never accepted. WhatsApp status videos are always > 100 KB.
+          // The old `verifySize > 0` check let half-written files through —
+          // ExoPlayer decoded the MP4 header fine (first frame appeared),
+          // then hit premature EOF and froze. JS-fallback scan items omit
+          // the `size` field, so sourceSize = 0 triggered this path.
           const verifyOk =
             verify.exists &&
-            (sourceSize > 0 ? verifySize >= sourceSize * 0.99 : verifySize > 0);
+            (sourceSize > 0 ? verifySize >= sourceSize * 0.99 : verifySize > 100 * 1024);
           if (verifyOk) return tempUri;
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         } catch {

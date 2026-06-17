@@ -15,14 +15,6 @@ export function getActiveMountedCount(): number {
   return _mountedCount;
 }
 
-// How long without a timeUpdate frame before calling play() as stall recovery.
-// 500 ms: fast enough to recover before the user swipes away, long enough to
-// avoid interrupting codec initialization (which is what caused the old
-// play→freeze→play loop when recovery was triggered too eagerly).
-const STALL_TIMEOUT_MS = 500;
-// Maximum recovery attempts per active session (resets on isActive → true).
-const MAX_RECOVERY_ATTEMPTS = 3;
-
 // React.memo: prevents re-renders from unrelated ViewerItem state changes
 // (exoPaused, videoPlayerMounted, etc.). On Android 11+ a VideoView re-render
 // briefly detaches its SurfaceTexture from ExoPlayer, pausing playback.
@@ -38,13 +30,27 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   const hasCalledOnPlaying = useRef(false);
   const didMountRef = useRef(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stallCountRef = useRef(0);
 
+  // NOTE: No stall-recovery timers here. The previous armStallTimer logic
+  // (pause→play at ~1s) was the cause of the Android 11+ freeze, not the
+  // cure. On Android 11+ Media3/ExoPlayer the decoder state machine is
+  // strict: interrupting it with pause()+play() during codec warm-up
+  // (which happens in the first ~1s of playback) leaves the decoder stuck.
+  // Android 10 tolerates it because it uses an older ExoPlayer build.
+  //
+  // The real fix for the content:// streaming issue is prepareStatusForViewing()
+  // in MediaContextSAF — videos are ALWAYS copied to a local file:// path
+  // before being handed to the player, so there is no buffer-starvation
+  // problem to recover from. Stall recovery is unnecessary and harmful.
   const player = useVideoPlayer({ uri: fileUri }, (p) => {
     p.loop = true;
     p.muted = false;
-p.timeUpdateEventInterval = 0.1;    p.play();
+    // 0.5s interval = 2 events/sec. Enough to detect first real frame for
+    // the thumbnail-fade callback. Never set below 0.2 — tighter intervals
+    // flood the JS thread with bridge events during the most critical codec
+    // initialization window (first 0–2s) and cause jank on mid-range devices.
+    p.timeUpdateEventInterval = 0.5;
+    p.play();
   });
 
   const confirmPlaying = useCallback(() => {
@@ -53,92 +59,36 @@ p.timeUpdateEventInterval = 0.1;    p.play();
     onPlaying();
   }, [onPlaying]);
 
-  const clearStallTimer = useCallback(() => {
-    if (stallTimerRef.current) {
-      clearTimeout(stallTimerRef.current);
-      stallTimerRef.current = null;
-    }
-  }, []);
-
-  const lastTimeRef = useRef(0);
-
-const armStallTimer = useCallback(() => {
-  clearStallTimer();
-
-  if (stallCountRef.current >= MAX_RECOVERY_ATTEMPTS) return;
-
-  stallTimerRef.current = setTimeout(() => {
-    stallTimerRef.current = null;
-
-    if (!isActiveRef.current) return;
-
-    const currentTime = player.currentTime ?? 0;
-
-    if (
-      player.status === 'readyToPlay' &&
-      currentTime <= lastTimeRef.current + 0.05
-    ) {
-      stallCountRef.current++;
-
-      try {
-        player.pause();
-      } catch {}
-
-      setTimeout(() => {
-        try {
-          player.play();
-        } catch {}
-      }, 100);
-
-      armStallTimer();
-    }
-  }, 1000);
-}, [player]);
-
   useEffect(() => {
     _mountedCount++;
 
-    // Arm immediately — catches cases where the player loads but never starts.
-    armStallTimer();
-
-    
     const timeUpdateSub = player.addListener('timeUpdate', (event: any) => {
-  const time = event.currentTime ?? 0;
-
-  lastTimeRef.current = time;
-
-  if (time > 0) {
-    confirmPlaying();
-    armStallTimer();
-  }
-});
+      const time = event.currentTime ?? 0;
+      // Only confirm once playback has genuinely advanced past 0.
+      if (time > 0) {
+        confirmPlaying();
+      }
+    });
 
     const statusSub = player.addListener('statusChange', (event: any) => {
       if (event.status === 'error') {
         onError(event.error?.message ?? 'Playback error');
         return;
       }
-      // One-time nudge: player is ready but hasn't started yet.
-      // Covers Android 11+ race where playWhenReady was set before the
-      // VideoView's SurfaceTexture was attached.
+      // One-time nudge: player finished preparing but hasn't started yet.
+      // This covers the Android 11+ surface-attach race where playWhenReady
+      // was set before the VideoView's SurfaceTexture was fully attached.
+      // This fires AT MOST ONCE per player instance — it is not a loop.
+      // Do NOT add player.play() anywhere else: every extra call risks
+      // interrupting internal Media3 state transitions.
       if (event.status === 'readyToPlay' && isActiveRef.current && !player.playing) {
         try { player.play(); } catch {}
       }
     });
 
-    const playingSub = player.addListener('playingChange', (_event: any) => {
-      // Do NOT call player.play() here. playingChange fires for internal
-      // ExoPlayer transitions (audio-focus handoffs, codec warm-up) that
-      // resolve on their own. Interfering with play() here causes the
-      // play→freeze→play stutter loop. Stall recovery is handled above via
-      // timeUpdate — it only fires when real frames stop advancing.
-    });
-
     return () => {
       timeUpdateSub.remove();
       statusSub.remove();
-      playingSub.remove();
-      clearStallTimer();
       if (pauseTimerRef.current) {
         clearTimeout(pauseTimerRef.current);
         pauseTimerRef.current = null;
@@ -149,6 +99,9 @@ const armStallTimer = useCallback(() => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause on swipe-away (400 ms debounce); resume + reset on swipe-back.
+  // The debounce absorbs transient isActive=false flickers from FlatList
+  // reconciliation (one-frame false on the active slide) so the decoder
+  // is never interrupted by a render-timing artifact.
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
@@ -162,11 +115,8 @@ const armStallTimer = useCallback(() => {
 
     if (isActive) {
       hasCalledOnPlaying.current = false;
-      stallCountRef.current = 0;
-      armStallTimer();
       try { if (!player.playing) player.play(); } catch {}
     } else {
-      clearStallTimer();
       pauseTimerRef.current = setTimeout(() => {
         pauseTimerRef.current = null;
         if (!isActiveRef.current) {
@@ -178,10 +128,10 @@ const armStallTimer = useCallback(() => {
 
   return (
     <VideoView
-  player={player}
-  style={StyleSheet.absoluteFill}
-  nativeControls={false}
-  contentFit="cover"
-/>
+      player={player}
+      style={StyleSheet.absoluteFill}
+      nativeControls={false}
+      contentFit="cover"
+    />
   );
 });

@@ -1,0 +1,211 @@
+Based on everything you've shown so far, I would not blame SAF anymore.
+
+The biggest clue is:
+
+* Android 10 = smooth
+* Android 11+ = video opens
+* First frame appears
+* Then freezes/stalls
+* App UI remains alive
+* Video decoder appears stuck
+
+That means:
+
+```text
+File was found
+File was opened
+Decoder started
+First frame rendered
+Playback progression stopped
+```
+
+If the copy were broken, you'd usually get an error, black screen, or immediate failure—not a clean first frame followed by a stall.
+
+---
+
+Looking at your `VideoPlayerView.tsx`, I see a dangerous pattern:
+
+```ts
+p.play();
+
+...
+
+if (
+  player.status === 'readyToPlay' &&
+  currentTime <= lastTimeRef.current + 0.05
+) {
+  player.pause();
+
+  setTimeout(() => {
+    player.play();
+  }, 100);
+}
+```
+
+and:
+
+```ts
+statusChange => player.play()
+```
+
+and:
+
+```ts
+isActive => player.play()
+```
+
+You have **multiple independent places calling `play()`**.
+
+On Android 11+ ExoPlayer/Media3 can still be attaching surfaces, preparing codecs, or transitioning states while these calls fire.
+
+That often creates:
+
+```text
+play
+prepare
+pause
+play
+surface attach
+play
+```
+
+which can leave some OEM decoders stuck.
+
+---
+
+Another huge red flag:
+
+```ts
+p.timeUpdateEventInterval = 0.1;
+```
+
+That means:
+
+```text
+10 events/sec
+```
+
+for every active video.
+
+Then:
+
+```ts
+timeUpdate
+  -> armStallTimer()
+  -> clearTimeout()
+  -> setTimeout()
+```
+
+continuously.
+
+You're creating and destroying timers repeatedly during playback.
+
+---
+
+The most suspicious part is actually this:
+
+```ts
+if (
+  player.status === 'readyToPlay' &&
+  currentTime <= lastTimeRef.current + 0.05
+)
+```
+
+Inside `timeUpdate` you do:
+
+```ts
+lastTimeRef.current = time;
+```
+
+Then stall detection compares against the same value.
+
+That logic is fragile and can mis-detect a stall during startup.
+
+---
+
+What I would do first:
+
+### Remove ALL stall recovery
+
+Temporarily remove:
+
+```ts
+STALL_TIMEOUT_MS
+MAX_RECOVERY_ATTEMPTS
+armStallTimer
+clearStallTimer
+stallCountRef
+```
+
+and remove every:
+
+```ts
+player.pause()
+player.play()
+```
+
+that is not directly tied to user activation.
+
+Keep only:
+
+```ts
+const player = useVideoPlayer({ uri: fileUri }, (p) => {
+  p.loop = true;
+  p.muted = false;
+  p.play();
+});
+```
+
+and:
+
+```ts
+if (isActive) {
+  if (!player.playing) player.play();
+} else {
+  player.pause();
+}
+```
+
+Nothing else.
+
+---
+
+If the freeze disappears after removing recovery logic, then the freeze is self-inflicted by the recovery code.
+
+If it still freezes, then the next place I would inspect is:
+
+```ts
+prepareStatusForViewing()
+```
+
+because that is where SAF videos become local files.
+
+A lot of Android 11 stalls happen because:
+
+```text
+copy starts
+file returned immediately
+video opens before copy fully finishes
+```
+
+The first frame is decoded from the beginning of the file, then playback reaches uncopied data and freezes.
+
+That pattern matches your symptom extremely well.
+
+---
+
+The file I need to see next is:
+
+```text
+prepareStatusForViewing()
+```
+
+or whatever function:
+
+```ts
+prepareStatusForViewing(item, { forPlayback: true })
+```
+
+calls internally.
+
+That function is now the most likely source of the Android 11 freeze.
