@@ -1,0 +1,231 @@
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F107c70978d374d659e059ee3abcb3818_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F176c1bcbfeac4427a2f5b4459faa1190_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F107c70978d374d659e059ee3abcb3818_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fcaccf7e42cf243a6bd52e2e45c2cfe81_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F176c1bcbfeac4427a2f5b4459faa1190_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F397547128770454590891f759051af2e_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fcaccf7e42cf243a6bd52e2e45c2cfe81_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fb5107dbae07c44338d0cf1af14e74f93_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F397547128770454590891f759051af2e_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fe0e24e2381124771b32864e65b3e39fe_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fb5107dbae07c44338d0cf1af14e74f93_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F39a3d2ae4ea24ddd8586222eeadd69da_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fe0e24e2381124771b32864e65b3e39fe_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F0e320b48b8414299827a18d5837865d3_whatsapp
+ LOG  [SAFcopy] copy attempt=1 name=0e320b48b8414299827a18d5837865d3.mp4 original=unknown copied=3535KB ok=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=30.00
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.81 buffered=30.00
+ LOG  [VideoPlayer] readyToPlay but not playing → nudge play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.83 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.92 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.95 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=1.26 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=1.26 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=1.56 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=1.57 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=1.81 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=1.83 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=2.05 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=2.10 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=2.30 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=2.38 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=2.49 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=2.49 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=2.67 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=2.68 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=2.92 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=2.94 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=3.17 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=3.17 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=3.44 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=3.53 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=3.70 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=3.78 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=3.94 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=3.95 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=4.18 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=4.23 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=4.39 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=4.48 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=4.70 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=4.80 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=4.96 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=4.96 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=5.20 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=5.21 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=5.45 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=5.53 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=5.65 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=5.65 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=5.88 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=5.88 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=6.11 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=6.19 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=6.36 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=6.37 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=6.63 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=6.77 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=6.90 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=6.98 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=7.14 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=7.15 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=7.37 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=7.38 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=7.62 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=7.70 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=7.87 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=7.96 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=8.11 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=8.12 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=8.36 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=8.47 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=8.65 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=8.73 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=8.91 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=8.92 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=9.20 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=9.21 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=9.40 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=9.41 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=9.66 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=9.73 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=9.92 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=9.93 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=10.16 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=10.17 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=10.43 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=10.51 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=10.68 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=10.85 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=10.99 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=11.07 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=11.22 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=11.33 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=11.55 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=11.67 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=11.84 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=11.92 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=12.14 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=12.15 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=12.43 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=12.44 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=false buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=12.84 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=12.85 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=13.11 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=13.13 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=13.46 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=13.53 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=13.70 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=13.71 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=13.97 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=13.98 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=14.23 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30.00
+ LOG  [VideoPlayer] recovery → play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=14.35 buffered=30.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=14.52 buffered=30.00
+ LOG  [VideoPlayer] recovery check: stillActive=true stillStopped=true buffered=30

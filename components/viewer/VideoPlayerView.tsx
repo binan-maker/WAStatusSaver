@@ -3,41 +3,45 @@
  *
  * ── WHY React.memo ───────────────────────────────────────────────────────────
  * ViewerItem re-renders frequently due to unrelated state changes (exoPaused,
- * videoPlayerMounted, thumbnailOpacity animations, etc.).  Without memo, each
- * ViewerItem re-render also re-renders VideoPlayerView, which re-renders the
- * native VideoView underneath it.  On Android 11+ a VideoView re-render
- * temporarily detaches its SurfaceTexture from ExoPlayer.  ExoPlayer loses its
- * render surface, stops producing frames, and emits playingChange=false with a
- * full buffer — the "freeze after 1 second" symptom.  React.memo stops this:
- * if fileUri / isActive / callbacks haven't changed, VideoPlayerView is skipped
- * entirely.  The URI-type log fires on every render; with memo it should appear
- * exactly ONCE per mount.  Seeing it twice means props changed unexpectedly.
+ * videoPlayerMounted, thumbnailOpacity, etc.).  Without memo, each ViewerItem
+ * re-render also re-renders VideoPlayerView, which re-renders the native
+ * VideoView underneath it.  On Android 11+ a VideoView re-render temporarily
+ * detaches its SurfaceTexture from ExoPlayer — the player loses its render
+ * target, stops producing frames, and emits playingChange=false with a full
+ * buffer (the "freeze after 1 second" symptom).  React.memo stops this: if
+ * fileUri / isActive / callbacks haven't changed, VideoPlayerView is skipped.
+ * The URI-type log fires on every render; with memo it should appear exactly
+ * ONCE per mount.  Seeing it twice means props changed unexpectedly.
  *
  * ── PLAYBACK STRATEGY ────────────────────────────────────────────────────────
- * p.play() in useVideoPlayer sets playWhenReady=true before the surface
- * attaches.  ExoPlayer holds that flag and starts automatically once the
- * SurfaceTexture is ready.  A secondary nudge fires from statusChange=
- * readyToPlay for Android 11+ devices where the surface sometimes attaches
- * after the status event fires.
+ * p.play() in useVideoPlayer sets playWhenReady=true.  ExoPlayer starts as
+ * soon as the surface attaches.  A one-time nudge from statusChange=readyToPlay
+ * covers Android 11+ devices where the surface arrives asynchronously.
  *
- * ── RECOVERY ─────────────────────────────────────────────────────────────────
- * On Android 11+, playingChange=false can fire unexpectedly while the video
- * has buffer and no error (SurfaceTexture lifecycle issue or audio-focus blip).
- * A single-shot 500 ms delayed play() re-nudges ExoPlayer.  The 500 ms gap
- * prevents interrupting codec initialization — the repeated-timer approach
- * that caused the old play→freeze→play loop.  A ref flag ensures this fires
- * at most once per player instance per active session.
+ * ── STALL WATCHDOG ───────────────────────────────────────────────────────────
+ * On Android 11+ ExoPlayer can intermittently emit playingChange=false while
+ * the video is internally transitioning (audio-focus handoff, codec warm-up).
+ * Using playingChange=false as the recovery trigger is WRONG — it fires for
+ * normal internal transitions and calling play() on those interrupts the codec
+ * pipeline, producing the play→freeze→play stutter loop.
+ *
+ * Instead we watch timeUpdate, which only fires when real frames are advancing
+ * to the screen (currentTime > 0).  If timeUpdate stops firing for 1.5 s while
+ * the slide is active and the player is in a ready state, we call play() once.
+ * A per-session counter (max 3) prevents runaway recovery even in degenerate
+ * cases.  The timer is cleared every time a frame is confirmed (timeUpdate)
+ * and cancelled whenever the slide becomes inactive.
  *
  * ── PAUSE DEBOUNCE ───────────────────────────────────────────────────────────
  * isActive can briefly flip false→true within a single React render batch
- * (e.g. when a background setStatuses() call shifts item indices).  A 400 ms
- * debounce absorbs those flickers: real swipe-aways keep isActive=false long
- * enough for the timeout to fire; render-only flickers cancel it.
+ * (background setStatuses() shifting item indices).  A 400 ms debounce absorbs
+ * those flickers — real swipe-aways keep isActive=false long enough to fire;
+ * render-only flickers cancel it.
  *
  * ── NATIVE CONTROLS ──────────────────────────────────────────────────────────
- * nativeControls=false — the Android MediaController overlay was removed.
- * On Android 11+ it could temporarily steal audio focus and trigger a pause.
- * The viewer's own controls overlay handles any UI the user needs.
+ * nativeControls=false — the Android MediaController was removed.  On Android
+ * 11+ it could transiently steal audio focus and trigger a pause.  The viewer
+ * overlay handles any UI the user needs.
  */
 import React, { useEffect, useRef, useCallback } from 'react';
 import { StyleSheet } from 'react-native';
@@ -51,27 +55,18 @@ interface VideoPlayerViewProps {
 }
 
 // ── Mount counter (module-level) ──────────────────────────────────────────────
-// Tracks how many VideoPlayerView instances are alive at once.
-// Should always be 1 (the active slide). If you see 2+ the FlatList window
-// is mounting too many players simultaneously — that competes for the hardware
-// decoder and causes freezes.
 let _mountedCount = 0;
 
-/**
- * Returns the number of VideoPlayerView instances currently mounted.
- * ViewerItem reads this BEFORE mounting a new player so it can delay
- * the mount until any existing player has had time to unmount (32 ms
- * debounce), guaranteeing totalActive never exceeds 1.
- */
 export function getActiveMountedCount(): number {
   return _mountedCount;
 }
 
-// ── React.memo wrapper ────────────────────────────────────────────────────────
-// Props: fileUri (changes on new slide via key=), isActive, onPlaying (stable
-// useCallback ref), onError (stable useCallback ref).
-// When ViewerItem re-renders without changing these props, VideoPlayerView is
-// skipped — no VideoView re-render, no SurfaceTexture disruption.
+// ── Stall watchdog timing ─────────────────────────────────────────────────────
+// How long without a timeUpdate frame before we call play() as recovery.
+const STALL_TIMEOUT_MS = 1500;
+// Maximum recovery attempts per player instance (prevents runaway loops).
+const MAX_RECOVERY_ATTEMPTS = 3;
+
 export const VideoPlayerView = React.memo(function VideoPlayerView({
   fileUri,
   isActive,
@@ -82,17 +77,22 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
-  // Skips the isActive effect on first mount — useVideoPlayer initializer
-  // already called p.play(), a second call interrupts codec initialization.
+  // Skip isActive effect on first mount — useVideoPlayer initializer already
+  // called p.play(); a second call interrupts codec initialization.
   const didMountRef = useRef(false);
   // Pause debounce timer.
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Single-shot recovery flag — allows at most one recovery play() per active
-  // session. Resets when isActive goes true (new swipe-to slide).
-  const recoveryFiredRef = useRef(false);
+
+  // ── Stall watchdog ────────────────────────────────────────────────────────
+  // Cleared every time timeUpdate fires (frames advancing → not stalled).
+  // Fires if no frame advances for STALL_TIMEOUT_MS while slide is active.
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // How many recovery play() calls have been made this session.  Resets when
+  // isActive becomes true (new view session).  Capped at MAX_RECOVERY_ATTEMPTS.
+  const stallCountRef = useRef(0);
 
   // ── URI diagnostic log ────────────────────────────────────────────────────
-  // Fires on every render. With React.memo should appear ONCE per mount.
+  // With React.memo this should fire exactly once per mount (props stable).
   // Seeing it twice means a prop changed — investigate the caller.
   const uriType = fileUri.startsWith('file://')
     ? 'FILE'
@@ -106,9 +106,9 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     p.muted = false;
     // timeUpdate fires every 250 ms only when frames are advancing.
     p.timeUpdateEventInterval = 0.25;
-    // Sets playWhenReady=true — ExoPlayer starts as soon as the surface
-    // attaches. The statusChange=readyToPlay handler provides a secondary
-    // nudge for Android 11+ where the surface may arrive asynchronously.
+    // Sets playWhenReady=true.  ExoPlayer starts when the surface attaches.
+    // The statusChange=readyToPlay handler provides a one-time nudge for
+    // Android 11+ where the surface may arrive asynchronously.
     p.play();
   });
 
@@ -117,6 +117,41 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     hasCalledOnPlaying.current = true;
     onPlaying();
   }, [onPlaying]);
+
+  // ── Stall watchdog helpers ─────────────────────────────────────────────────
+  const clearStallTimer = useCallback(() => {
+    if (stallTimerRef.current) {
+      clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+  }, []);
+
+  const armStallTimer = useCallback(() => {
+    clearStallTimer();
+    if (stallCountRef.current >= MAX_RECOVERY_ATTEMPTS) return;
+    stallTimerRef.current = setTimeout(() => {
+      stallTimerRef.current = null;
+      const buffered = player.bufferedPosition ?? 0;
+      const ready = player.status === 'readyToPlay';
+      const stopped = !player.playing;
+      const active = isActiveRef.current;
+      console.log(
+        '[VideoPlayer] stall watchdog fired:' +
+        ' active=' + active +
+        ' ready=' + ready +
+        ' stopped=' + stopped +
+        ' buffered=' + buffered.toFixed(2) +
+        ' attempt=' + (stallCountRef.current + 1) + '/' + MAX_RECOVERY_ATTEMPTS,
+      );
+      if (active && ready && stopped && buffered > 0.1) {
+        stallCountRef.current++;
+        console.log('[VideoPlayer] stall recovery → play()');
+        try { player.play(); } catch {}
+        // Re-arm so we can detect if the recovery itself stalls.
+        armStallTimer();
+      }
+    }, STALL_TIMEOUT_MS);
+  }, [player, clearStallTimer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // ── Mount log ─────────────────────────────────────────────────────────
@@ -129,8 +164,17 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
       ' uri=' + fileUri.slice(fileUri.lastIndexOf('/') + 1, fileUri.lastIndexOf('/') + 40),
     );
 
+    // Arm the initial stall watchdog — if no frame advances within 1.5 s of
+    // mount and the player is ready, something went wrong.
+    armStallTimer();
+
     const timeUpdateSub = player.addListener('timeUpdate', (event: any) => {
-      if ((event.currentTime ?? 0) > 0) confirmPlaying();
+      if ((event.currentTime ?? 0) > 0) {
+        confirmPlaying();
+        // Frames are advancing — player is healthy.  Reset the stall watchdog
+        // so it only fires if frames genuinely stop again.
+        armStallTimer();
+      }
     });
 
     const statusSub = player.addListener('statusChange', (event: any) => {
@@ -144,11 +188,9 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
         onError(event.error?.message ?? 'Playback error');
         return;
       }
-      // Android 11+ secondary nudge: player became ready but hasn't started.
-      // This covers the race where playWhenReady=true was set in the
-      // initializer before the VideoView's SurfaceTexture was available.
-      // The statusChange event fires on the player thread where the surface
-      // IS attached, so play() here is safe and won't interrupt buffering.
+      // One-time nudge when the player becomes ready but hasn't started.
+      // This covers the Android 11+ surface-arrives-after-playWhenReady race.
+      // We do NOT use this for ongoing recovery — see stall watchdog above.
       if (event.status === 'readyToPlay' && isActiveRef.current && !player.playing) {
         console.log('[VideoPlayer] readyToPlay but not playing → nudge play()');
         try { player.play(); } catch {}
@@ -161,42 +203,19 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
         ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?') +
         ' buffered=' + (player.bufferedPosition?.toFixed(2) ?? '?'),
       );
-
-      if (event.isPlaying) {
-        // Playback is live — reset the recovery gate so a future unexpected
-        // stop (after a real frame advance) can trigger one more recovery.
-        recoveryFiredRef.current = false;
-        return;
-      }
-
-      // isPlaying went false while this slide is active with no error and
-      // available buffer — unexpected stop (Android 11+ SurfaceTexture blip
-      // or audio-focus transient loss).  Schedule a single recovery play()
-      // 500 ms later.  500 ms gap prevents interrupting codec init (the
-      // repeated-timer approach that caused the old play→freeze loop).
-      if (isActiveRef.current && !recoveryFiredRef.current) {
-        recoveryFiredRef.current = true;
-        setTimeout(() => {
-          const buffered = player.bufferedPosition ?? 0;
-          const stillStopped = !player.playing && player.status === 'readyToPlay';
-          const stillActive = isActiveRef.current;
-          console.log(
-            '[VideoPlayer] recovery check: stillActive=' + stillActive +
-            ' stillStopped=' + stillStopped +
-            ' buffered=' + buffered.toFixed(2),
-          );
-          if (stillActive && stillStopped && buffered > 0.1) {
-            console.log('[VideoPlayer] recovery → play()');
-            try { player.play(); } catch {}
-          }
-        }, 500);
-      }
+      // NOTE: Do NOT call player.play() here in response to isPlaying=false.
+      // playingChange fires for internal ExoPlayer transitions (audio-focus
+      // handoffs, codec warm-up pauses) that resolve on their own.  Calling
+      // play() on those transitions interrupts the codec pipeline and creates
+      // the play→freeze→play stutter loop.  The stall watchdog above handles
+      // genuine stalls safely via timeUpdate instead.
     });
 
     return () => {
       timeUpdateSub.remove();
       statusSub.remove();
       playingSub.remove();
+      clearStallTimer();
       if (pauseTimerRef.current) {
         clearTimeout(pauseTimerRef.current);
         pauseTimerRef.current = null;
@@ -207,13 +226,9 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pause when swiped away; resume + reset thumbnail gate on swipe-back.
-  //
-  // Skips the initial mount (useVideoPlayer initializer already called p.play()).
-  //
-  // Pause is DEBOUNCED 400 ms — isActive can briefly flip false during a render
-  // batch caused by a background setStatuses() call. Real swipe-aways stay
-  // false long enough; render flickers cancel the timer before it fires.
+  // Pause when swiped away; resume + reset on swipe-back.
+  // Debounced 400 ms — real swipe-aways stay false long enough to fire;
+  // render flickers cancel before firing.
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
@@ -227,11 +242,13 @@ export const VideoPlayerView = React.memo(function VideoPlayerView({
 
     if (isActive) {
       hasCalledOnPlaying.current = false;
-      recoveryFiredRef.current = false;
+      stallCountRef.current = 0; // Reset stall counter for new view session.
+      armStallTimer();            // Start watchdog for this view session.
       // Only call play() when not already playing — calling it on an active
       // ExoPlayer interrupts its buffer-fill pipeline on Android 11+.
       try { if (!player.playing) player.play(); } catch {}
     } else {
+      clearStallTimer(); // No watchdog needed when slide is inactive.
       pauseTimerRef.current = setTimeout(() => {
         pauseTimerRef.current = null;
         if (!isActiveRef.current) {
