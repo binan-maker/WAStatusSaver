@@ -291,7 +291,17 @@ export default function ViewerScreen() {
         <View style={styles.topInfo}>
           <Text style={styles.topCounter}>{currentIndex + 1} / {items.length}</Text>
         </View>
-        <View style={{ width: 40 }} />
+        {__DEV__ && currentItem?.type === 'video' ? (
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: 'rgba(0,196,140,0.25)' }]}
+            onPress={() => router.push({ pathname: '/test-video', params: { id: currentItem.id } })}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+          >
+            <Ionicons name="flask-outline" size={18} color="#00C48C" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </Animated.View>
 
       {/* Video: Reels-style right sidebar */}
