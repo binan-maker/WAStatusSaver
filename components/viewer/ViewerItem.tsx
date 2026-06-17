@@ -113,30 +113,19 @@ export function ViewerItem({
     if (isActive) {
       const existingPlayers = getActiveMountedCount();
       if (existingPlayers === 0) {
-        // Decoder is free — mount immediately.
-        console.log('[ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=' + item.id);
         setVideoPlayerMounted(true);
       } else {
-        // Another player is alive and will unmount in ≤32 ms.
-        // Wait 64 ms to guarantee the decoder is released first.
-        console.log(
-          '[ViewerItem] videoPlayerMounted → delaying mount 64ms (existing=' +
-          existingPlayers + ') id=' + item.id,
-        );
         videoMountTimerRef.current = setTimeout(() => {
           videoMountTimerRef.current = null;
           if (isActiveRef.current) {
-            console.log('[ViewerItem] videoPlayerMounted → true (64ms delay done) id=' + item.id);
             setVideoPlayerMounted(true);
           }
         }, 64);
       }
     } else {
-      // 32 ms debounce — absorbs transient FlatList reconciliation flickers.
       videoMountTimerRef.current = setTimeout(() => {
         videoMountTimerRef.current = null;
         if (!isActiveRef.current) {
-          console.log('[ViewerItem] videoPlayerMounted → false (32ms debounce) id=' + item.id);
           setVideoPlayerMounted(false);
         }
       }, 32);
@@ -243,10 +232,6 @@ export function ViewerItem({
     if (!isActive) return;
 
     if (!isSAF) {
-      console.log(
-        '[ViewerItem] displayUri set (non-SAF) uri_type=' +
-          (initialSource.startsWith('file://') ? 'FILE' : initialSource.startsWith('content://') ? 'CONTENT⚠️' : 'OTHER⚠️'),
-      );
       setDisplayUri(initialSource);
       return;
     }
@@ -258,11 +243,6 @@ export function ViewerItem({
       .then((fileUri) => {
         if (prepareCancelRef.current) return;
         if (fileUri) {
-          console.log(
-            '[ViewerItem] displayUri set (SAF copy) uri_type=' +
-              (fileUri.startsWith('file://') ? 'FILE' : fileUri.startsWith('content://') ? 'CONTENT⚠️' : 'OTHER⚠️') +
-              ' uri=' + fileUri.slice(0, 100),
-          );
           setDisplayUri(fileUri);
         } else {
           setVideoError('Could not load video — tap to retry');
@@ -295,7 +275,6 @@ export function ViewerItem({
   // meaning the native module wasn't compiled into this build — fall back to expo-video.
   // Sets the module-level flag so no future ViewerItem ever attempts ExoPlayerView again.
   const handleNativePlayerFail = useCallback(() => {
-    console.log('[ViewerItem] native ExoPlayerView unavailable → falling back to expo-video');
     exoPlayerModuleUnavailable = true;
     setNativePlayerFailed(true);
   }, []);

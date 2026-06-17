@@ -1,0 +1,42 @@
+ LOG  [ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F165eecd433b4465e8524720e461115cc_whatsapp
+ LOG  [SAFcopy] copy attempt=1 name=165eecd433b4465e8524720e461115cc.mp4 original=unknown copied=290KB ok=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=15.05
+ LOG  [VideoPlayer] stall watchdog fired: active=true ready=true stopped=true buffered=15.05 attempt=1/3
+ LOG  [VideoPlayer] stall recovery → play()
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.92 buffered=15.05
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.94 buffered=15.05
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.95 buffered=15.05
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=1.00 buffered=15.05
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=1.24 buffered=15.05
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → delaying mount 64ms (existing=1) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F853b200c431249adb6b68801542bbb85_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F165eecd433b4465e8524720e461115cc_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (64ms delay done) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F853b200c431249adb6b68801542bbb85_whatsapp
+ LOG  [VideoPlayer] UNMOUNTED totalActive=0
+ LOG  [SAFcopy] copy attempt=1 name=853b200c431249adb6b68801542bbb85.mp4 original=unknown copied=7435KB ok=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=0.00
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.16 buffered=21.83
+ LOG  [VideoPlayer] readyToPlay but not playing → nudge play()
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.19 buffered=34.90
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.30 buffered=36.27
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.32 buffered=38.00
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.84 buffered=39.20
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → delaying mount 64ms (existing=1) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F2c2fe4da2aa345d7b02545fcdeeb22bb_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → false (32ms debounce) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F853b200c431249adb6b68801542bbb85_whatsapp
+ LOG  [ViewerItem] videoPlayerMounted → true (64ms delay done) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F2c2fe4da2aa345d7b02545fcdeeb22bb_whatsapp
+ LOG  [VideoPlayer] UNMOUNTED totalActive=0
+ LOG  [SAFcopy] copy attempt=1 name=2c2fe4da2aa345d7b02545fcdeeb22bb.mp4 original=unknown copied=2377KB ok=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=0.00
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.00 buffered=6.34
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.00 buffered=9.47
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.37 buffered=9.47
