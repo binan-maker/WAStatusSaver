@@ -17,6 +17,18 @@
  * loop on Android 11+.  Removing them lets ExoPlayer manage its own startup
  * and buffering without JS interference.
  *
+ * ── PAUSE DEBOUNCE ───────────────────────────────────────────────────────────
+ * isActive can briefly flip false→true within a single React render batch
+ * (e.g. when a background setStatuses() call shifts item indices).  Calling
+ * player.pause() on a transient false fires even though playback should
+ * continue.  A 400 ms debounce absorbs those flickers: real swipe-aways keep
+ * isActive=false long enough for the timeout to fire; render-only flickers
+ * cancel the timeout before it runs.
+ *
+ * ── NATIVE CONTROLS ──────────────────────────────────────────────────────────
+ * nativeControls={true} delegates the play/pause button, seek bar, and
+ * fullscreen toggle to expo-video's built-in Android/iOS player UI.
+ *
  * ── THUMBNAIL FADE ───────────────────────────────────────────────────────────
  * timeUpdate fires every 250 ms ONLY when frames are actually advancing to the
  * screen (currentTime > 0).  That is the signal we use to fade the poster
@@ -56,11 +68,13 @@ export function VideoPlayerView({
   isActiveRef.current = isActive;
 
   const hasCalledOnPlaying = useRef(false);
-  // True after first render — prevents calling player.play() twice on mount.
-  // useVideoPlayer initializer already sets playWhenReady=true; a second play()
-  // call from the isActive effect interrupts ExoPlayer's buffer-fill pipeline
-  // and causes the play→freeze symptom on Android 11+.
+  // True after the first effect run — prevents calling player.play() twice on
+  // mount.  useVideoPlayer initializer already sets playWhenReady=true; a
+  // second play() call interrupts ExoPlayer's buffer-fill pipeline.
   const didMountRef = useRef(false);
+  // Timer ref for the pause debounce — cleared whenever isActive returns true
+  // before the timeout fires, so render-flicker false values never reach pause().
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── URI diagnostic log ────────────────────────────────────────────────────
   const uriType = fileUri.startsWith('file://')
@@ -98,7 +112,6 @@ export function VideoPlayerView({
     });
 
     const statusSub = player.addListener('statusChange', (event: any) => {
-      // Log every status change so buffering stalls are visible in logcat.
       console.log(
         '[VideoPlayer] statusChange status=' + event.status +
         ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?') +
@@ -110,9 +123,6 @@ export function VideoPlayerView({
     });
 
     const playingSub = player.addListener('playingChange', (event: any) => {
-      // This log catches play→pause→play loops triggered by external code.
-      // If you see rapid alternating true/false here WITHOUT user interaction
-      // that is the recovery-loop root cause.
       console.log(
         '[VideoPlayer] playingChange isPlaying=' + event.isPlaying +
         ' currentTime=' + (player.currentTime?.toFixed(2) ?? '?'),
@@ -123,6 +133,10 @@ export function VideoPlayerView({
       timeUpdateSub.remove();
       statusSub.remove();
       playingSub.remove();
+      if (pauseTimerRef.current) {
+        clearTimeout(pauseTimerRef.current);
+        pauseTimerRef.current = null;
+      }
       try { player.release(); } catch {}
       _mountedCount--;
       console.log('[VideoPlayer] UNMOUNTED totalActive=' + _mountedCount);
@@ -130,29 +144,44 @@ export function VideoPlayerView({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pause when swiped away; resume + reset thumbnail gate on swipe-back.
-  // Skip the initial mount: useVideoPlayer's initializer already called p.play(),
-  // so running play() again here interrupts ExoPlayer's buffer-fill and causes
-  // the play→freeze symptom at ~0.7 s on Android 11+.
+  //
+  // Skips the initial mount (useVideoPlayer initializer already called p.play()).
+  //
+  // Pause is DEBOUNCED — isActive can briefly flip false during a render batch
+  // caused by a background setStatuses() call.  Calling pause() immediately on
+  // a transient false stops a fully-buffered video for no reason.  A 400 ms
+  // delay means:
+  //   • Render flicker (false then true within one batch): timer cancelled, no pause.
+  //   • Real swipe-away (stays false): timer fires, player pauses cleanly.
   useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
     }
-    try {
-      if (isActive) {
-        hasCalledOnPlaying.current = false;
-        player.play();
-      } else {
-        player.pause();
-      }
-    } catch {}
+
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
+
+    if (isActive) {
+      hasCalledOnPlaying.current = false;
+      try { player.play(); } catch {}
+    } else {
+      pauseTimerRef.current = setTimeout(() => {
+        pauseTimerRef.current = null;
+        if (!isActiveRef.current) {
+          try { player.pause(); } catch {}
+        }
+      }, 400);
+    }
   }, [isActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <VideoView
       player={player}
       style={StyleSheet.absoluteFill}
-      nativeControls={false}
+      nativeControls={true}
       contentFit="contain"
     />
   );
