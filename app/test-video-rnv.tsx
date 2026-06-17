@@ -129,6 +129,25 @@ export default function TestVideoRNVScreen() {
         <Ionicons name="arrow-back" size={22} color="#fff" />
       </TouchableOpacity>
 
+      {/* ── Tab strip ── always visible, no scrolling needed */}
+      <View style={s.tabs}>
+        <TouchableOpacity
+          style={s.tab}
+          onPress={() => router.replace({ pathname: '/test-video', params: { id } })}
+        >
+          <Text style={s.tabText}>A  copy+play</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={s.tab}
+          onPress={() => router.replace({ pathname: '/test-video-direct', params: { id } })}
+        >
+          <Text style={s.tabText}>B  direct</Text>
+        </TouchableOpacity>
+        <View style={[s.tab, s.tabActive]}>
+          <Text style={[s.tabText, s.tabTextActive]}>C  rnv</Text>
+        </View>
+      </View>
+
       {phase === 'ready' && uri ? (
         <RNVPlayer key={uri} uri={uri} onStatus={setPlayerStatus} />
       ) : null}
@@ -234,6 +253,19 @@ const s = StyleSheet.create({
   },
   boxTitle: { color: '#00C48C', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, marginBottom: 6 },
   boxText: { color: 'rgba(255,255,255,0.6)', fontSize: 10, lineHeight: 16 },
+  tabs: {
+    position: 'absolute', top: 48, left: 64, right: 16, zIndex: 200,
+    flexDirection: 'row', gap: 6,
+  },
+  tab: {
+    flex: 1, paddingVertical: 7, borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+  },
+  tabActive: { backgroundColor: '#00C48C', borderColor: '#00C48C' },
+  tabText: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' },
+  tabTextActive: { color: '#000' },
   btnNav: {
     marginTop: 6,
     backgroundColor: 'rgba(0,196,140,0.08)',

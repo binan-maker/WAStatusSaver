@@ -216,6 +216,25 @@ export default function TestVideoScreen() {
         <Ionicons name="arrow-back" size={22} color="#fff" />
       </TouchableOpacity>
 
+      {/* ── Tab strip ── always visible, no scrolling needed */}
+      <View style={s.tabs}>
+        <View style={[s.tab, s.tabActive]}>
+          <Text style={[s.tabText, s.tabTextActive]}>A  copy+play</Text>
+        </View>
+        <TouchableOpacity
+          style={s.tab}
+          onPress={() => router.replace({ pathname: '/test-video-direct', params: { id } })}
+        >
+          <Text style={s.tabText}>B  direct</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={s.tab}
+          onPress={() => router.replace({ pathname: '/test-video-rnv', params: { id } })}
+        >
+          <Text style={s.tabText}>C  rnv</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Video — only mount after all stats are collected */}
       {phase === 'ready' && fileUri && (sizeOk || srcSize === -3) && (
         <MinimalPlayer key={fileUri} fileUri={fileUri} onStatus={setPlayerStatus} />
@@ -313,6 +332,22 @@ const s = StyleSheet.create({
   statLabel: { color: '#FFB800', fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   statValue: { color: '#fff', fontSize: 11 },
   statMtime: { color: 'rgba(255,255,255,0.4)', fontSize: 9 },
+  tabs: {
+    position: 'absolute', top: 48, left: 64, right: 16, zIndex: 200,
+    flexDirection: 'row', gap: 6,
+  },
+  tab: {
+    flex: 1, paddingVertical: 7, borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+  },
+  tabActive: {
+    backgroundColor: '#00C48C',
+    borderColor: '#00C48C',
+  },
+  tabText: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' },
+  tabTextActive: { color: '#000' },
   btn2: {
     marginTop: 10, backgroundColor: 'rgba(0,196,140,0.1)',
     borderWidth: 1, borderColor: '#00C48C',
