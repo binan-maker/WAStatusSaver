@@ -1081,6 +1081,38 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
     const rawDest = tempUri.replace('file://', '');
     const useNativeCopy = SafReaderModule.isAvailable();
 
+    // ── Resolve true source size before any copy attempt ─────────────────────
+    // JS-fallback scan items (readFromSAFJsFallback) set item.size = 0 because
+    // SAF directory listing via JS does not expose per-file sizes. Without a
+    // real source size the post-copy check can only use the weak "> 100 KB"
+    // heuristic, which passes for any large partial copy produced when
+    // WhatsApp's ContentProvider closes the stream early. This is the root
+    // cause of the Android 11+ "plays 1 second then freezes" bug:
+    //
+    //   1. FileSystem.copyAsync opens the content:// stream from WhatsApp
+    //   2. WhatsApp's DocumentProvider closes the stream at some point
+    //      (e.g. a 30 MB video partially read at 4 MB)
+    //   3. copyAsync writes 4 MB and resolves — no error thrown
+    //   4. verifySize (4 MB) > 100 KB → verifyOk = true → partial file returned
+    //   5. Media3 reads MP4 container header (first ~100 KB) → first frame OK
+    //   6. At ~1 second of playback, decoder reaches byte 4 MB (truncation) → FREEZE
+    //
+    // Fix: call FileSystem.getInfoAsync on the content:// URI before copying.
+    // On Android this bridges to ContentResolver.query(uri, [OpenableColumns.SIZE])
+    // which WhatsApp's DocumentProvider always answers with the full file size.
+    // We use that real size for exact post-copy verification (>= 99%), so any
+    // partial write is caught, the file deleted, and the copy retried once more.
+    let resolvedSourceSize: number = item.size ?? 0;
+    if (resolvedSourceSize === 0 && item.uri.startsWith('content://')) {
+      try {
+        const srcInfo = await FileSystem.getInfoAsync(item.uri);
+        const queried: number = (srcInfo as any).size ?? 0;
+        if (queried > 0) resolvedSourceSize = queried;
+      } catch {
+        // ContentProvider unavailable — fall back to the 100 KB heuristic.
+      }
+    }
+
     // Extracted so the same retry loop is reused by both the playback and
     // non-playback paths below.
     const copyFn = async (): Promise<string> => {
@@ -1093,18 +1125,16 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           }
           const verify = await FileSystem.getInfoAsync(tempUri);
           const verifySize: number = (verify as any).size ?? 0;
-          const sourceSize: number = item.size ?? 0;
-          // Mirror the fast-path threshold: when source size is unknown,
-          // require > 100 KB so a partial write (even one with size > 0)
-          // is never accepted. WhatsApp status videos are always > 100 KB.
-          // The old `verifySize > 0` check let half-written files through —
-          // ExoPlayer decoded the MP4 header fine (first frame appeared),
-          // then hit premature EOF and froze. JS-fallback scan items omit
-          // the `size` field, so sourceSize = 0 triggered this path.
+          // Strong check: when we have the real source size (from ContentResolver
+          // query above or from the native scan), require >= 99% of expected bytes.
+          // Weak fallback (> 100 KB) only when the provider refused to answer.
           const verifyOk =
             verify.exists &&
-            (sourceSize > 0 ? verifySize >= sourceSize * 0.99 : verifySize > 100 * 1024);
+            (resolvedSourceSize > 0
+              ? verifySize >= resolvedSourceSize * 0.99
+              : verifySize > 100 * 1024);
           if (verifyOk) return tempUri;
+          // Partial or empty copy — delete before retrying.
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
         } catch {
           try { await FileSystem.deleteAsync(tempUri, { idempotent: true }); } catch {}
