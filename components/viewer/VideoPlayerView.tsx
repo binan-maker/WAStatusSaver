@@ -84,13 +84,14 @@ const StableVideo = React.memo(function StableVideo(p: StableVideoProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // [VIDEO-SOURCE] — logs the URI actually reaching <Video>.
+  // [VIDEO-SOURCE] — fires once per URI change (not on every paused flip).
   // file:// → cache copy succeeded, SAF is out of the playback path.
   // content:// → URI leaked through; SAF is the likely freeze cause.
-  if (__DEV__) {
+  useEffect(() => {
+    if (!__DEV__) return;
     const scheme = p.fileUri.startsWith('content://') ? '⚠️  content://' : 'file://';
     console.log('[VIDEO-SOURCE]', scheme, p.fileUri.slice(0, 120));
-  }
+  }, [p.fileUri]);
 
   return (
     <Video

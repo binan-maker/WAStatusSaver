@@ -58,8 +58,6 @@ export interface ViewerItemProps {
   isActive: boolean;
   isNearActive: boolean;
   onToggleControls: () => void;
-  showControls: boolean;
-  controlsOpacity: Animated.Value;
   prepareStatusForViewing: (item: StatusItem, options: { forPlayback: boolean }) => Promise<string | null>;
 }
 
@@ -110,12 +108,20 @@ export const ViewerItem = React.memo(function ViewerItem({
     isVideoPlayingRef.current = false;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-show thumbnail when slide becomes inactive so swipe-back looks right.
+  // When a video slide loses focus: reset visual state AND release the decoder.
+  // Clearing displayUri unmounts <VideoPlayerView>, freeing the hardware
+  // MediaCodec slot immediately. The cache file on disk is untouched, so
+  // re-mounting on swipe-back is instant (fast-path in prepareStatusForViewing
+  // returns the cached file:// in < 5 ms without re-copying).
+  // hasPreparedRef is also reset so the prepare effect can re-run and
+  // re-set displayUri when this slide becomes active again.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
       thumbnailOpacity.setValue(1);
       isVideoPlayingRef.current = false;
+      setDisplayUri(null);
+      hasPreparedRef.current = false;
     }
   }, [isActive, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -360,13 +366,16 @@ export const ViewerItem = React.memo(function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* Video player — stays mounted once displayUri is ready.
-                Navigation between items only flips isActive (→ paused),
-                it never unmounts the player. Mounting/unmounting the
-                decoder on every swipe was the root cause of the freeze.
+            {/* Video player — only mounted for the ACTIVE slide.
+                isActive gates mounting so exactly one hardware MediaCodec
+                decoder exists at any time. Android typically has 1-2 slots;
+                having prev+current+next decoders all alive simultaneously
+                causes resource contention that produces the stutter loop.
+                The cache file (file://) survives on disk between mounts, so
+                swipe-back re-mounts the player instantly without re-copying.
                 key={displayUri}: new player instance only when the URI
-                actually changes (different item or retry). */}
-            {!!displayUri && (
+                changes (different item or tap-to-retry). */}
+            {!!displayUri && isActive && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
@@ -425,7 +434,5 @@ export const ViewerItem = React.memo(function ViewerItem({
   prev.isActive === next.isActive &&
   prev.isNearActive === next.isNearActive &&
   prev.onToggleControls === next.onToggleControls &&
-  prev.showControls === next.showControls &&
-  prev.controlsOpacity === next.controlsOpacity &&
   prev.prepareStatusForViewing === next.prepareStatusForViewing,
 );

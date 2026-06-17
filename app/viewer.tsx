@@ -202,11 +202,13 @@ export default function ViewerScreen() {
       isActive={index === currentIndex}
       isNearActive={Math.abs(index - currentIndex) <= 1}
       onToggleControls={toggleControls}
-      showControls={showControls}
-      controlsOpacity={controlsOpacity}
       prepareStatusForViewing={prepareStatusForViewing}
     />
-  ), [currentIndex, toggleControls, showControls, controlsOpacity, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+  // showControls / controlsOpacity intentionally excluded — they are not used
+  // inside ViewerItem and were causing every tap-to-toggle-controls event to
+  // re-render all visible slides, which in turn triggered the StableVideo memo
+  // comparator and contributed to the stutter loop.
+  ), [currentIndex, toggleControls, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleIndexSettled = useCallback((event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SW);
