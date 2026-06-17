@@ -271,7 +271,7 @@ export default function SettingsScreen() {
             icon="shield-outline"
             iconBg={COLORS.PRIMARY + '22'}
             label="Privacy Policy"
-            sublabel="GDPR, Play Store & Indus App Store compliant"
+            sublabel="GDPR & Google Play Store compliant"
             onPress={() => router.push('/privacy')}
           />
           <SettingRow
@@ -284,7 +284,7 @@ export default function SettingsScreen() {
           <SettingRow
             icon="information-circle-outline"
             label="App Version"
-            value="1.3.7"
+            value="1.4.0"
             showArrow={false}
             onPress={handleVersionPress}
           />
