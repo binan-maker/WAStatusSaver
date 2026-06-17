@@ -56,6 +56,11 @@ export default function SavedScreen() {
     return true;
   }), [savedItems, filter]);
 
+  // Chip counts memoised separately — avoids re-filtering the full list
+  // on every render just to paint the badge numbers.
+  const chipImageCount = useMemo(() => savedItems.filter(s => s.type === 'image').length, [savedItems]);
+  const chipVideoCount = useMemo(() => savedItems.filter(s => s.type === 'video').length, [savedItems]);
+
   const lastPressRef = React.useRef<Map<string, number>>(new Map());
 
   const handlePress = useCallback((item: SavedItem) => {
@@ -139,7 +144,7 @@ export default function SavedScreen() {
         <View style={styles.filterRow}>
           {FILTERS.map(f => {
             const cnt = f === 'all' ? savedItems.length :
-              savedItems.filter(s => s.type === (f === 'images' ? 'image' : 'video')).length;
+              f === 'images' ? chipImageCount : chipVideoCount;
             return (
               <TouchableOpacity
                 key={f}

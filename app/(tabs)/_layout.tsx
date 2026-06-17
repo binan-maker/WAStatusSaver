@@ -130,7 +130,16 @@ export default function TabLayout() {
   ]);
 
   return (
-    <Tabs screenOptions={screenOptions}>
+    <Tabs
+      screenOptions={screenOptions}
+      // Pre-mount every tab at startup so switching tabs is always instant.
+      // Default lazy=true mounts screens on first visit, causing a full
+      // component-tree mount (hooks, FlashList, effects) mid-tap — that is
+      // the "page opens very late" delay users see on Saved and Settings.
+      // With lazy=false all three tab screens are rendered before the user
+      // taps anything, so navigation is a frame-swap, not a mount cycle.
+      lazy={false}
+    >
       <Tabs.Screen
         name="index"
         options={{

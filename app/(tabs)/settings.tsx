@@ -152,6 +152,11 @@ export default function SettingsScreen() {
   const osVersion =
     Platform.OS === 'android' ? `Android ${androidVersion}` : `iOS ${Platform.Version}`;
 
+  // Memoised so the JS thread never re-filters the entire statuses array
+  // on an unrelated re-render (e.g. a context update from MediaContextSAF).
+  const imageCount = useMemo(() => statuses.filter(s => s.type === 'image').length, [statuses]);
+  const videoCount = useMemo(() => statuses.filter(s => s.type === 'video').length, [statuses]);
+
   const storageMethodLabel = {
     legacy: 'Legacy (Android < 10)',
     scoped: 'Scoped Storage (Android 10+)',
@@ -178,7 +183,7 @@ export default function SettingsScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
-            <Text style={styles.statNum}>{statuses.filter(s => s.type === 'image').length}</Text>
+            <Text style={styles.statNum}>{imageCount}</Text>
             <Text style={styles.statLabel}>{t('images')}</Text>
           </View>
           <View style={styles.statCard}>
@@ -187,7 +192,7 @@ export default function SettingsScreen() {
               size={26}
               color={COLORS.ACCENT_BLUE}
             />
-            <Text style={styles.statNum}>{statuses.filter(s => s.type === 'video').length}</Text>
+            <Text style={styles.statNum}>{videoCount}</Text>
             <Text style={styles.statLabel}>{t('videos')}</Text>
           </View>
           <View style={styles.statCard}>
