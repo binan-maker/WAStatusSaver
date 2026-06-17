@@ -10,7 +10,6 @@ StatusVault is a production-grade, fully offline WhatsApp Status Saver app for A
 - **Backend**: Express.js (serves landing page + API scaffolding)
 - **Storage**: AsyncStorage for local app state, Firebase Firestore for verified paid subscriptions
 - **Fonts**: Nunito (Google Fonts via @expo-google-fonts/nunito)
-- **Video**: expo-video
 - **Media**: expo-media-library, expo-sharing, expo-file-system/legacy
 - **Payments**: Dual-store architecture — Razorpay (Indus/other stores) OR Google Play Billing (Play Store). Completely separate folders. Switch by changing 2 lines in `payment-providers/index.ts` + `payment-providers/server.ts`, then deleting the unused folder before uploading.
 

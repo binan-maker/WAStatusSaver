@@ -82,8 +82,7 @@
           "savePhotosPermission": "Allow StatusVault to save photos and videos",
           "isAccessMediaLocationEnabled": true
         }
-      ],
-      "expo-video"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
