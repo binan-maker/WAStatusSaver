@@ -70,12 +70,16 @@ export default function ViewerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Thumbnail I/O pause while viewer is open; restore bars on blur.
+  // Thumbnail I/O pause while viewer is open; restore on blur.
+  // pause() sets isPaused so any in-flight thumbnail decoder op bails at
+  // its next await boundary instead of competing with ExoPlayer.
+  // resume() clears isPaused so the queue can run again after the viewer closes.
   useFocusEffect(
     useCallback(() => {
-      if (Platform.OS !== 'android') return;
       ThumbnailCache.pause();
       return () => {
+        ThumbnailCache.resume();
+        if (Platform.OS !== 'android') return;
         const { resolved: r } = themeRestoreRef.current;
         const isDark = r === 'dark';
         StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
@@ -181,15 +185,27 @@ export default function ViewerScreen() {
     controlsOpacity.setValue(1);
   }, [currentIndex, currentItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // showControlsRef mirrors showControls so toggleControls never needs
+  // showControls in its deps — keeping it stable for the lifetime of the
+  // viewer screen. Without this, every tap recreates toggleControls →
+  // recreates renderItem → ALL visible ViewerItems re-render → unexpected
+  // ViewerItem render #3/#4 UNEXPECTED RERENDER logs → surface recreation.
+  const showControlsRef = useRef(showControls);
+  showControlsRef.current = showControls;
+
   const toggleControls = useCallback(() => {
-    const next = !showControls;
+    const next = !showControlsRef.current;
+    showControlsRef.current = next;
     setShowControls(next);
     Animated.timing(controlsOpacity, {
       toValue: next ? 1 : 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, [showControls, controlsOpacity]);
+  // controlsOpacity is useRef(..).current — never changes. toggleControls
+  // is now effectively stable for the full lifetime of the viewer screen.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlsOpacity]);
 
   // ── Memoized renderItem ─────────────────────────────────────────────────────
   // Inline arrow functions cause FlatList to rerender ALL visible cells on
@@ -202,11 +218,13 @@ export default function ViewerScreen() {
       isActive={index === currentIndex}
       isNearActive={Math.abs(index - currentIndex) <= 1}
       onToggleControls={toggleControls}
-      showControls={showControls}
-      controlsOpacity={controlsOpacity}
       prepareStatusForViewing={prepareStatusForViewing}
     />
-  ), [currentIndex, toggleControls, showControls, controlsOpacity, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+  // showControls / controlsOpacity intentionally excluded — they are not used
+  // inside ViewerItem and were causing every tap-to-toggle-controls event to
+  // re-render all visible slides, which in turn triggered the StableVideo memo
+  // comparator and contributed to the stutter loop.
+  ), [currentIndex, toggleControls, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleIndexSettled = useCallback((event: any) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / SW);

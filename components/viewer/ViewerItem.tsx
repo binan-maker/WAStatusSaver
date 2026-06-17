@@ -58,8 +58,6 @@ export interface ViewerItemProps {
   isActive: boolean;
   isNearActive: boolean;
   onToggleControls: () => void;
-  showControls: boolean;
-  controlsOpacity: Animated.Value;
   prepareStatusForViewing: (item: StatusItem, options: { forPlayback: boolean }) => Promise<string | null>;
 }
 
@@ -72,40 +70,6 @@ export const ViewerItem = React.memo(function ViewerItem({
 }: ViewerItemProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-
-  // ── Render counter ────────────────────────────────────────────────────────
-  const renderCount = useRef(0);
-  renderCount.current += 1;
-
-  // ── Change-only render log ────────────────────────────────────────────────
-  const _prevIsActiveRef = useRef(isActive);
-  const _prevIsNearActiveRef = useRef(isNearActive);
-  const _isActiveFlipped =
-    _prevIsActiveRef.current !== isActive ||
-    _prevIsNearActiveRef.current !== isNearActive;
-  if (_isActiveFlipped) {
-    console.log(
-      `[ViewerItem] render #${renderCount.current} — isActive/isNearActive CHANGED`,
-      'id:', item.id,
-      '|', _prevIsActiveRef.current, '->', isActive,
-      '/', _prevIsNearActiveRef.current, '->', isNearActive,
-    );
-    _prevIsActiveRef.current = isActive;
-    _prevIsNearActiveRef.current = isNearActive;
-  } else {
-    console.log(
-      `[ViewerItem] render #${renderCount.current} — props UNCHANGED`,
-      'id:', item.id, '| isActive:', isActive,
-      renderCount.current > 1 ? '⚠️ UNEXPECTED rerender — check parent memo / context churn' : '',
-    );
-  }
-
-  useEffect(() => {
-    console.log('[ViewerItem] mount — id:', item.id);
-    return () => {
-      console.log('[ViewerItem] unmount — id:', item.id);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cachedThumb = useThumbnail(item.id);
 
@@ -135,11 +99,6 @@ export const ViewerItem = React.memo(function ViewerItem({
 
   const isSAF = initialSource.startsWith('content://');
 
-  // ── Track displayUri changes ──────────────────────────────────────────────
-  useEffect(() => {
-    console.log('[ViewerItem] displayUri changed →', displayUri, '— id:', item.id);
-  }, [displayUri]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Reset everything when item changes ──────────────────────────────────
   useEffect(() => {
     hasPreparedRef.current = false;
@@ -149,12 +108,20 @@ export const ViewerItem = React.memo(function ViewerItem({
     isVideoPlayingRef.current = false;
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-show thumbnail when slide becomes inactive so swipe-back looks right.
+  // When a video slide loses focus: reset visual state AND release the decoder.
+  // Clearing displayUri unmounts <VideoPlayerView>, freeing the hardware
+  // MediaCodec slot immediately. The cache file on disk is untouched, so
+  // re-mounting on swipe-back is instant (fast-path in prepareStatusForViewing
+  // returns the cached file:// in < 5 ms without re-copying).
+  // hasPreparedRef is also reset so the prepare effect can re-run and
+  // re-set displayUri when this slide becomes active again.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
       thumbnailOpacity.setValue(1);
       isVideoPlayingRef.current = false;
+      setDisplayUri(null);
+      hasPreparedRef.current = false;
     }
   }, [isActive, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -205,8 +172,19 @@ export const ViewerItem = React.memo(function ViewerItem({
     prepareStatusForViewing(item as StatusItem, { forPlayback: true })
       .then((fileUri) => {
         if (!hasPreparedRef.current) return; // cancelled by item change
-        if (fileUri) {
+        if (fileUri && !fileUri.startsWith('content://')) {
+          // Only accept file:// paths — a content:// URI passed to ExoPlayer
+          // causes the SAF-freeze loop (DocumentProvider too slow to keep the
+          // buffer filled on Android 11+).
           setDisplayUri(fileUri);
+        } else if (fileUri?.startsWith('content://')) {
+          // prepareStatusForViewing returned the raw SAF URI instead of a
+          // cached copy. This should not happen for videos, but if it does,
+          // surface the retry overlay rather than passing content:// to the
+          // player and triggering the freeze.
+          if (__DEV__) console.warn('[ViewerItem] content:// leaked to displayUri — forcing retry', fileUri);
+          hasPreparedRef.current = false;
+          setVideoError('Could not load video — tap to retry');
         } else {
           hasPreparedRef.current = false;
           setVideoError('Could not load video — tap to retry');
@@ -220,8 +198,12 @@ export const ViewerItem = React.memo(function ViewerItem({
   }, [initialSource, isSAF, item.id, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Callbacks for VideoPlayerView ────────────────────────────────────────
+  // No isVideoPlayingRef guard — always animate thumbnail to 0 when called.
+  // VideoPlayerView calls this on EVERY onReadyForDisplay (including loop
+  // boundaries with repeat={true}). Animating from 0→0 is a native no-op,
+  // so repeated calls are free. Removing the guard lets the thumbnail cover
+  // the brief black frame at each ExoPlayer loop transition.
   const handlePlaying = useCallback(() => {
-    if (isVideoPlayingRef.current) return;
     isVideoPlayingRef.current = true;
     Animated.timing(thumbnailOpacity, {
       toValue: 0,
@@ -388,17 +370,19 @@ export const ViewerItem = React.memo(function ViewerItem({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.videoWrap}>
 
-            {/* Video player — stays mounted once displayUri is ready.
-                Navigation between items only flips isActive (→ paused),
-                it never unmounts the player. Mounting/unmounting the
-                decoder on every swipe was the root cause of the freeze.
+            {/* Video player — only mounted for the ACTIVE slide.
+                isActive gates mounting so exactly one hardware MediaCodec
+                decoder exists at any time. Android typically has 1-2 slots;
+                having prev+current+next decoders all alive simultaneously
+                causes resource contention that produces the stutter loop.
+                The cache file (file://) survives on disk between mounts, so
+                swipe-back re-mounts the player instantly without re-copying.
                 key={displayUri}: new player instance only when the URI
-                actually changes (different item or retry). */}
-            {!!displayUri && (
+                changes (different item or tap-to-retry). */}
+            {!!displayUri && isActive && (
               <VideoPlayerView
                 key={displayUri}
                 fileUri={displayUri}
-                isActive={isActive}
                 onPlaying={handlePlaying}
                 onError={handleError}
               />
@@ -453,7 +437,5 @@ export const ViewerItem = React.memo(function ViewerItem({
   prev.isActive === next.isActive &&
   prev.isNearActive === next.isNearActive &&
   prev.onToggleControls === next.onToggleControls &&
-  prev.showControls === next.showControls &&
-  prev.controlsOpacity === next.controlsOpacity &&
   prev.prepareStatusForViewing === next.prepareStatusForViewing,
 );

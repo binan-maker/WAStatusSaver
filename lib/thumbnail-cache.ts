@@ -57,6 +57,10 @@ let processing = false;
 let cancelToken = 0;
 let initPromise: Promise<void> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+// isPaused is set by pause() so that any in-flight generateOne() bails
+// immediately at its next await boundary instead of completing and
+// potentially holding a hardware decoder slot during video playback.
+let isPaused = false;
 
 function safeFilename(id: string): string {
   return id.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
@@ -138,6 +142,11 @@ function subscribe(id: string, cb: (p: string | null) => void): () => void {
 }
 
 async function generateOne(item: ThumbItem): Promise<void> {
+  // Bail immediately if the viewer is open. pause() sets this flag so that
+  // in-flight work stops at the next await boundary rather than running to
+  // completion and holding a hardware decoder slot during video playback.
+  if (isPaused) return;
+
   // For an existing entry, double-check the file is still there. The OS can
   // wipe the cache directory under storage pressure between sessions.
   const existing = memMap[item.id];
@@ -152,6 +161,8 @@ async function generateOne(item: ThumbItem): Promise<void> {
     }
     delete memMap[item.id];
   }
+
+  if (isPaused) return; // second check after the async getInfoAsync above
 
   if (item.type === 'image') {
     // For images we don't keep a separate file — expo-image's own disk
@@ -201,6 +212,11 @@ async function generateOne(item: ThumbItem): Promise<void> {
     try { await FileSystem.deleteAsync(result.uri, { idempotent: true }); } catch {}
   }
 
+  // Final check immediately before the heavy decoder operation.
+  // Both SafReaderModule and expo-video-thumbnails spin up a MediaCodec slot;
+  // skipping here frees the slot for ExoPlayer during video playback.
+  if (isPaused) return;
+
   try {
     if (SafReaderModule.isAvailable()) {
       // Native Java path with a hard 3 s timeout.
@@ -219,6 +235,7 @@ async function generateOne(item: ThumbItem): Promise<void> {
         __DEV__ && console.log('[ThumbnailCache] native thumb failed/timed-out, falling back:', item.id);
       }
       if (!nativeOk) {
+        if (isPaused) return; // don't start JS fallback if viewer opened during native attempt
         // JS fallback — expo-video-thumbnails handles content:// via the
         // Expo media module which uses ContentResolver correctly.
         await jsThumb();
@@ -226,6 +243,7 @@ async function generateOne(item: ThumbItem): Promise<void> {
     } else {
       await jsThumb();
     }
+    if (isPaused) return; // don't notify/persist if viewer opened mid-generation
     memMap[item.id] = dest;
     schedulePersist();
     notify(item.id, dest);
@@ -304,17 +322,29 @@ async function prune(currentIds: Set<string>): Promise<void> {
 }
 
 /**
- * pause() — stop the thumbnail queue immediately.
- * Call this when the video viewer opens so thumbnail I/O (which decodes
- * video key-frames via MediaMetadataRetriever) does NOT compete with the
- * video player for the hardware decoder and storage bandwidth.
+ * pause() — hard-stop all thumbnail work immediately.
  *
- * The queue is simply cancelled; any pending items will be re-enqueued
- * when loadStatuses() runs after the viewer closes.  Already-generated
- * thumbnails in memMap are unaffected.
+ * Sets isPaused so any in-flight generateOne() bails at its next await
+ * boundary (before or after the heavy decoder call) instead of running to
+ * completion. This is critical: without isPaused, cancel() only clears the
+ * queue but the currently-executing item keeps going — holding a hardware
+ * MediaCodec slot and competing with ExoPlayer during video playback.
+ *
+ * Call when the video viewer opens. The queue is re-enqueued automatically
+ * when loadStatuses() runs after the viewer closes (or call resume() to
+ * allow the existing queue to drain immediately).
  */
 function pause(): void {
+  isPaused = true;
   cancel();
+}
+
+/**
+ * resume() — re-enable thumbnail generation after the viewer closes.
+ * Clears the isPaused flag so the next enqueue() call can start processing.
+ */
+function resume(): void {
+  isPaused = false;
 }
 
 export const ThumbnailCache = {
@@ -324,5 +354,6 @@ export const ThumbnailCache = {
   enqueue,
   cancel,
   pause,
+  resume,
   prune,
 };
