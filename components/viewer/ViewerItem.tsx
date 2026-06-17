@@ -21,7 +21,7 @@ import Reanimated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { VideoPlayerView } from './VideoPlayerView';
+import { VideoPlayerView, getActiveMountedCount } from './VideoPlayerView';
 import { ExoPlayerView, isAvailable as exoPlayerIsAvailable } from '@/modules/exo-player';
 import { ExoPlayerBoundary } from './ExoPlayerBoundary';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,18 +75,32 @@ export function ViewerItem({
   const prepareCancelRef = useRef(false);
 
   // ── Debounced video-player mount gate ────────────────────────────────────
-  // Problem: hasBeenActiveRef.current (old approach) was set to true once a
-  // slide became active and NEVER reset.  When swiping A→B both players stayed
-  // mounted simultaneously → totalActive=2 → hardware-decoder competition →
-  // freeze / play-stop loop.
+  // Goal: totalActive=1 at all times — only the active slide has a player.
   //
-  // Fix: use a proper debounced mount state.
-  //   • Mount immediately when isActive becomes true.
-  //   • Unmount after 500 ms when isActive becomes false.
-  //     - Transient render flickers (isActive false for <16 ms during FlatList
-  //       reconciliation) cancel the timer before it fires — no unmount, no freeze.
-  //     - Real swipe-aways (isActive stays false) fire the timer and unmount the
-  //       player cleanly, freeing the hardware decoder before the next slide loads.
+  // Two-timer strategy (solves the overlap the 500 ms approach created):
+  //
+  //   UNMOUNT — 32 ms debounce when isActive → false
+  //     • Transient FlatList reconciliation flickers (isActive false for one
+  //       render frame ≈ 16 ms) cancel the timer before it fires → no unmount.
+  //     • Real swipe-aways stay false → timer fires at 32 ms → player gone.
+  //
+  //   MOUNT — immediate if no other player is alive; 64 ms delay otherwise
+  //     • getActiveMountedCount() reads the module-level counter in
+  //       VideoPlayerView.  If it is 0 the decoder is free → mount now.
+  //     • If it is > 0 another slide's player is still alive (will unmount
+  //       in ≤ 32 ms) → wait 64 ms so the old player is guaranteed gone first.
+  //
+  // Timeline for a normal swipe A→B (both effects fire in the same render):
+  //   T=0  ms  old slide A: starts 32 ms unmount timer
+  //   T=0  ms  new slide B: sees count=1 → starts 64 ms mount timer
+  //   T=32 ms  A unmounts → totalActive=0
+  //   T=64 ms  B mounts  → totalActive=1  ✅ no overlap
+  //
+  // Timeline for transient false on current slide:
+  //   T=0  ms  isActive=false → 32 ms unmount timer starts
+  //   T=16 ms  isActive=true  → cancel timer; count=1 (self still alive)
+  //            → 64 ms mount timer (redundant but harmless; self already mounted)
+  //            → setVideoPlayerMounted(true) is a no-op (already true)  ✅
   const [videoPlayerMounted, setVideoPlayerMounted] = useState(isActive);
   const videoMountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -95,18 +109,39 @@ export function ViewerItem({
       clearTimeout(videoMountTimerRef.current);
       videoMountTimerRef.current = null;
     }
+
     if (isActive) {
-      console.log('[ViewerItem] videoPlayerMounted → true (isActive) id=' + item.id);
-      setVideoPlayerMounted(true);
+      const existingPlayers = getActiveMountedCount();
+      if (existingPlayers === 0) {
+        // Decoder is free — mount immediately.
+        console.log('[ViewerItem] videoPlayerMounted → true (immediate, decoder free) id=' + item.id);
+        setVideoPlayerMounted(true);
+      } else {
+        // Another player is alive and will unmount in ≤32 ms.
+        // Wait 64 ms to guarantee the decoder is released first.
+        console.log(
+          '[ViewerItem] videoPlayerMounted → delaying mount 64ms (existing=' +
+          existingPlayers + ') id=' + item.id,
+        );
+        videoMountTimerRef.current = setTimeout(() => {
+          videoMountTimerRef.current = null;
+          if (isActiveRef.current) {
+            console.log('[ViewerItem] videoPlayerMounted → true (64ms delay done) id=' + item.id);
+            setVideoPlayerMounted(true);
+          }
+        }, 64);
+      }
     } else {
+      // 32 ms debounce — absorbs transient FlatList reconciliation flickers.
       videoMountTimerRef.current = setTimeout(() => {
         videoMountTimerRef.current = null;
         if (!isActiveRef.current) {
-          console.log('[ViewerItem] videoPlayerMounted → false (500ms after inactive) id=' + item.id);
+          console.log('[ViewerItem] videoPlayerMounted → false (32ms debounce) id=' + item.id);
           setVideoPlayerMounted(false);
         }
-      }, 500);
+      }, 32);
     }
+
     return () => {
       if (videoMountTimerRef.current) {
         clearTimeout(videoMountTimerRef.current);

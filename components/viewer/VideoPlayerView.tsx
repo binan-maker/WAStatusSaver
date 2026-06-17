@@ -58,6 +58,16 @@ interface VideoPlayerViewProps {
 // decoder and causes freezes.
 let _mountedCount = 0;
 
+/**
+ * Returns the number of VideoPlayerView instances currently mounted.
+ * ViewerItem reads this BEFORE mounting a new player so it can delay
+ * the mount until any existing player has had time to unmount (32 ms
+ * debounce), guaranteeing totalActive never exceeds 1.
+ */
+export function getActiveMountedCount(): number {
+  return _mountedCount;
+}
+
 export function VideoPlayerView({
   fileUri,
   isActive,

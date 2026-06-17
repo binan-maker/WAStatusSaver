@@ -1,0 +1,35 @@
+ LOG  [ViewerItem] videoPlayerMounted → true (isActive) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fa165367600fe4b73b0ad721082dcfbd2_whatsapp
+ LOG  [SAFcopy] fast-path check name=a165367600fe4b73b0ad721082dcfbd2.mp4 original=unknown cached=3200KB complete=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=1 ✅ sole player uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=44.22
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.89 buffered=44.22
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.89 buffered=44.22
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.89 buffered=44.22
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → true (isActive) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F436b2941cd9a40b28c60b1f0cc45e44c_whatsapp
+ LOG  [SAFcopy] fast-path check name=436b2941cd9a40b28c60b1f0cc45e44c.mp4 original=unknown cached=7168KB complete=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=2 ⚠️ MULTIPLE PLAYERS — decoder conflict! uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.00 buffered=9.03
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.00 buffered=9.68
+ LOG  [ViewerItem] videoPlayerMounted → false (500ms after inactive) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2Fa165367600fe4b73b0ad721082dcfbd2_whatsapp
+ LOG  [VideoPlayer] UNMOUNTED totalActive=1
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.80 buffered=34.25
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [ViewerItem] videoPlayerMounted → true (isActive) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F2e3e499cecce4762a16b18eec90db187_whatsapp
+ LOG  [SAFcopy] fast-path check name=2e3e499cecce4762a16b18eec90db187.mp4 original=unknown cached=3132KB complete=true
+ LOG  [ViewerItem] displayUri set (SAF copy) uri_type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] MOUNTED totalActive=2 ⚠️ MULTIPLE PLAYERS — decoder conflict! uri=view_primary_3AAndroid_2Fmedia_2Fcom.wh
+ LOG  [VideoPlayer] statusChange status=loading currentTime=0.00 buffered=0.00
+ LOG  [VideoPlayer] URI type=FILE uri=file:///data/user/0/com.binan.statussaver/cache/view_primary_3AAndroid_2Fmedia_2Fcom.whatsapp_2FWhat
+ LOG  [VideoPlayer] statusChange status=readyToPlay currentTime=0.00 buffered=10.60
+ LOG  [VideoPlayer] playingChange isPlaying=true currentTime=0.00 buffered=11.53
+ LOG  [ViewerItem] videoPlayerMounted → false (500ms after inactive) id=primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia%2F.Statuses%2F436b2941cd9a40b28c60b1f0cc45e44c_whatsapp
+ LOG  [VideoPlayer] UNMOUNTED totalActive=1
+ LOG  [VideoPlayer] playingChange isPlaying=false currentTime=0.66 buffered=34.48
