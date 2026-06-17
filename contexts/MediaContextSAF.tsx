@@ -1063,15 +1063,28 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           const cachedSize: number = (info as any).size ?? 0;
           const sourceSize: number = item.size!;
           if (cachedSize >= sourceSize * 0.99) return tempUri;
-          // Partial file — delete so the copy below starts fresh.
+          // Partial file — AWAIT the delete before proceeding.
+          // A fire-and-forget delete racing with the copyAsync below causes
+          // copyAsync to open a FileOutputStream (creating a 0-byte file),
+          // then the delete removes the directory entry while copyAsync is
+          // writing — the bytes go into an unlinked inode and are lost when
+          // the FD closes. The next getInfoAsync sees size=0. Awaiting here
+          // serialises the delete → copy sequence so the race cannot happen.
           if (cachedSize > 0) {
-            FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+            await FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
           }
         }
       } catch {}
     } else {
-      // item.size unknown — delete any stale cached file so the copy is fresh.
-      FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+      // item.size unknown — AWAIT the delete before the copy starts.
+      // Same race: fire-and-forget delete on Android 11+ encrypted storage
+      // (/data/user/0/) takes 5–15 ms. getInfoAsync(item.uri) also takes
+      // 5–20 ms. If deleteAsync outlasts getInfoAsync, copyAsync opens the
+      // FileOutputStream (0-byte file created), then deleteAsync removes the
+      // directory entry, and copyAsync writes into an unlinked inode — bytes
+      // are lost on close(). The player receives a 0-byte or partial MP4,
+      // decodes the header, plays ~1 second, then hits premature EOF → freeze.
+      await FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
     }
 
     // Dedup: reuse an in-flight copy promise for the same item.
