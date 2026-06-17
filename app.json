@@ -82,8 +82,6 @@
       ],
       "expo-web-browser",
       "expo-video",
-      "./plugins/with-saf-reader",
-      "./plugins/with-exo-player",
       [
         "expo-media-library",
         {
