@@ -16,7 +16,6 @@ import * as NavigationBar from 'expo-navigation-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { MediaProvider } from '@/contexts/MediaContext';
-import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
 import { useStatusReminder } from '@/hooks/media/useStatusReminder';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
@@ -106,7 +105,6 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         options={{ title: 'Privacy', headerStyle: { backgroundColor: COLORS.SURFACE } }}
       />
       <Stack.Screen name="permissions" options={{ headerShown: false }} />
-      <Stack.Screen name="languages" options={{ headerShown: false }} />
       <Stack.Screen name="terms" options={{ headerShown: false }} />
     </Stack>
   );
@@ -224,9 +222,7 @@ const RootLayout = () => {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider>
-          <LanguageProvider>
-            <AppContent showOnboarding={showOnboarding} />
-          </LanguageProvider>
+          <AppContent showOnboarding={showOnboarding} />
         </ThemeProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

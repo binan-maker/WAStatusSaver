@@ -18,10 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useMedia } from '@/contexts/MediaContext';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
-import { LANGUAGES } from '@/lib/i18n';
 
 export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
 
@@ -80,31 +78,6 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
-interface LanguageItemProps {
-  lang: { code: string; name: string; nativeName: string };
-  selected: boolean;
-  onSelect: () => void;
-}
-
-function LanguageItem({ lang, selected, onSelect }: LanguageItemProps) {
-  const COLORS = useThemeColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { setLanguage } = useLanguage();
-  return (
-    <TouchableOpacity
-      style={[styles.languageItem, selected && { backgroundColor: COLORS.PRIMARY + '18' }]}
-      onPress={() => {
-        setLanguage(lang.code as any);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onSelect();
-      }}
-    >
-      <Text style={styles.languageNative}>{lang.nativeName}</Text>
-      <Text style={styles.languageEng}>{lang.name}</Text>
-      {selected && <Ionicons name="checkmark" size={18} color={COLORS.PRIMARY} />}
-    </TouchableOpacity>
-  );
-}
 
 export default function SettingsScreen() {
   const COLORS = useThemeColors();
@@ -121,8 +94,6 @@ export default function SettingsScreen() {
     requestPermissions,
     requestSAF,
   } = useMedia();
-  const { language, t } = useLanguage();
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [versionClickCount, setVersionClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
 
@@ -171,7 +142,7 @@ export default function SettingsScreen() {
         style={[styles.header, { paddingTop: headerPaddingTop + 8 }]}
       >
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>{t('settings')}</Text>
+          <Text style={styles.headerTitle}>Settings</Text>
         </View>
       </LinearGradient>
 
@@ -184,7 +155,7 @@ export default function SettingsScreen() {
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
             <Text style={styles.statNum}>{imageCount}</Text>
-            <Text style={styles.statLabel}>{t('images')}</Text>
+            <Text style={styles.statLabel}>Images</Text>
           </View>
           <View style={styles.statCard}>
             <MaterialCommunityIcons
@@ -193,25 +164,13 @@ export default function SettingsScreen() {
               color={COLORS.ACCENT_BLUE}
             />
             <Text style={styles.statNum}>{videoCount}</Text>
-            <Text style={styles.statLabel}>{t('videos')}</Text>
+            <Text style={styles.statLabel}>Videos</Text>
           </View>
           <View style={styles.statCard}>
             <Ionicons name="bookmark" size={26} color={COLORS.ACCENT_GOLD} />
             <Text style={styles.statNum}>{savedItems.length}</Text>
-            <Text style={styles.statLabel}>{t('saved')}</Text>
+            <Text style={styles.statLabel}>Saved</Text>
           </View>
-        </View>
-
-        <SectionHeader title={t('preferences')} />
-        <View style={styles.section}>
-          <SettingRow
-            icon="globe"
-            iconBg={COLORS.ACCENT_BLUE + '22'}
-            label="Language"
-            value={LANGUAGES.find(l => l.code === language)?.nativeName}
-            onPress={() => setShowLanguageModal(true)}
-            showArrow
-          />
         </View>
 
         <SectionHeader title="Storage & Permissions" />
@@ -419,41 +378,6 @@ export default function SettingsScreen() {
         </View>
       </Modal>
 
-      {/* ── Language picker modal ───────────────────────────────── */}
-      <Modal
-        visible={showLanguageModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLanguageModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowLanguageModal(false)}
-          />
-          <View style={[styles.languageModal, { backgroundColor: COLORS.SURFACE }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Language</Text>
-              <TouchableOpacity onPress={() => setShowLanguageModal(false)}>
-                <Ionicons name="close" size={22} color={COLORS.TEXT} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {LANGUAGES.map(lang => (
-                <LanguageItem
-                  key={lang.code}
-                  lang={lang}
-                  selected={language === lang.code}
-                  onSelect={() => {
-                    setShowLanguageModal(false);
-                  }}
-                />
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -690,59 +614,5 @@ const createStyles = (COLORS: ThemePalette) =>
       fontFamily: 'Nunito_800ExtraBold',
       fontSize: FONT_SIZE.SM,
       letterSpacing: 0.5,
-    },
-    modalOverlay: {
-      flex: 1,
-      justifyContent: 'flex-end',
-    },
-    modalBackdrop: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.4)',
-    },
-    languageModal: {
-      maxHeight: '50%',
-      borderTopLeftRadius: RADIUS.LG,
-      borderTopRightRadius: RADIUS.LG,
-      overflow: 'hidden',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: SPACING.LG,
-      paddingBottom: SPACING.MD,
-      borderBottomWidth: 1,
-      borderBottomColor: COLORS.BORDER,
-    },
-    modalTitle: {
-      fontSize: FONT_SIZE.XL,
-      fontWeight: '700',
-      color: COLORS.TEXT,
-      fontFamily: 'Nunito_700Bold',
-    },
-    languageItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: SPACING.LG,
-      paddingVertical: SPACING.MD,
-      gap: SPACING.MD,
-      borderBottomWidth: 1,
-      borderBottomColor: COLORS.BORDER,
-    },
-    languageNative: {
-      flex: 1,
-      fontSize: FONT_SIZE.MD,
-      fontWeight: '600',
-      color: COLORS.TEXT,
-      fontFamily: 'Nunito_600SemiBold',
-    },
-    languageEng: {
-      fontSize: FONT_SIZE.SM,
-      color: COLORS.TEXT_SECONDARY,
-      fontFamily: 'Nunito_400Regular',
     },
   });

@@ -16,7 +16,6 @@ import { useMedia } from '@/contexts/MediaContext';
 import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
-import { useLanguage } from '@/contexts/LanguageContext';
 
 interface StepCardProps {
   step: number;
@@ -77,8 +76,6 @@ export default function PermissionsScreen() {
     isRequestingSAF,
   } = useMedia();
 
-  const { t } = useLanguage();
-
   const [requesting, setRequesting] = useState(false);
 
   const needsSAF = Platform.OS === 'android' && androidVersion >= 30;
@@ -109,7 +106,7 @@ export default function PermissionsScreen() {
             <View style={styles.heroIcon}>
               <MaterialCommunityIcons name="folder-key-network-outline" size={48} color={COLORS.PRIMARY} />
             </View>
-            <Text style={styles.heroTitle}>{t('grant_access')}</Text>
+            <Text style={styles.heroTitle}>Grant Access</Text>
             <Text style={styles.heroSub}>
               {androidVersion >= 30 
                 ? 'StatusVault needs two permissions: gallery save access (write-only) and WhatsApp folder access (for reading statuses).'

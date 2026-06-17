@@ -1,45 +1,29 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Platform,
-  Dimensions,
-  Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLanguage } from '@/contexts/LanguageContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
-import { LANGUAGES } from '@/lib/i18n';
-
-const { width } = Dimensions.get('window');
-const isSmallScreen = width < 380;
 
 export default function OnboardingScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
-  const { language, setLanguage } = useLanguage();
-  const [selectedLang, setSelectedLang] = useState(language);
 
   const handleContinue = async () => {
-    await setLanguage(selectedLang);
+    try {
+      await AsyncStorage.setItem('onboarding_completed', 'true');
+    } catch {}
     router.replace('/(tabs)');
-  };
-
-  const { t: translate } = useLanguage();
-  
-  const t = {
-    title: translate('onboarding_title'),
-    subtitle: translate('onboarding_subtitle'),
-    select: translate('select_language'),
-    continue: translate('continue'),
   };
 
   return (
@@ -48,43 +32,27 @@ export default function OnboardingScreen() {
         colors={[COLORS.SURFACE, COLORS.BACKGROUND]}
         style={styles.header}
       >
-        <MaterialCommunityIcons name="shield-check" size={48} color={COLORS.PRIMARY} />
-        <Text style={styles.headerTitle}>{t.title}</Text>
-        <Text style={styles.headerSubtitle}>{t.subtitle}</Text>
+        <MaterialCommunityIcons name="shield-check" size={56} color={COLORS.PRIMARY} />
+        <Text style={styles.headerTitle}>StatusVault</Text>
+        <Text style={styles.headerSubtitle}>
+          Save and share WhatsApp statuses instantly — photos and videos, all in one place.
+        </Text>
       </LinearGradient>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>{t.select}</Text>
-
-        <View style={styles.languageGrid}>
-          {LANGUAGES.map((lang) => (
-            <TouchableOpacity
-              key={lang.code}
-              style={[
-                styles.languageCard,
-                selectedLang === lang.code && styles.languageCardActive,
-                isSmallScreen && styles.languageCardSmall,
-              ]}
-              onPress={() => setSelectedLang(lang.code)}
-            >
-              {selectedLang === lang.code && (
-                <View style={styles.checkmark}>
-                  <MaterialCommunityIcons name="check-circle" size={24} color={COLORS.PRIMARY} />
-                </View>
-              )}
-              <Text style={[styles.languageName, selectedLang === lang.code && { color: COLORS.PRIMARY }]}>
-                {lang.nativeName}
-              </Text>
-              <Text style={styles.languageEnglishName}>{lang.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.infoBox}>
-          <MaterialCommunityIcons name="information-outline" size={20} color={COLORS.TEXT_SECONDARY} />
-          <Text style={styles.infoText}>You can change this language anytime in Settings</Text>
-        </View>
-      </ScrollView>
+      <View style={styles.features}>
+        {[
+          { icon: 'image-multiple', label: 'Save photos & videos before they expire' },
+          { icon: 'share-variant', label: 'Share directly to any app' },
+          { icon: 'shield-lock-outline', label: 'Fully offline — no data leaves your phone' },
+        ].map((f) => (
+          <View key={f.label} style={styles.featureRow}>
+            <View style={styles.featureIcon}>
+              <MaterialCommunityIcons name={f.icon as any} size={22} color={COLORS.PRIMARY} />
+            </View>
+            <Text style={styles.featureText}>{f.label}</Text>
+          </View>
+        ))}
+      </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.LG }]}>
         <TouchableOpacity
@@ -98,7 +66,7 @@ export default function OnboardingScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            <Text style={styles.continueBtnText}>{t.continue}</Text>
+            <Text style={styles.continueBtnText}>Get Started</Text>
             <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
           </LinearGradient>
         </TouchableOpacity>
@@ -119,7 +87,7 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     gap: SPACING.MD,
   },
   headerTitle: {
-    fontSize: isSmallScreen ? FONT_SIZE.XXL : 28,
+    fontSize: 32,
     fontWeight: '800',
     color: COLORS.TEXT,
     fontFamily: 'Nunito_800ExtraBold',
@@ -130,83 +98,41 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
     fontFamily: 'Nunito_400Regular',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
+    maxWidth: 300,
   },
-  scroll: {
+  features: {
     flex: 1,
-  },
-  scrollContent: {
     paddingHorizontal: SPACING.LG,
-    paddingTop: SPACING.LG,
-    paddingBottom: SPACING.LG,
+    paddingTop: SPACING.XL,
+    gap: SPACING.MD,
   },
-  sectionTitle: {
-    fontSize: FONT_SIZE.LG,
-    fontWeight: '700',
-    color: COLORS.TEXT,
-    fontFamily: 'Nunito_700Bold',
-    marginBottom: SPACING.MD,
-  },
-  languageGrid: {
+  featureRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.SM,
-    marginBottom: SPACING.XXL,
-  },
-  languageCard: {
-    flex: 1,
-    minWidth: isSmallScreen ? '48%' : '30%',
-    backgroundColor: COLORS.SURFACE,
-    borderRadius: RADIUS.MD,
-    padding: SPACING.MD,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.BORDER,
-    position: 'relative',
-  },
-  languageCardSmall: {
-    minWidth: '48%',
-  },
-  languageCardActive: {
-    borderColor: COLORS.PRIMARY,
-    backgroundColor: COLORS.SURFACE,
-  },
-  checkmark: {
-    position: 'absolute',
-    top: SPACING.XS,
-    right: SPACING.XS,
-  },
-  languageName: {
-    fontSize: FONT_SIZE.MD,
-    fontWeight: '700',
-    color: COLORS.TEXT,
-    fontFamily: 'Nunito_700Bold',
-    textAlign: 'center',
-    marginBottom: SPACING.XS,
-  },
-  languageEnglishName: {
-    fontSize: FONT_SIZE.XS,
-    color: COLORS.TEXT_SECONDARY,
-    fontFamily: 'Nunito_400Regular',
-  },
-  infoBox: {
-    flexDirection: 'row',
     backgroundColor: COLORS.SURFACE,
     borderRadius: RADIUS.MD,
     padding: SPACING.MD,
-    gap: SPACING.SM,
-    alignItems: 'flex-start',
-    marginBottom: SPACING.XXL,
+    gap: SPACING.MD,
   },
-  infoText: {
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.PRIMARY + '18',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
     flex: 1,
     fontSize: FONT_SIZE.SM,
-    color: COLORS.TEXT_SECONDARY,
-    fontFamily: 'Nunito_400Regular',
+    color: COLORS.TEXT,
+    fontFamily: 'Nunito_600SemiBold',
+    lineHeight: 20,
   },
   footer: {
     paddingHorizontal: SPACING.LG,
-    gap: SPACING.MD,
+    paddingTop: SPACING.MD,
     backgroundColor: COLORS.BACKGROUND,
   },
   continueBtn: {
@@ -215,7 +141,7 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
   },
   continueBtnGradient: {
     paddingHorizontal: SPACING.XL,
-    paddingVertical: SPACING.MD,
+    paddingVertical: SPACING.MD + 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
