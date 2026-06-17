@@ -1,7 +1,6 @@
 import { Tabs, useFocusEffect } from 'expo-router';
 import { Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCallback, useMemo } from 'react';
@@ -40,7 +39,6 @@ export default function TabLayout() {
   const { colors: COLORS, resolved } = useTheme();
   const isAndroid = Platform.OS === 'android';
   const isWeb = Platform.OS === 'web';
-  const isIOS = Platform.OS === 'ios';
 
   // Re-apply the correct status bar + nav bar every time the tabs screen comes
   // back into focus — this fires after the viewer modal fully dismisses and
@@ -71,16 +69,8 @@ export default function TabLayout() {
   // function identity on a re-render — a new identity forces react-navigation
   // to re-render the tab bar, which can drop in-flight touch events on Android.
   const tabBarBackground = useCallback(() =>
-    isIOS ? (
-      <BlurView
-        intensity={95}
-        tint={resolved === 'dark' ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFill}
-      />
-    ) : (
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.TAB_BAR }]} />
-    ),
-  [isIOS, resolved, COLORS.TAB_BAR]);
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.TAB_BAR }]} />,
+  [COLORS.TAB_BAR]);
 
   // Memoize screenOptions so passing it to <Tabs> doesn't produce a new object
   // on every render of TabLayout. react-navigation does a shallow-equals check
@@ -91,7 +81,7 @@ export default function TabLayout() {
     tabBarActiveTintColor: COLORS.PRIMARY,
     tabBarInactiveTintColor: COLORS.TEXT_MUTED,
     tabBarStyle: {
-      backgroundColor: isIOS ? 'transparent' : COLORS.TAB_BAR,
+      backgroundColor: COLORS.TAB_BAR,
       borderTopWidth: 0,
       // elevation: 0 was removed — Android uses elevation for native z-order in
       // the touch dispatch system. With elevation=0 any content view with a
@@ -121,7 +111,6 @@ export default function TabLayout() {
     COLORS.PRIMARY,
     COLORS.TEXT_MUTED,
     COLORS.TAB_BAR,
-    isIOS,
     isAndroid,
     isWeb,
     bottom,

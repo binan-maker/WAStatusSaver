@@ -53,7 +53,9 @@
         {
           "android": {
             "usesCleartextTraffic": true,
-            "enableProguardInReleaseBuilds": true
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "abiFilters": ["arm64-v8a"]
           }
         }
       ],
@@ -80,9 +82,6 @@
           "buttonStyle": "light"
         }
       ],
-      "expo-web-browser",
-      "expo-video",
-      "./plugins/with-rnv-surface-logs",
       [
         "expo-media-library",
         {
