@@ -109,8 +109,8 @@ export default function PermissionsScreen() {
             <Text style={styles.heroTitle}>Grant Access</Text>
             <Text style={styles.heroSub}>
               {androidVersion >= 30 
-                ? 'StatusVault needs two permissions: gallery save access (write-only) and WhatsApp folder access (for reading statuses).'
-                : 'StatusVault needs gallery access to save statuses. On this Android version, statuses are scanned automatically once permission is granted.'}
+                ? 'Status Saver needs two permissions: gallery save access (write-only) and WhatsApp folder access (for reading statuses).'
+                : 'Status Saver needs gallery access to save statuses. On this Android version, statuses are scanned automatically once permission is granted.'}
               {'\n'}Android {androidVersion}
               {androidVersion >= 30 ? ' (Android 11+) — both steps required.' : ' — simple setup mode.'}
             </Text>
@@ -127,7 +127,7 @@ export default function PermissionsScreen() {
                 title="Gallery & Media Access"
                 desc={hasPermission
                   ? 'Access granted successfully.'
-                  : 'Tap "Allow" on the system prompt to let StatusVault read and save statuses. This is required for the app to function on this device.'}
+                  : 'Tap "Allow" on the system prompt to let Status Saver read and save statuses. This is required for the app to function on this device.'}
                 done={hasPermission}
                 action={!hasPermission
                   ? {
@@ -174,7 +174,7 @@ export default function PermissionsScreen() {
                 step={needsSAF ? 3 : 2}
                 icon="images-outline"
                 title="Open WhatsApp & View Statuses"
-                desc="Go to WhatsApp, open the Status tab, and view the statuses you want to save. WhatsApp must write the status files before StatusVault can see them."
+                desc="Go to WhatsApp, open the Status tab, and view the statuses you want to save. WhatsApp must write the status files before Status Saver can see them."
                 done={false} />
             </View>
 
@@ -183,7 +183,7 @@ export default function PermissionsScreen() {
                 <Ionicons name="checkmark-circle" size={24} color={COLORS.PRIMARY} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.successTitle}>All set!</Text>
-                  <Text style={styles.successSub}>StatusVault is ready to use.</Text>
+                  <Text style={styles.successSub}>Status Saver is ready to use.</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => router.push('/')}
@@ -199,7 +199,7 @@ export default function PermissionsScreen() {
             <View style={styles.infoBox}>
               <Ionicons name="lock-closed-outline" size={16} color={COLORS.PRIMARY} />
               <Text style={styles.infoText}>
-                StatusVault works entirely offline. Your media never leaves your device.
+                Status Saver works entirely offline. Your media never leaves your device.
                 We do not access your WhatsApp messages or contacts.
               </Text>
             </View>

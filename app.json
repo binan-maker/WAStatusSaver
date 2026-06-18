@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "StatusVault",
+    "name": "Status Saver",
     "slug": "statusvault",
     "version": "1.3.7",
     "orientation": "portrait",
@@ -81,8 +81,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow StatusVault to save photos to your gallery",
-          "savePhotosPermission": "Allow StatusVault to save photos and videos",
+          "photosPermission": "Allow Status Saver to save photos to your gallery",
+          "savePhotosPermission": "Allow Status Saver to save photos and videos",
           "isAccessMediaLocationEnabled": true
         }
       ],

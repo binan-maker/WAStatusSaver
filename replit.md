@@ -1,7 +1,7 @@
-# StatusVault — WhatsApp Status Saver App
+# Status Saver — WhatsApp Status Saver App
 
 ## Overview
-StatusVault is a production-grade, fully offline WhatsApp Status Saver app for Android. Built with Expo React Native and Expo Router.
+Status Saver is a production-grade, fully offline WhatsApp Status Saver app for Android. Built with Expo React Native and Expo Router.
 
 ## App Architecture
 

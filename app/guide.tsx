@@ -29,20 +29,20 @@ const FAQ_ITEMS: AccordionItem[] = [
     tag: 'Important',
     tagColor: 'PRIMARY',
     content: [
-      'Every status you save through StatusVault is written to your phone\'s public gallery, inside an album called "StatusVault" (located at /Pictures/StatusVault/).',
+      'Every status you save through Status Saver is written to your phone\'s public gallery, inside an album called "Status Saver" (located at /Pictures/Status Saver/).',
       '',
       'Because the file lives in your gallery — not inside the app\'s private storage — your saved photos and videos are NOT deleted when you:',
-      '   • Uninstall and re-install StatusVault',
+      '   • Uninstall and re-install Status Saver',
       '   • Clear the app\'s data or cache',
       '   • Factory-reset is the only thing that wipes the album.',
       '',
-      'After re-installing, open the Saved tab once. StatusVault automatically scans the "StatusVault" album in your gallery and re-attaches any items it finds there, so they show up again under Saved without you doing anything.',
+      'After re-installing, open the Saved tab once. Status Saver automatically scans the "Status Saver" album in your gallery and re-attaches any items it finds there, so they show up again under Saved without you doing anything.',
       '',
       'If you ever want a saved item gone, delete it from the Saved tab inside the app (or from your gallery directly).',
       '',
       '⚠ IMPORTANT — Folder access after reinstall:',
       'Your SAVED FILES stay in the gallery (as above), but the WhatsApp folder PERMISSION is tied to the app\'s installation. Android revokes it on uninstall.',
-      '→ After reinstalling, go to Home → "Grant Access" and re-grant access to the WhatsApp Media folder. This is an Android OS requirement — StatusVault cannot bypass it.',
+      '→ After reinstalling, go to Home → "Grant Access" and re-grant access to the WhatsApp Media folder. This is an Android OS requirement — Status Saver cannot bypass it.',
       '→ You will NOT need to re-save any files — they are already in your gallery.',
     ],
   },
@@ -52,11 +52,11 @@ const FAQ_ITEMS: AccordionItem[] = [
     tag: 'Legacy',
     tagColor: 'ACCENT_GOLD',
     content: [
-      '1. Open StatusVault and tap "Grant Access".',
+      '1. Open Status Saver and tap "Grant Access".',
       '2. Allow media/storage permission when prompted.',
-      '3. StatusVault can now directly read WhatsApp statuses.',
+      '3. Status Saver can now directly read WhatsApp statuses.',
       '4. Open WhatsApp → Status tab and view statuses to load them.',
-      '5. Return to StatusVault and pull down to refresh.',
+      '5. Return to Status Saver and pull down to refresh.',
       '',
       'WhatsApp Status folder:',
       '/storage/emulated/0/WhatsApp/Media/.Statuses',
@@ -68,9 +68,9 @@ const FAQ_ITEMS: AccordionItem[] = [
     tag: 'Android 10',
     tagColor: 'ACCENT_BLUE',
     content: [
-      '1. Open StatusVault → Grant Access → Allow media permission.',
-      '2. StatusVault uses scoped storage but can still read the status folder.',
-      '3. Open WhatsApp, view statuses, then refresh StatusVault.',
+      '1. Open Status Saver → Grant Access → Allow media permission.',
+      '2. Status Saver uses scoped storage but can still read the status folder.',
+      '3. Open WhatsApp, view statuses, then refresh Status Saver.',
       '',
       'If statuses don\'t load:',
       '→ Go to Settings → Grant Access → Select Statuses Folder.',
@@ -87,7 +87,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     content: [
       'Android 11+ uses strict scoped storage (Storage Access Framework). You must grant access to the WhatsApp Media folder ONCE.',
       '',
-      '1. Open StatusVault. The Home screen shows a top source selector with two chips: "WhatsApp" (default) and "WhatsApp Business".',
+      '1. Open Status Saver. The Home screen shows a top source selector with two chips: "WhatsApp" (default) and "WhatsApp Business".',
       '2. Tap "Grant Access" on the empty state, or open the source chip you want.',
       '3. The Android folder picker opens AT the correct Media folder automatically. You should NOT have to navigate.',
       '4. Tap "USE THIS FOLDER" and accept the permission prompt.',
@@ -111,7 +111,7 @@ const FAQ_ITEMS: AccordionItem[] = [
       '3. Tap the "Save" button at the bottom of the viewer.',
       '4. Or tap the download icon (⬇) directly on the grid card.',
       '5. Saved statuses appear in the Saved tab.',
-      '6. They are also saved to your Gallery under the "StatusVault" album.',
+      '6. They are also saved to your Gallery under the "Status Saver" album.',
     ],
   },
   {
@@ -129,7 +129,7 @@ const FAQ_ITEMS: AccordionItem[] = [
     title: 'WhatsApp Business Statuses',
     icon: 'briefcase-outline',
     content: [
-      'StatusVault supports both WhatsApp and WhatsApp Business.',
+      'Status Saver supports both WhatsApp and WhatsApp Business.',
       '',
       'If you have WhatsApp Business installed:',
       '→ Business statuses are automatically detected.',
@@ -148,11 +148,11 @@ const FAQ_ITEMS: AccordionItem[] = [
     tag: 'Dark / Light',
     tagColor: 'ACCENT_BLUE',
     content: [
-      'StatusVault automatically matches your phone\'s system theme. There is no in-app theme picker.',
+      'Status Saver automatically matches your phone\'s system theme. There is no in-app theme picker.',
       '',
-      '→ Phone is in Dark mode → StatusVault is dark (deep navy + emerald).',
-      '→ Phone is in Light mode → StatusVault is light.',
-      '→ Switching your system theme updates StatusVault instantly — including the Android status bar and navigation bar.',
+      '→ Phone is in Dark mode → Status Saver is dark (deep navy + emerald).',
+      '→ Phone is in Light mode → Status Saver is light.',
+      '→ Switching your system theme updates Status Saver instantly — including the Android status bar and navigation bar.',
       '',
       'To change the theme:',
       '→ Android Settings → Display → Dark theme (toggle on/off), or',
@@ -168,7 +168,7 @@ const FAQ_ITEMS: AccordionItem[] = [
       '→ Open WhatsApp and view/tap on statuses first.',
       '   WhatsApp only writes a status file to disk AFTER you view it inside WhatsApp.',
       '',
-      '→ Pull down to refresh the StatusVault home screen, or tap the refresh icon in the header.',
+      '→ Pull down to refresh the Status Saver home screen, or tap the refresh icon in the header.',
       '',
       '→ For Android 11+: confirm you granted SAF access at the WhatsApp Media folder, not at a parent folder. Settings → Grant Access → re-pick the folder if unsure.',
       '',
@@ -178,7 +178,7 @@ const FAQ_ITEMS: AccordionItem[] = [
       '',
       '→ If you use a Work Profile, Dual-App, or Clone-App slot, your statuses live in a non-standard path. Use Settings → "Browse manually" to pick that folder yourself.',
       '',
-      '→ Some custom ROMs (MIUI, ColorOS, HyperOS, OxygenOS) sandbox folder access. If statuses still don\'t appear after a refresh, try: Android Settings → Apps → StatusVault → Permissions → enable any storage-related toggles, then re-grant access in StatusVault.',
+      '→ Some custom ROMs (MIUI, ColorOS, HyperOS, OxygenOS) sandbox folder access. If statuses still don\'t appear after a refresh, try: Android Settings → Apps → Status Saver → Permissions → enable any storage-related toggles, then re-grant access in Status Saver.',
     ],
   },
   {
@@ -195,9 +195,9 @@ const FAQ_ITEMS: AccordionItem[] = [
       '',
       '✓ Compliant with Google Play Store, GDPR, and Indian IT Act policies.',
       '',
-      'StatusVault is NOT affiliated with WhatsApp LLC or Meta.',
+      'Status Saver is NOT affiliated with WhatsApp LLC or Meta.',
       '',
-      'StatusVault is currently in Beta. Features and policies may change.',
+      'Status Saver is currently in Beta. Features and policies may change.',
     ],
   },
 ];
@@ -281,7 +281,7 @@ export default function GuideScreen() {
           </View>
           <Text style={styles.heroTitle}>Complete Guide</Text>
           <Text style={styles.heroSub}>
-            Everything you need to know to set up and use StatusVault on any Android device.
+            Everything you need to know to set up and use Status Saver on any Android device.
           </Text>
         </View>
 
@@ -308,7 +308,7 @@ export default function GuideScreen() {
         <View style={styles.footer}>
           <MaterialCommunityIcons name="shield-check" size={24} color={COLORS.PRIMARY} />
           <Text style={styles.footerText}>
-            StatusVault Beta — Your privacy-first status saver.{'\n'}
+            Status Saver Beta — Your privacy-first status saver.{'\n'}
             Not affiliated with WhatsApp or Meta.
           </Text>
         </View>

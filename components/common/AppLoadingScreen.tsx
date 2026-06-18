@@ -103,7 +103,7 @@ export function AppLoadingScreen({ onDone }: AppLoadingScreenProps) {
           </Animated.View>
         </Animated.View>
 
-        <Text style={styles.appName}>StatusVault</Text>
+        <Text style={styles.appName}>Status Saver</Text>
         <Text style={styles.tagline}>Save. Share. Secure.</Text>
 
         <View style={styles.progressArea}>

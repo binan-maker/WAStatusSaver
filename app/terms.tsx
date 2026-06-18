@@ -59,23 +59,23 @@ export default function TermsScreen() {
 
         <View style={styles.highlight}>
           <Text style={styles.highlightText}>
-            By downloading or using StatusVault, you agree to these Terms. Please read them carefully.
+            By downloading or using Status Saver, you agree to these Terms. Please read them carefully.
           </Text>
         </View>
 
         <Section
           title="1. Who We Are"
-          content="StatusVault is an independent Android application developed by Binan. The app allows users to view and save WhatsApp and WhatsApp Business status media on Android devices. StatusVault is not affiliated with, endorsed by, or connected to WhatsApp LLC or Meta Platforms Inc."
+          content="Status Saver is an independent Android application developed by Binan. The app allows users to view and save WhatsApp and WhatsApp Business status media on Android devices. Status Saver is not affiliated with, endorsed by, or connected to WhatsApp LLC or Meta Platforms Inc."
         />
 
         <Section
           title="2. Permitted Use"
-          content="You may use StatusVault for personal, non-commercial purposes only. You agree not to copy, modify, distribute, or reverse-engineer the app. You are solely responsible for ensuring you have permission to save and share any status media, and for complying with WhatsApp's Terms of Service and applicable copyright laws."
+          content="You may use Status Saver for personal, non-commercial purposes only. You agree not to copy, modify, distribute, or reverse-engineer the app. You are solely responsible for ensuring you have permission to save and share any status media, and for complying with WhatsApp's Terms of Service and applicable copyright laws."
         />
 
         <Section
           title="3. Disclaimer of Warranties"
-          content={"StatusVault is provided 'as is' without warranties of any kind. We do not guarantee uninterrupted or error-free operation. The app's ability to access WhatsApp statuses depends on WhatsApp's storage behaviour, which is outside our control and may change with WhatsApp updates."}
+          content={"Status Saver is provided 'as is' without warranties of any kind. We do not guarantee uninterrupted or error-free operation. The app's ability to access WhatsApp statuses depends on WhatsApp's storage behaviour, which is outside our control and may change with WhatsApp updates."}
         />
 
         <Section
@@ -90,19 +90,19 @@ export default function TermsScreen() {
 
         <Section
           title="6. Contact Us"
-          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021."}
+          content={"Developer: Binan\nApp: Status Saver (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days\n\nGrievance Officer (India): Binan — reachable at the above email per the IT (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021."}
         />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            © 2026 StatusVault · Not affiliated with WhatsApp LLC or Meta Platforms Inc.
+            © 2026 Status Saver · Not affiliated with WhatsApp LLC or Meta Platforms Inc.
           </Text>
           <View style={styles.footerLinks}>
-            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/StatusVault/terms/')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/Status Saver/terms/')} activeOpacity={0.7}>
               <Text style={styles.footerLink}>Read full Terms online</Text>
             </TouchableOpacity>
             <Text style={styles.footerLinkSep}>·</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/StatusVault/privacy-policy/')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/Status Saver/privacy-policy/')} activeOpacity={0.7}>
               <Text style={styles.footerLink}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>

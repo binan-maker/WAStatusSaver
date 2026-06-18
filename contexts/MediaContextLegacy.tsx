@@ -137,7 +137,7 @@ export function MediaProviderLegacy({ children }: { children: ReactNode }) {
       const perm: any = await MediaLibrary.getPermissionsAsync();
       if (perm?.status !== 'granted') return null;
       if (perm?.accessPrivileges === 'none') return null;
-      const album = await MediaLibrary.getAlbumAsync('StatusVault');
+      const album = await MediaLibrary.getAlbumAsync('Status Saver');
       if (!album) return null;
       const valid = [...currentValid];
       const knownUris = new Set(valid.map(v => v.localUri));
@@ -327,7 +327,7 @@ export function MediaProviderLegacy({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_SAVES, String(newCount));
       if (newCount % RATING_TRIGGER_COUNT === 0) {
         Alert.alert(
-          '⭐ Enjoying StatusVault?',
+          '⭐ Enjoying Status Saver?',
           `You've saved ${newCount} statuses! A quick rating helps us grow and keeps the app free.`,
           [
             {
@@ -394,7 +394,7 @@ export function MediaProviderLegacy({ children }: { children: ReactNode }) {
 
       InteractionManager.runAfterInteractions(() => {
         MediaLibrary.createAssetAsync(destUri)
-          .then(asset => MediaLibrary.createAlbumAsync('StatusVault', asset, false))
+          .then(asset => MediaLibrary.createAlbumAsync('Status Saver', asset, false))
           .catch(() => {});
       });
 

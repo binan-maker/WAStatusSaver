@@ -17,7 +17,7 @@
  * This plugin runs during `expo prebuild` / EAS build and edits
  * android/app/src/main/AndroidManifest.xml directly.
  *
- * SAFE to apply to StatusVault: the app uses no camera, GPS, microphone,
+ * SAFE to apply to Status Saver: the app uses no camera, GPS, microphone,
  * NFC, or telephony APIs — those hardware features are never required.
  */
 

@@ -104,7 +104,7 @@ export function MilestoneRatingCard({ visible, type, count, onRate, onLater, onN
               You've {actionWord}{'\n'}{count} statuses!
             </Text>
             <Text style={styles.subtitle}>
-              Enjoying StatusVault? A quick rating helps us grow and keeps the app free.
+              Enjoying Status Saver? A quick rating helps us grow and keeps the app free.
             </Text>
 
             {/* Stars */}

@@ -51,28 +51,28 @@ export default function PrivacyScreen() {
         <View style={styles.highlight}>
           <Ionicons name="lock-closed" size={18} color={COLORS.PRIMARY} />
           <Text style={styles.highlightText}>
-            StatusVault is 100% offline. No accounts. No ads. No data collection. Everything stays on your device.
+            Status Saver is 100% offline. No accounts. No ads. No data collection. Everything stays on your device.
           </Text>
         </View>
 
         <PolicySection
           title="1. Introduction"
-          content="StatusVault is a WhatsApp Status Saver app for Android developed by Binan. This Privacy Policy explains how the app works with respect to your data. The short version: we collect nothing, store nothing on any server, and never send your data anywhere."
+          content="Status Saver is a WhatsApp Status Saver app for Android developed by Binan. This Privacy Policy explains how the app works with respect to your data. The short version: we collect nothing, store nothing on any server, and never send your data anywhere."
         />
 
         <PolicySection
           title="2. Data We Collect"
-          content="None.\n\nStatusVault does not collect, transmit, store, or share any personal data. There are no accounts, no sign-in, no analytics, no crash reporting, and no tracking of any kind.\n\nYour preferences (language, onboarding status) are stored only on your own device using Android's local storage and are never sent anywhere."
+          content="None.\n\nStatus Saver does not collect, transmit, store, or share any personal data. There are no accounts, no sign-in, no analytics, no crash reporting, and no tracking of any kind.\n\nYour preferences (language, onboarding status) are stored only on your own device using Android's local storage and are never sent anywhere."
         />
 
         <PolicySection
           title="3. Internet Access"
-          content="StatusVault does not require an internet connection and does not make any network requests.\n\nThe INTERNET permission is declared in the manifest only as a technical requirement for certain Android system APIs and will not be used to transmit any data from your device."
+          content="Status Saver does not require an internet connection and does not make any network requests.\n\nThe INTERNET permission is declared in the manifest only as a technical requirement for certain Android system APIs and will not be used to transmit any data from your device."
         />
 
         <PolicySection
           title="4. Storage Access"
-          content="StatusVault requires storage access solely to:\n\n• Read WhatsApp status files from the WhatsApp .Statuses folder on your device.\n• Save selected statuses to your device gallery under the 'StatusVault' album.\n• Cache media thumbnails in the app's own private storage folder for faster loading.\n\nThe app only accesses the WhatsApp .Statuses folder and its own private app directory. It cannot and does not access your messages, chats, contacts, photos, or any other storage locations."
+          content="Status Saver requires storage access solely to:\n\n• Read WhatsApp status files from the WhatsApp .Statuses folder on your device.\n• Save selected statuses to your device gallery under the 'Status Saver' album.\n• Cache media thumbnails in the app's own private storage folder for faster loading.\n\nThe app only accesses the WhatsApp .Statuses folder and its own private app directory. It cannot and does not access your messages, chats, contacts, photos, or any other storage locations."
         />
 
         <PolicySection
@@ -82,22 +82,22 @@ export default function PrivacyScreen() {
 
         <PolicySection
           title="6. Third-Party Services"
-          content="None.\n\nStatusVault does not use any third-party SDKs, analytics services, advertising networks, or crash-reporting tools. No data leaves your device."
+          content="None.\n\nStatus Saver does not use any third-party SDKs, analytics services, advertising networks, or crash-reporting tools. No data leaves your device."
         />
 
         <PolicySection
           title="7. Children's Privacy"
-          content="StatusVault does not collect any data from any user, including children. The app is safe for all ages in that regard. However, users should ensure they have permission from a parent or guardian before downloading any app."
+          content="Status Saver does not collect any data from any user, including children. The app is safe for all ages in that regard. However, users should ensure they have permission from a parent or guardian before downloading any app."
         />
 
         <PolicySection
           title="8. Disclaimer of Warranties"
-          content={"StatusVault is provided 'as is' without warranties of any kind. The app's ability to access WhatsApp statuses depends on WhatsApp's storage behavior and Android OS policies, which are outside our control and may change with updates to either. Use of the app is entirely at your own risk."}
+          content={"Status Saver is provided 'as is' without warranties of any kind. The app's ability to access WhatsApp statuses depends on WhatsApp's storage behavior and Android OS policies, which are outside our control and may change with updates to either. Use of the app is entirely at your own risk."}
         />
 
         <PolicySection
           title="9. WhatsApp & Meta Disclaimer"
-          content="StatusVault is an independent, third-party application. It is NOT affiliated with, endorsed by, or connected to WhatsApp LLC or Meta Platforms Inc. 'WhatsApp' is a registered trademark of WhatsApp LLC. This app only reads files that WhatsApp makes available in device storage as part of normal Android behavior."
+          content="Status Saver is an independent, third-party application. It is NOT affiliated with, endorsed by, or connected to WhatsApp LLC or Meta Platforms Inc. 'WhatsApp' is a registered trademark of WhatsApp LLC. This app only reads files that WhatsApp makes available in device storage as part of normal Android behavior."
         />
 
         <PolicySection
@@ -112,20 +112,20 @@ export default function PrivacyScreen() {
 
         <PolicySection
           title="12. Contact"
-          content={"Developer: Binan\nApp: StatusVault (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days"}
+          content={"Developer: Binan\nApp: Status Saver (com.binan.statussaver)\nEmail: ahmedsameerbinan2@gmail.com\nResponse time: Within 7 working days"}
         />
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            © {new Date().getFullYear()} StatusVault. All rights reserved.{'\n'}
+            © {new Date().getFullYear()} Status Saver. All rights reserved.{'\n'}
             Compliant with GDPR, Indian IT Act 2000, and Google Play Store Policies.
           </Text>
           <View style={styles.footerLinks}>
-            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/StatusVault/privacy-policy/')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/Status Saver/privacy-policy/')} activeOpacity={0.7}>
               <Text style={styles.footerLink}>Read online</Text>
             </TouchableOpacity>
             <Text style={styles.footerLinkSep}>·</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/StatusVault/terms/')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://binan-maker.github.io/Status Saver/terms/')} activeOpacity={0.7}>
               <Text style={styles.footerLink}>Terms &amp; Conditions</Text>
             </TouchableOpacity>
           </View>

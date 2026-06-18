@@ -81,7 +81,7 @@ const StatusHeader = React.memo(function StatusHeader({ onInfoPress }: { onInfoP
             <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
           </LinearGradient>
           <View>
-            <Text style={styles.logoText}>StatusVault</Text>
+            <Text style={styles.logoText}>Status Saver</Text>
             <Text style={styles.logoSub}>WhatsApp Status Saver</Text>
           </View>
         </View>

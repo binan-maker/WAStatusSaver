@@ -101,8 +101,8 @@ export default function SettingsScreen() {
       const storeUrl =
         'https://play.google.com/store/apps/details?id=com.binan.statussaver';
       await Share.share({
-        message: `Check out StatusVault — save WhatsApp statuses without screenshots!\n\n${storeUrl}`,
-        title: 'Share StatusVault',
+        message: `Check out Status Saver — save WhatsApp statuses without screenshots!\n\n${storeUrl}`,
+        title: 'Share Status Saver',
         url: Platform.OS === 'ios' ? storeUrl : undefined,
       });
     } catch {}
@@ -227,7 +227,7 @@ export default function SettingsScreen() {
           <SettingRow
             icon="share-social-outline"
             iconBg={COLORS.PRIMARY + '22'}
-            label="Share StatusVault"
+            label="Share Status Saver"
             sublabel="Tell your friends about this app"
             onPress={handleShareApp}
           />
@@ -291,7 +291,7 @@ export default function SettingsScreen() {
           <SettingRow
             icon="star-outline"
             iconBg={COLORS.ACCENT_GOLD + '22'}
-            label="Rate StatusVault"
+            label="Rate Status Saver"
             sublabel="Support us with a 5-star review"
             onPress={() =>
               Linking.openURL(
@@ -323,14 +323,14 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <MaterialCommunityIcons name="shield-check" size={28} color={COLORS.PRIMARY} />
-          <Text style={styles.footerTitle}>StatusVault</Text>
+          <Text style={styles.footerTitle}>Status Saver</Text>
           <Text style={styles.footerSub}>
             100% Offline Processing: Your media never leaves your device.{'\n'}
             The developer has zero access to your files.
           </Text>
           <Text style={styles.footerNote}>
             WhatsApp is a registered trademark of WhatsApp LLC.{'\n'}
-            StatusVault is not affiliated with or endorsed by WhatsApp LLC or Meta Platforms
+            Status Saver is not affiliated with or endorsed by WhatsApp LLC or Meta Platforms
             Inc.{'\n'}
             This is a personal project by an individual developer.
           </Text>
@@ -359,7 +359,7 @@ export default function SettingsScreen() {
               <Text style={styles.eggName}>Binan</Text>
               <View style={styles.eggDivider} />
               <Text style={styles.eggTitle}>Founder & Developer</Text>
-              <Text style={styles.eggAppName}>StatusVault</Text>
+              <Text style={styles.eggAppName}>Status Saver</Text>
               <View style={styles.eggBlessingWrap}>
                 <Text style={styles.eggBlessing}>
                   May الله bless him, his family,{'\n'}and all who use this app.

@@ -33,7 +33,7 @@ export default function OnboardingScreen() {
         style={styles.header}
       >
         <MaterialCommunityIcons name="shield-check" size={56} color={COLORS.PRIMARY} />
-        <Text style={styles.headerTitle}>StatusVault</Text>
+        <Text style={styles.headerTitle}>Status Saver</Text>
         <Text style={styles.headerSubtitle}>
           Save and share WhatsApp statuses instantly — photos and videos, all in one place.
         </Text>
