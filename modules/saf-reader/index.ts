@@ -1,38 +1,32 @@
 /**
- * SafReader — SAF file scanner powered by react-native-saf-x.
+ * SafReader — SAF file scanner that returns tree-qualified content:// URIs.
  *
- * PLUGIN-FREE: react-native-saf-x uses React Native autolinking — no custom
- * Java module, no app.json plugin entry, no crash-prone manual registration.
+ * CRITICAL: All URIs returned by scanForStatuses MUST be tree-qualified:
+ *   content://com.android.externalstorage.documents/tree/<tree>/document/<doc>
  *
- * Key advantages over the old custom Java module:
- *   • listFiles() returns real file sizes + lastModified for every entry.
- *     This fixes the "copy-verification with unknown size" bug where the old
- *     JS fallback set size=0 and accepted partial video copies.
- *   • BFS runs in JS on the RN thread — no ExecutorService lifecycle to manage.
- *   • Works in Expo Go (graceful no-op when SafX native module is absent).
+ * Bare /document/ URIs (returned by react-native-saf-x's listFiles) do NOT
+ * carry the grant context, so Android denies every read → images and videos
+ * render blank. expo-file-system's readDirectoryAsync always returns
+ * tree-qualified URIs, which is why this module uses it for the BFS scan.
  *
- * Functions that require the native SafX module (EAS / custom dev build):
- *   scanForStatuses, batchCheckFiles, copyFileToCache, cleanupCacheDir,
- *   batchDeleteFiles — all fall back gracefully when unavailable.
+ * react-native-saf-x is kept for stat(), copyFile(), and other utilities
+ * that accept either URI format, but is NOT used for directory traversal.
  *
- * generateThumbnail / preCopyAll / cancelPreCopy:
- *   generateThumbnail always rejects so thumbnail-cache falls through to the
- *   expo-video-thumbnails JS path (same quality, hardware-accelerated on device).
- *   preCopyAll / cancelPreCopy are no-ops — on-demand copy in the viewer
- *   is the only copy path needed.
+ * isAvailable() returns true on all Android builds (Expo Go, dev-client, EAS)
+ * because the scan uses expo-file-system which is always present — no
+ * NativeModules gate needed.
  */
-import { NativeModules, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as SAF from 'react-native-saf-x';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface NativeSafFile {
-  uri: string;
+  uri: string;    // tree-qualified content:// URI — safe for expo-image / ExoPlayer
   name: string;
   mimeType: string;
   modTime: number;
-  size: number;
+  size: number;   // 0 at scan time; lazy-fetched by copy-verification when needed
 }
 
 export interface NativeDocumentInfo {
@@ -61,17 +55,15 @@ export interface PreCopyItem {
 
 // ── Availability ──────────────────────────────────────────────────────────────
 
-// react-native-saf-x registers itself as NativeModules.SafX via autolinking.
-// In Expo Go or web the native module is absent so we degrade gracefully.
-const isSafXLinked =
-  Platform.OS === 'android' && !!NativeModules.SafX;
-
-/** True when the react-native-saf-x native module is linked (EAS / custom build). */
+/**
+ * Always true on Android — the scan uses expo-file-system which is present
+ * in every build. No native module gate needed.
+ */
 export function isAvailable(): boolean {
-  return isSafXLinked;
+  return Platform.OS === 'android';
 }
 
-// ── File validation helper ────────────────────────────────────────────────────
+// ── File validation ────────────────────────────────────────────────────────────
 
 const VALID_EXTS = new Set([
   '.jpg', '.jpeg', '.png', '.gif', '.webp',
@@ -81,15 +73,27 @@ const VALID_EXTS = new Set([
 function isValidStatusFile(name: string): boolean {
   if (name.startsWith('.')) return false;
   const dot = name.lastIndexOf('.');
-  if (dot === -1) return true; // no extension — allow
+  if (dot === -1) return true;
   return VALID_EXTS.has(name.slice(dot).toLowerCase());
+}
+
+// ── SAF URI → filename ────────────────────────────────────────────────────────
+// Tree-qualified SAF URIs end with the document ID, which uses ':' as the
+// separator between volume and path. The filename is the last ':' or '/'
+// segment after decoding.
+function safUriToFileName(uri: string): string {
+  const decoded = decodeURIComponent(uri);
+  const lastColon = decoded.lastIndexOf(':');
+  const lastSlash = decoded.lastIndexOf('/');
+  const pos = Math.max(lastColon, lastSlash);
+  return pos >= 0 ? decoded.slice(pos + 1) : decoded;
 }
 
 // ── BFS scanner ───────────────────────────────────────────────────────────────
 
-// Folder names the BFS is allowed to descend into.
-// Any folder whose name starts with "com.whatsapp" is also allowed (covers
-// WA Business, GB WhatsApp, WhatsApp Plus, etc.)
+// Folder names the BFS is allowed to descend into. Any folder whose name
+// starts with 'com.whatsapp' is also allowed (covers WA Business, GB WhatsApp,
+// WhatsApp Plus, etc.)
 const KNOWN_INTERMEDIATE = new Set([
   'android', 'media',
   'whatsapp', 'whatsapp business',
@@ -105,40 +109,45 @@ async function bfsFindAndCollect(
 ): Promise<void> {
   if (depth > BFS_MAX_DEPTH || Date.now() > deadline) return;
 
-  let entries: SAF.DocumentFileDetail[];
+  let entries: string[];
   try {
-    entries = await SAF.listFiles(uri);
+    entries = await FileSystem.StorageAccessFramework.readDirectoryAsync(uri);
   } catch {
     return;
   }
 
   for (const entry of entries) {
     if (Date.now() > deadline) return;
+    const name = safUriToFileName(entry);
 
-    if (entry.name === '.Statuses' && entry.type === 'directory') {
-      // Found a .Statuses folder — collect all valid media files inside it
+    if (name === '.Statuses') {
+      // Found a .Statuses folder — collect all valid media files inside it.
+      // entry is already a tree-qualified URI.
+      let files: string[];
       try {
-        const files = await SAF.listFiles(entry.uri);
-        for (const file of files) {
-          if (file.type === 'file' && isValidStatusFile(file.name)) {
-            results.push({
-              uri: file.uri,
-              name: file.name,
-              mimeType: file.mime || '',
-              modTime: file.lastModified || 0,
-              size: file.size || 0,
-            });
-          }
+        files = await FileSystem.StorageAccessFramework.readDirectoryAsync(entry);
+      } catch {
+        continue;
+      }
+      for (const file of files) {
+        const fileName = safUriToFileName(file);
+        if (isValidStatusFile(fileName)) {
+          results.push({
+            uri: file,      // tree-qualified URI — works with expo-image + ExoPlayer
+            name: fileName,
+            mimeType: '',
+            modTime: 0,
+            size: 0,        // lazily fetched during copy-verification if needed
+          });
         }
-      } catch {}
-      // Don't descend deeper from .Statuses
-    } else if (entry.type === 'directory') {
-      const nameLower = entry.name.toLowerCase();
+      }
+    } else {
+      const nameLower = name.toLowerCase();
       if (
         KNOWN_INTERMEDIATE.has(nameLower) ||
         nameLower.startsWith('com.whatsapp')
       ) {
-        await bfsFindAndCollect(entry.uri, depth + 1, results, deadline);
+        await bfsFindAndCollect(entry, depth + 1, results, deadline);
       }
     }
   }
@@ -149,17 +158,20 @@ async function bfsFindAndCollect(
 /**
  * Scan a granted SAF tree URI for WhatsApp .Statuses files.
  *
- * Uses react-native-saf-x listFiles() for BFS traversal. Returns each file
- * with a real size and lastModified so downstream copy-verification can use
- * the strong ≥ 99% check instead of the weak > 100 KB heuristic.
+ * Uses expo-file-system's readDirectoryAsync for traversal so every returned
+ * URI is tree-qualified and readable by expo-image / expo-video / ExoPlayer
+ * without any extra permission lookup.
  *
  * Supports:
- *   • Android/media root grant (covers WA + WA Business + GB WA + WA Plus)
+ *   • Android/media root grant (covers WA + WA Business + any variant)
  *   • Specific WhatsApp or WhatsApp Business folder grants
  *   • Legacy .Statuses direct grants
+ *
+ * size is 0 at scan time. Copy-verification in MediaContextSAF lazily calls
+ * getInfoAsync(item.uri) when size === 0, so nothing breaks downstream.
  */
 export async function scanForStatuses(treeUri: string): Promise<NativeSafFile[]> {
-  if (!isSafXLinked) return [];
+  if (Platform.OS !== 'android') return [];
   const results: NativeSafFile[] = [];
   const deadline = Date.now() + BFS_TIMEOUT_MS;
   try {
@@ -170,10 +182,8 @@ export async function scanForStatuses(treeUri: string): Promise<NativeSafFile[]>
 
 /**
  * Copy a SAF content:// file to a local cache path.
- *
- * Uses expo-file-system copyAsync (handles ContentResolver correctly on all
- * Android versions). The dest path must include file:// prefix or not — both
- * work; copyAsync normalises the URI internally.
+ * Uses expo-file-system copyAsync — handles ContentResolver correctly on all
+ * Android versions and both tree-qualified and bare document URIs.
  */
 export async function copyFileToCache(contentUri: string, destPath: string): Promise<string> {
   const dest = destPath.startsWith('file://') ? destPath : `file://${destPath}`;
@@ -183,49 +193,44 @@ export async function copyFileToCache(contentUri: string, destPath: string): Pro
 
 /**
  * Fetch metadata for a SAF document URI.
- * Uses react-native-saf-x stat() — a single ContentResolver cursor query.
+ * Uses expo-file-system getInfoAsync — works for both tree-qualified and
+ * bare content:// URIs.
  */
 export async function getDocumentInfo(contentUri: string): Promise<NativeDocumentInfo> {
-  if (!isSafXLinked) throw new Error('SafX native module not linked');
-  const detail = await SAF.stat(contentUri);
+  const info = await FileSystem.getInfoAsync(contentUri);
   return {
-    name: detail.name,
-    size: detail.size,
-    modTime: detail.lastModified,
-    mimeType: detail.mime,
+    name: safUriToFileName(contentUri),
+    size: info.exists ? ((info as any).size ?? 0) : 0,
+    modTime: info.exists ? (((info as any).modificationTime ?? 0) * 1000) : 0,
+    mimeType: '',
   };
 }
 
 /**
  * generateThumbnail — always rejects so thumbnail-cache.ts falls through to
  * expo-video-thumbnails (hardware-accelerated, works on all builds).
- * Thumbnails do not require the native SafReader Java module.
+ * The rejection is immediate, so there is no 3-second wait in the caller.
  */
 export function generateThumbnail(
   _videoPath: string,
   _destPath: string,
   _timeMs = 0,
 ): Promise<string> {
-  return Promise.reject(new Error('generateThumbnail: use expo-video-thumbnails fallback'));
+  return Promise.reject(new Error('use expo-video-thumbnails fallback'));
 }
 
-/**
- * preCopyAll — no-op.
- * On-demand copy in the viewer is the only path needed; background
- * pre-copying adds I/O bus pressure without measurable user benefit.
- */
+/** preCopyAll — no-op. On-demand copy in the viewer is sufficient. */
 export function preCopyAll(_cacheDirPath: string, _items: PreCopyItem[]): Promise<number> {
   return Promise.resolve(0);
 }
 
-/** cancelPreCopy — no-op (preCopyAll is never started). */
+/** cancelPreCopy — no-op. */
 export function cancelPreCopy(): Promise<null> {
   return Promise.resolve(null);
 }
 
 /**
  * Fast file-stat for a local cached file.
- * Uses expo-file-system getInfoAsync — reliable on all builds.
  */
 export async function checkCachedFile(filePath: string): Promise<NativeCacheCheck> {
   try {
@@ -264,7 +269,7 @@ export async function batchCheckFiles(paths: string[]): Promise<NativeBatchFileE
 }
 
 /**
- * Delete all files in dirPath whose name starts with one of `prefixes`
+ * Delete files in dirPath whose name starts with one of `prefixes`
  * AND that are older than maxAgeMs milliseconds.
  * Returns the number of files deleted.
  */
@@ -307,7 +312,7 @@ export async function cleanupCacheDir(
 }
 
 /**
- * Delete multiple local files in one call (parallel).
+ * Delete multiple local files in parallel.
  * Non-existent files are silently skipped.
  * Returns the count of files successfully deleted.
  */
