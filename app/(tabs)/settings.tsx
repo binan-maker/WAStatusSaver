@@ -284,7 +284,7 @@ export default function SettingsScreen() {
           <SettingRow
             icon="information-circle-outline"
             label="App Version"
-            value="1.4.0"
+            value="1.5.0"
             showArrow={false}
             onPress={handleVersionPress}
           />
