@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThumbnailCache } from '@/lib/thumbnail-cache';
 import { cleanupDocumentCache } from '@/lib/video-fallback';
 import * as SafReaderModule from '@/modules/saf-reader';
+import * as SafPickerModule from '@/modules/saf-picker';
 import {
   MediaContext,
   MediaContextValue,
@@ -122,16 +123,23 @@ export function getTelemetrySnapshot(): TelemetrySnapshot {
 //   media under Android/media/<package>/. The app then crawls subdirs itself.
 //   This is the approach used by top-rated status-saver apps on the Play Store.
 //
+// ── SAF initial URI constants ─────────────────────────────────────────────────
+//
+// CRITICAL: EXTRA_INITIAL_URI must use the /document/ path format, NOT /tree/.
+// Using /tree/ causes OEM pickers that partially respect the hint to misparse it.
+// The SafPickerModule passes this as android.provider.extra.INITIAL_URI.
+//
+// Decoded: content://com.android.externalstorage.documents/document/primary:Android/media
 const ANDROID_MEDIA_URI =
-  'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia';
+  'content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fmedia';
 
-// Deep fallback URIs — only used when the user taps "Browse manually" or when
-// we need to re-prompt after an OEM picker that ignored EXTRA_INITIAL_URI.
+// Deep fallback URIs — only used when the user taps "Browse manually".
+// Also /document/ format for the same reason.
 const SAF_INITIAL_URIS: Record<StatusSource, string> = {
   whatsapp:
-    'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
+    'content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia',
   whatsapp_business:
-    'content://com.android.externalstorage.documents/tree/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
+    'content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia',
 };
 // SAF_KNOWN_INTERMEDIATE: folder names the BFS is allowed to descend into.
 // "com.whatsapp*" packages are handled separately by prefix check in bfsFindStatuses.
@@ -473,11 +481,21 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
       await new Promise<void>(resolve => InteractionManager.runAfterInteractions(() => resolve()));
       let result: { granted: boolean; directoryUri: string };
       try {
-        result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
-          initialUri ?? null,
-        );
+        if (SafPickerModule.isAvailable()) {
+          // ── Use native SafPickerModule ──────────────────────────────────────
+          // Forces com.android.documentsui (stock Android picker) so the folder
+          // hint is respected on 100% of devices — Samsung, Xiaomi, MIUI, etc.
+          // all bypass the hint with their own file managers; this call skips
+          // those entirely and goes straight to the system document picker.
+          result = await SafPickerModule.openDocumentTree(initialUri ?? ANDROID_MEDIA_URI);
+        } else {
+          // Expo Go / non-EAS build fallback — no native module compiled in
+          result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+            initialUri ?? null,
+          );
+        }
       } catch (e) {
-        console.error('[SAF] requestDirectoryPermissionsAsync failed:', e);
+        console.error('[SAF] folder picker failed:', e);
         setIsRequestingSAF(false);
         safRequestInFlight.current = false;
         return;

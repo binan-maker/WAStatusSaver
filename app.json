@@ -86,7 +86,8 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "./plugins/with-max-compat.js"
+      "./plugins/with-max-compat.js",
+      "./plugins/with-saf-picker.js"
     ],
     "experiments": {
       "typedRoutes": true,
