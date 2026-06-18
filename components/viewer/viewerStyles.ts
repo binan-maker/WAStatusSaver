@@ -143,4 +143,17 @@ export const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    zIndex: 300,
+  },
+  errorText: {
+    color: '#fff',
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: 'Nunito_600SemiBold',
+  },
 });

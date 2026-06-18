@@ -7,11 +7,17 @@
  * modules/exo-player/android/ that are not present in this repo, so
  * UIManager.hasViewManagerConfig('ExoPlayerView') always returns false
  * and the module is always unavailable. All video playback therefore goes
- * through react-native-video (VideoPlayerView). The ExoPlayerView/ExoPlayerBoundary
- * code has been removed to eliminate the state changes (nativePlayerFailed,
- * exoPaused) they caused — those state updates triggered ViewerItem re-renders
- * while a video was playing, which detached and reattached the VideoView's
- * SurfaceTexture and contributed to the Android 11+ freeze.
+ * through react-native-video (VideoPlayerView).
+ *
+ * VIDEO CONTROLS
+ * ──────────────
+ * Tap anywhere on the video to show/hide the controller overlay.
+ * The overlay auto-hides after 3 s of playing without interaction.
+ * While paused the overlay stays visible until the user explicitly hides it.
+ *
+ * Controller buttons (play/pause, mute, seek bar) are captured by VideoControls.
+ * Taps on the empty area of the overlay (box-none) fall through to the
+ * TouchableOpacity behind it, which toggles the overlay visibility.
  *
  * URI PREPARATION
  * ───────────────
@@ -44,7 +50,8 @@ import Reanimated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
-import { VideoPlayerView } from './VideoPlayerView';
+import { VideoPlayerView, type VideoPlayerViewRef } from './VideoPlayerView';
+import { VideoControls } from './VideoControls';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
@@ -52,6 +59,7 @@ import { useThumbnail } from '@/hooks/media/useThumbnail';
 import { createStyles, SW, SH } from './viewerStyles';
 
 const VIEWER_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
+const AUTO_HIDE_MS = 3000;
 
 export interface ViewerItemProps {
   item: StatusItem | SavedItem;
@@ -76,45 +84,70 @@ export const ViewerItem = React.memo(function ViewerItem({
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
 
-  // Thumbnail fades from 1→0 once video starts playing.
+  // ── Video playback state ─────────────────────────────────────────────────
+  const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [showVideoControls, setShowVideoControls] = useState(true);
+
+  // Refs that mirror state for use inside stable callbacks.
+  const pausedRef = useRef(false);
+  const showVideoControlsRef = useRef(true);
+
+  // Seek via ref (stable handle exposed by VideoPlayerView).
+  const videoRef = useRef<VideoPlayerViewRef | null>(null);
+
+  // Auto-hide timer handle.
+  const autoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAutoHide = useCallback(() => {
+    if (autoHideTimer.current) {
+      clearTimeout(autoHideTimer.current);
+      autoHideTimer.current = null;
+    }
+  }, []);
+
+  // Reset (or start) the 3 s auto-hide countdown.
+  // Calling this with no args always restarts from 3 s.
+  const resetAutoHide = useCallback(() => {
+    clearAutoHide();
+    autoHideTimer.current = setTimeout(() => {
+      setShowVideoControls(false);
+      showVideoControlsRef.current = false;
+    }, AUTO_HIDE_MS);
+  }, [clearAutoHide]);
+
+  // Clean up timer on unmount.
+  useEffect(() => () => clearAutoHide(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Thumbnail fade ───────────────────────────────────────────────────────
   const thumbnailOpacity = useRef(new Animated.Value(1)).current;
   const isVideoPlayingRef = useRef(false);
 
-  // Tracks whether URI preparation has been initiated for the current item.
-  // Using a ref (not state) means starting the async copy doesn't re-render
-  // the component, which keeps the player unmolested during file I/O.
   const hasPreparedRef = useRef(false);
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
-  // Video stays mounted for as long as this item is within the FlatList
-  // window (isNearActive=true). isActive controls only the paused prop
-  // inside VideoPlayerView — we never unmount the player on navigation.
-  // Mounting/unmounting the decoder on every swipe was the root cause of
-  // the visible freeze: destroy → reload → stutter.
-
-  const initialSource = useMemo(() => {
-    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
-  }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const isSAF = initialSource.startsWith('content://');
-
-  // ── Reset everything when item changes ──────────────────────────────────
+  // ── Reset when item changes ──────────────────────────────────────────────
   useEffect(() => {
     hasPreparedRef.current = false;
     setDisplayUri(null);
     setVideoError(null);
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
+    // Reset video controls state for the new item.
+    pausedRef.current = false;
+    setPaused(false);
+    setMuted(false);
+    setCurrentTime(0);
+    setDuration(0);
+    showVideoControlsRef.current = true;
+    setShowVideoControls(true);
+    clearAutoHide();
   }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When a video slide loses focus: reset visual state AND release the decoder.
-  // Clearing displayUri unmounts <VideoPlayerView>, freeing the hardware
-  // MediaCodec slot immediately. The cache file on disk is untouched, so
-  // re-mounting on swipe-back is instant (fast-path in prepareStatusForViewing
-  // returns the cached file:// in < 5 ms without re-copying).
-  // hasPreparedRef is also reset so the prepare effect can re-run and
-  // re-set displayUri when this slide becomes active again.
+  // Release the decoder when a video slide loses focus.
   useEffect(() => {
     if (item.type !== 'video') return;
     if (!isActive) {
@@ -122,20 +155,20 @@ export const ViewerItem = React.memo(function ViewerItem({
       isVideoPlayingRef.current = false;
       setDisplayUri(null);
       hasPreparedRef.current = false;
+      pausedRef.current = false;
+      setPaused(false);
+      setCurrentTime(0);
+      setDuration(0);
+      showVideoControlsRef.current = true;
+      setShowVideoControls(true);
+      clearAutoHide();
     }
   }, [isActive, item.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Prepare URI ──────────────────────────────────────────────────────────
-  // hasPreparedRef gates this effect so it runs at most once per item.
-  // displayUri is intentionally NOT in the dependency array — including it
-  // caused React to run the effect cleanup (setting a cancel flag) every time
-  // setDisplayUri was called, which silently dropped the copy result for
-  // the next swipe-to-same-item scenario.
   useEffect(() => {
     if (!isNearActive) {
       if (!isActive) {
-        // Fully out of the window — free the display URI so the player
-        // is not mounted for off-screen items.
         setDisplayUri(null);
         setVideoError(null);
         hasPreparedRef.current = false;
@@ -143,47 +176,32 @@ export const ViewerItem = React.memo(function ViewerItem({
       return;
     }
 
-    // Already started or completed preparation for this item.
     if (hasPreparedRef.current) return;
-
-    // Don't start SAF copy until the slide is actually active.
-    // Images are cheap and can be set immediately for adjacent slides.
     if (item.type !== 'image' && !isActive) return;
 
     hasPreparedRef.current = true;
 
     if (item.type === 'image') {
+      const src = 'localUri' in item ? (item as SavedItem).localUri : item.uri;
+      setDisplayUri(src);
+      return;
+    }
+
+    const initialSource = 'localUri' in item
+      ? (item as SavedItem).localUri
+      : item.uri;
+
+    if (!initialSource.startsWith('content://')) {
       setDisplayUri(initialSource);
       return;
     }
 
-    if (!isSAF) {
-      // Legacy file:// (saved items or Android ≤10 paths) — play directly.
-      setDisplayUri(initialSource);
-      return;
-    }
-
-    // SAF content:// video — MUST copy to local file:// before the player
-    // mounts. ExoPlayer cannot reliably stream from the SAF ContentProvider
-    // on Android 11+: the DocumentProvider process is too slow to refill
-    // ExoPlayer's buffer, so playback freezes at ~1s every time.
     setVideoError(null);
-
     prepareStatusForViewing(item as StatusItem, { forPlayback: true })
       .then((fileUri) => {
-        if (!hasPreparedRef.current) return; // cancelled by item change
+        if (!hasPreparedRef.current) return;
         if (fileUri && !fileUri.startsWith('content://')) {
-          // Only accept file:// paths — a content:// URI passed to ExoPlayer
-          // causes the SAF-freeze loop (DocumentProvider too slow to keep the
-          // buffer filled on Android 11+).
           setDisplayUri(fileUri);
-        } else if (fileUri?.startsWith('content://')) {
-          // prepareStatusForViewing returned the raw SAF URI instead of a
-          // cached copy. This should not happen for videos, but if it does,
-          // surface the retry overlay rather than passing content:// to the
-          // player and triggering the freeze.
-          hasPreparedRef.current = false;
-          setVideoError('Could not load video — tap to retry');
         } else {
           hasPreparedRef.current = false;
           setVideoError('Could not load video — tap to retry');
@@ -194,14 +212,9 @@ export const ViewerItem = React.memo(function ViewerItem({
         hasPreparedRef.current = false;
         setVideoError('Could not load video — tap to retry');
       });
-  }, [initialSource, isSAF, item.id, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [item.id, isNearActive, isActive, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Callbacks for VideoPlayerView ────────────────────────────────────────
-  // No isVideoPlayingRef guard — always animate thumbnail to 0 when called.
-  // VideoPlayerView calls this on EVERY onReadyForDisplay (including loop
-  // boundaries with repeat={true}). Animating from 0→0 is a native no-op,
-  // so repeated calls are free. Removing the guard lets the thumbnail cover
-  // the brief black frame at each ExoPlayer loop transition.
+  // ── Video callbacks (all stable — [] deps, use only stable setters/refs) ─
   const handlePlaying = useCallback(() => {
     isVideoPlayingRef.current = true;
     Animated.timing(thumbnailOpacity, {
@@ -209,24 +222,90 @@ export const ViewerItem = React.memo(function ViewerItem({
       duration: 180,
       useNativeDriver: true,
     }).start();
-  }, [thumbnailOpacity]);
+    // Show controls briefly when video first starts, then auto-hide.
+    showVideoControlsRef.current = true;
+    setShowVideoControls(true);
+    resetAutoHide();
+  // thumbnailOpacity is a stable ref, resetAutoHide is stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleError = useCallback((_msg: string) => {
     setVideoError('Tap to retry');
+    clearAutoHide();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRetry = useCallback(() => {
-    // Reset ALL state so the prepare effect re-runs from scratch.
     hasPreparedRef.current = false;
     setVideoError(null);
     setDisplayUri(null);
     thumbnailOpacity.setValue(1);
     isVideoPlayingRef.current = false;
-  }, [thumbnailOpacity]);
+    pausedRef.current = false;
+    setPaused(false);
+    setCurrentTime(0);
+    setDuration(0);
+    showVideoControlsRef.current = true;
+    setShowVideoControls(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const mediaUri = displayUri || initialSource;
+  // Stable — only uses stable setState setters.
+  const handleProgress = useCallback((ct: number, dur: number) => {
+    setCurrentTime(ct);
+    if (dur > 0) setDuration(dur);
+  }, []);
 
-  // ── Pinch-to-zoom for images ───────────────────────────────────────────
+  const handleLoad = useCallback((dur: number) => {
+    if (dur > 0) setDuration(dur);
+  }, []);
+
+  // ── Video controller callbacks ────────────────────────────────────────────
+  const handlePlayPause = useCallback(() => {
+    const nowPaused = !pausedRef.current;
+    pausedRef.current = nowPaused;
+    setPaused(nowPaused);
+    if (nowPaused) {
+      clearAutoHide(); // Controls stay visible while paused.
+    } else {
+      resetAutoHide(); // Resume playback → start auto-hide.
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleMuteToggle = useCallback(() => {
+    setMuted(m => !m);
+    resetAutoHide();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSeek = useCallback((time: number) => {
+    videoRef.current?.seek(time);
+    setCurrentTime(time);
+    resetAutoHide();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleControlTouch = useCallback(() => {
+    if (!pausedRef.current) resetAutoHide();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tap on the video area (empty space, not on a control button).
+  const handleVideoTap = useCallback(() => {
+    const next = !showVideoControlsRef.current;
+    showVideoControlsRef.current = next;
+    setShowVideoControls(next);
+    if (next && !pausedRef.current) {
+      resetAutoHide();
+    } else {
+      clearAutoHide();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Image gestures ────────────────────────────────────────────────────────
   const imageScale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -345,9 +424,16 @@ export const ViewerItem = React.memo(function ViewerItem({
     ],
   }));
 
+  const initialSource = useMemo(() => {
+    return 'localUri' in item ? (item as SavedItem).localUri : item.uri;
+  }, [item.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const mediaUri = displayUri || initialSource;
+
   return (
     <View style={styles.itemContainer}>
       {item.type === 'image' ? (
+        // ── Image viewer: pinch / pan / double-tap / single-tap ─────────────
         <GestureDetector gesture={imageGesture}>
           <Reanimated.View style={[StyleSheet.absoluteFill, imageAnimatedStyle]}>
             <Image
@@ -366,67 +452,77 @@ export const ViewerItem = React.memo(function ViewerItem({
           </Reanimated.View>
         </GestureDetector>
       ) : (
+        // ── Video viewer ─────────────────────────────────────────────────────
         <View style={StyleSheet.absoluteFill}>
-          <View style={styles.videoWrap}>
+          {/* Tap target behind the controls overlay.
+              VideoControls has pointerEvents="box-none" so taps on the
+              empty area (not on any button) fall through here. */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={handleVideoTap}
+            activeOpacity={1}
+          >
+            <View style={styles.videoWrap}>
+              {/* Player — only mounted when this is the ACTIVE slide. */}
+              {!!displayUri && isActive && (
+                <VideoPlayerView
+                  ref={videoRef}
+                  key={displayUri}
+                  fileUri={displayUri}
+                  paused={paused}
+                  muted={muted}
+                  onPlaying={handlePlaying}
+                  onError={handleError}
+                  onProgress={handleProgress}
+                  onLoad={handleLoad}
+                />
+              )}
 
-            {/* Video player — only mounted for the ACTIVE slide.
-                isActive gates mounting so exactly one hardware MediaCodec
-                decoder exists at any time. Android typically has 1-2 slots;
-                having prev+current+next decoders all alive simultaneously
-                causes resource contention that produces the stutter loop.
-                The cache file (file://) survives on disk between mounts, so
-                swipe-back re-mounts the player instantly without re-copying.
-                key={displayUri}: new player instance only when the URI
-                changes (different item or tap-to-retry). */}
-            {!!displayUri && isActive && (
-              <VideoPlayerView
-                key={displayUri}
-                fileUri={displayUri}
-                onPlaying={handlePlaying}
-                onError={handleError}
-              />
-            )}
-
-            {/* Thumbnail poster — covers the black frame while copy is in
-                progress and while the decoder warms up. Fades to invisible
-                once the first real frame is confirmed via timeUpdate > 0. */}
-            <Animated.View
-              style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
-              pointerEvents="none"
-            >
-              <Image
-                source={cachedThumb ? { uri: cachedThumb } : null}
-                style={StyleSheet.absoluteFill}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                transition={0}
-                recyclingKey={item.id}
-                placeholder={VIEWER_PLACEHOLDER}
-                placeholderContentFit="cover"
-              />
-            </Animated.View>
-
-            {/* Retry overlay — only shown on confirmed playback error */}
-            {videoError && (
-              <TouchableOpacity
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: 'rgba(0,0,0,0.65)',
-                  },
-                ]}
-                onPress={handleRetry}
-                activeOpacity={0.8}
+              {/* Thumbnail poster — fades out once the first real frame arrives. */}
+              <Animated.View
+                style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
+                pointerEvents="none"
               >
-                <Ionicons name="refresh-circle-outline" size={52} color="#fff" />
-                <Text style={{ color: '#fff', marginTop: 10, fontSize: 14 }}>
-                  Tap to retry
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                <Image
+                  source={cachedThumb ? { uri: cachedThumb } : null}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                  transition={0}
+                  recyclingKey={item.id}
+                  placeholder={VIEWER_PLACEHOLDER}
+                  placeholderContentFit="cover"
+                />
+              </Animated.View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Video controller overlay — only when playing (no error). */}
+          {!videoError && isActive && (
+            <VideoControls
+              visible={showVideoControls}
+              paused={paused}
+              muted={muted}
+              currentTime={currentTime}
+              duration={duration}
+              onPlayPause={handlePlayPause}
+              onMuteToggle={handleMuteToggle}
+              onSeek={handleSeek}
+              onControlTouch={handleControlTouch}
+            />
+          )}
+
+          {/* Error / retry overlay — topmost, only on error. */}
+          {videoError && (
+            <TouchableOpacity
+              style={styles.errorOverlay}
+              onPress={handleRetry}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh-circle-outline" size={52} color="#fff" />
+              <Text style={styles.errorText}>Tap to retry</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>

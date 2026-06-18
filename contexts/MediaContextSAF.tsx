@@ -489,10 +489,13 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
           // those entirely and goes straight to the system document picker.
           result = await SafPickerModule.openDocumentTree(initialUri ?? ANDROID_MEDIA_URI);
         } else {
-          // Expo Go / non-EAS build fallback — no native module compiled in
+          // Expo Go / non-EAS build fallback — no native module compiled in.
+          // expo-file-system's type union collapses directoryUri to undefined
+          // when granted=false, but we guard on result.granted before reading
+          // directoryUri, so the cast is safe.
           result = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
             initialUri ?? null,
-          );
+          ) as { granted: boolean; directoryUri: string };
         }
       } catch (e) {
         console.error('[SAF] folder picker failed:', e);
