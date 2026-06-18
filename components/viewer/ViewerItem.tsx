@@ -454,50 +454,60 @@ export const ViewerItem = React.memo(function ViewerItem({
       ) : (
         // ── Video viewer ─────────────────────────────────────────────────────
         <View style={StyleSheet.absoluteFill}>
-          {/* Tap target behind the controls overlay.
-              VideoControls has pointerEvents="box-none" so taps on the
-              empty area (not on any button) fall through here. */}
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            onPress={handleVideoTap}
-            activeOpacity={1}
-          >
-            <View style={styles.videoWrap}>
-              {/* Player — only mounted when this is the ACTIVE slide. */}
-              {!!displayUri && isActive && (
-                <VideoPlayerView
-                  ref={videoRef}
-                  key={displayUri}
-                  fileUri={displayUri}
-                  paused={paused}
-                  muted={muted}
-                  onPlaying={handlePlaying}
-                  onError={handleError}
-                  onProgress={handleProgress}
-                  onLoad={handleLoad}
-                />
-              )}
+          {/* Layer 1 — pure display, no touch handling.
+              pointerEvents="none" disables the entire subtree so the
+              Video component (which intercepts touches even with
+              controls={false} on Android ExoPlayer) never steals taps. */}
+          <View style={styles.videoWrap} pointerEvents="none">
+            {!!displayUri && isActive && (
+              <VideoPlayerView
+                ref={videoRef}
+                key={displayUri}
+                fileUri={displayUri}
+                paused={paused}
+                muted={muted}
+                onPlaying={handlePlaying}
+                onError={handleError}
+                onProgress={handleProgress}
+                onLoad={handleLoad}
+              />
+            )}
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
+              pointerEvents="none"
+            >
+              <Image
+                source={cachedThumb ? { uri: cachedThumb } : null}
+                style={StyleSheet.absoluteFill}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                transition={0}
+                recyclingKey={item.id}
+                placeholder={VIEWER_PLACEHOLDER}
+                placeholderContentFit="cover"
+              />
+            </Animated.View>
+          </View>
 
-              {/* Thumbnail poster — fades out once the first real frame arrives. */}
-              <Animated.View
-                style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
-                pointerEvents="none"
-              >
-                <Image
-                  source={cachedThumb ? { uri: cachedThumb } : null}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                  transition={0}
-                  recyclingKey={item.id}
-                  placeholder={VIEWER_PLACEHOLDER}
-                  placeholderContentFit="cover"
-                />
-              </Animated.View>
-            </View>
-          </TouchableOpacity>
+          {/* Layer 2 — tap detector.
+              Sits above the non-interactive video layer but BELOW VideoControls.
+              Because VideoControls is box-none, taps not caught by any control
+              button fall through the box-none layer and land here.
+              activeOpacity=1 → zero visual feedback (the video is the surface).
+              React Native's TouchableOpacity yields to the parent FlatList's
+              native scroll gesture via responder termination, so swiping to
+              the next status still works. */}
+          {!videoError && (
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              onPress={handleVideoTap}
+              activeOpacity={1}
+            />
+          )}
 
-          {/* Video controller overlay — only when playing (no error). */}
+          {/* Layer 3 — video controller overlay (topmost interactive layer).
+              pointerEvents="box-none": the overlay box itself is transparent
+              to touches; only the child buttons / seek bar capture taps. */}
           {!videoError && isActive && (
             <VideoControls
               visible={showVideoControls}
@@ -512,7 +522,7 @@ export const ViewerItem = React.memo(function ViewerItem({
             />
           )}
 
-          {/* Error / retry overlay — topmost, only on error. */}
+          {/* Layer 4 — error / retry overlay (absolute top, only on error). */}
           {videoError && (
             <TouchableOpacity
               style={styles.errorOverlay}
