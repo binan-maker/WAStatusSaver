@@ -1,0 +1,12 @@
+[1G[0K⠙[1G[0K[90mStarting project at /home/runner/workspace[39m
+[31mCommandError: It looks like you're trying to use web support but don't have the required[39m
+[31mdependencies installed.[39m
+[31m[39m
+[31mInstall [1mreact-native-web@^0.21.0[22m by running:[39m
+[31m[39m
+[31m[0m[1mnpx expo install react-native-web[22m[0m[39m
+[31m[39m
+[31mIf you're not using web, please ensure you remove the [1m"web"[22m string from the[39m
+[31mplatforms array in the project Expo config.[39m
+[31m[39m
+[1G[0K⠙[1G[0K
