@@ -1,17 +1,31 @@
 /**
- * SafReader — JS wrapper for the native Android SAF scanner module.
+ * SafReader — SAF file scanner powered by react-native-saf-x.
  *
- * The real work (BFS scan, file copy, thumbnail generation, pre-copy)
- * is 100% Java running on a background ExecutorService — this file is
- * a pure thin bridge: type declarations + null-guard wrappers.
+ * PLUGIN-FREE: react-native-saf-x uses React Native autolinking — no custom
+ * Java module, no app.json plugin entry, no crash-prone manual registration.
  *
- * isAvailable() returns true only in custom dev-client / EAS builds
- * where the Java code has been compiled in. Returns false in Expo Go,
- * iOS, and web so the app never crashes in those environments.
+ * Key advantages over the old custom Java module:
+ *   • listFiles() returns real file sizes + lastModified for every entry.
+ *     This fixes the "copy-verification with unknown size" bug where the old
+ *     JS fallback set size=0 and accepted partial video copies.
+ *   • BFS runs in JS on the RN thread — no ExecutorService lifecycle to manage.
+ *   • Works in Expo Go (graceful no-op when SafX native module is absent).
+ *
+ * Functions that require the native SafX module (EAS / custom dev build):
+ *   scanForStatuses, batchCheckFiles, copyFileToCache, cleanupCacheDir,
+ *   batchDeleteFiles — all fall back gracefully when unavailable.
+ *
+ * generateThumbnail / preCopyAll / cancelPreCopy:
+ *   generateThumbnail always rejects so thumbnail-cache falls through to the
+ *   expo-video-thumbnails JS path (same quality, hardware-accelerated on device).
+ *   preCopyAll / cancelPreCopy are no-ops — on-demand copy in the viewer
+ *   is the only copy path needed.
  */
 import { NativeModules, Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as SAF from 'react-native-saf-x';
 
-// ── Types exposed to JS consumers ────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface NativeSafFile {
   uri: string;
@@ -39,153 +53,274 @@ export interface NativeBatchFileEntry {
   size: number;
 }
 
-/** Item passed to preCopyAll — must include the JS item.id so Java computes
- *  the same safeId and therefore the same destPath as prepareStatusForViewingFn. */
 export interface PreCopyItem {
   uri: string;
   id: string;
   name: string;
 }
 
-// ── Native module shape ───────────────────────────────────────────────────────
+// ── Availability ──────────────────────────────────────────────────────────────
 
-interface SafReaderNative {
-  // Core SAF operations
-  scanForStatuses(treeUri: string): Promise<NativeSafFile[]>;
-  copyFileToCache(contentUri: string, destPath: string): Promise<string>;
-  getDocumentInfo(contentUri: string): Promise<NativeDocumentInfo>;
+// react-native-saf-x registers itself as NativeModules.SafX via autolinking.
+// In Expo Go or web the native module is absent so we degrade gracefully.
+const isSafXLinked =
+  Platform.OS === 'android' && !!NativeModules.SafX;
 
-  // Thumbnail generation — Java MediaMetadataRetriever, hardware-accelerated
-  generateThumbnail(videoPath: string, destPath: string, timeMs: number): Promise<string>;
-
-  // Pre-copy: copies all video items to local cache in the background so the
-  // viewer never has to wait. Uses same safeId rule as JS for path consistency.
-  preCopyAll(cacheDirPath: string, items: PreCopyItem[]): Promise<number>;
-
-  // Cancel an in-progress preCopyAll without blocking
-  cancelPreCopy(): Promise<null>;
-
-  // Fast Java file-stat — avoids expo-file-system bridge overhead
-  checkCachedFile(filePath: string): Promise<NativeCacheCheck>;
+/** True when the react-native-saf-x native module is linked (EAS / custom build). */
+export function isAvailable(): boolean {
+  return isSafXLinked;
 }
 
-const SafReaderNative: SafReaderNative | null =
-  Platform.OS === 'android' ? (NativeModules.SafReader ?? null) : null;
+// ── File validation helper ────────────────────────────────────────────────────
+
+const VALID_EXTS = new Set([
+  '.jpg', '.jpeg', '.png', '.gif', '.webp',
+  '.mp4', '.mkv', '.3gp', '.mov',
+]);
+
+function isValidStatusFile(name: string): boolean {
+  if (name.startsWith('.')) return false;
+  const dot = name.lastIndexOf('.');
+  if (dot === -1) return true; // no extension — allow
+  return VALID_EXTS.has(name.slice(dot).toLowerCase());
+}
+
+// ── BFS scanner ───────────────────────────────────────────────────────────────
+
+// Folder names the BFS is allowed to descend into.
+// Any folder whose name starts with "com.whatsapp" is also allowed (covers
+// WA Business, GB WhatsApp, WhatsApp Plus, etc.)
+const KNOWN_INTERMEDIATE = new Set([
+  'android', 'media',
+  'whatsapp', 'whatsapp business',
+]);
+const BFS_MAX_DEPTH = 7;
+const BFS_TIMEOUT_MS = 5000;
+
+async function bfsFindAndCollect(
+  uri: string,
+  depth: number,
+  results: NativeSafFile[],
+  deadline: number,
+): Promise<void> {
+  if (depth > BFS_MAX_DEPTH || Date.now() > deadline) return;
+
+  let entries: SAF.DocumentFileDetail[];
+  try {
+    entries = await SAF.listFiles(uri);
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (Date.now() > deadline) return;
+
+    if (entry.name === '.Statuses' && entry.type === 'directory') {
+      // Found a .Statuses folder — collect all valid media files inside it
+      try {
+        const files = await SAF.listFiles(entry.uri);
+        for (const file of files) {
+          if (file.type === 'file' && isValidStatusFile(file.name)) {
+            results.push({
+              uri: file.uri,
+              name: file.name,
+              mimeType: file.mime || '',
+              modTime: file.lastModified || 0,
+              size: file.size || 0,
+            });
+          }
+        }
+      } catch {}
+      // Don't descend deeper from .Statuses
+    } else if (entry.type === 'directory') {
+      const nameLower = entry.name.toLowerCase();
+      if (
+        KNOWN_INTERMEDIATE.has(nameLower) ||
+        nameLower.startsWith('com.whatsapp')
+      ) {
+        await bfsFindAndCollect(entry.uri, depth + 1, results, deadline);
+      }
+    }
+  }
+}
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/** True when the native Java module is linked (custom dev-client / EAS build). */
-export function isAvailable(): boolean {
-  return SafReaderNative !== null;
-}
-
 /**
- * Scan a granted SAF tree URI for .Statuses files.
- * Java BFS — runs entirely on a background thread, never blocks the UI.
- * Returns [] when the native module is unavailable (Expo Go).
+ * Scan a granted SAF tree URI for WhatsApp .Statuses files.
+ *
+ * Uses react-native-saf-x listFiles() for BFS traversal. Returns each file
+ * with a real size and lastModified so downstream copy-verification can use
+ * the strong ≥ 99% check instead of the weak > 100 KB heuristic.
+ *
+ * Supports:
+ *   • Android/media root grant (covers WA + WA Business + GB WA + WA Plus)
+ *   • Specific WhatsApp or WhatsApp Business folder grants
+ *   • Legacy .Statuses direct grants
  */
-export function scanForStatuses(treeUri: string): Promise<NativeSafFile[]> {
-  if (!SafReaderNative) return Promise.resolve([]);
-  return SafReaderNative.scanForStatuses(treeUri);
+export async function scanForStatuses(treeUri: string): Promise<NativeSafFile[]> {
+  if (!isSafXLinked) return [];
+  const results: NativeSafFile[] = [];
+  const deadline = Date.now() + BFS_TIMEOUT_MS;
+  try {
+    await bfsFindAndCollect(treeUri, 0, results, deadline);
+  } catch {}
+  return results;
 }
 
 /**
- * Copy a SAF content:// file to a local destPath using a 1 MB Java buffer.
- * 3–5× faster than expo-file-system copyAsync for large video files on
- * Android 11+ OEM devices. Atomic write via .tmp + rename.
+ * Copy a SAF content:// file to a local cache path.
+ *
+ * Uses expo-file-system copyAsync (handles ContentResolver correctly on all
+ * Android versions). The dest path must include file:// prefix or not — both
+ * work; copyAsync normalises the URI internally.
  */
-export function copyFileToCache(contentUri: string, destPath: string): Promise<string> {
-  if (!SafReaderNative) return Promise.reject(new Error('SafReader native module not linked'));
-  return SafReaderNative.copyFileToCache(contentUri, destPath);
+export async function copyFileToCache(contentUri: string, destPath: string): Promise<string> {
+  const dest = destPath.startsWith('file://') ? destPath : `file://${destPath}`;
+  await FileSystem.copyAsync({ from: contentUri, to: dest });
+  return dest;
 }
 
 /**
- * Fetch metadata (size, modTime, mimeType) for a SAF document.
- * No bytes are read — pure ContentResolver cursor query.
+ * Fetch metadata for a SAF document URI.
+ * Uses react-native-saf-x stat() — a single ContentResolver cursor query.
  */
-export function getDocumentInfo(contentUri: string): Promise<NativeDocumentInfo> {
-  if (!SafReaderNative) return Promise.reject(new Error('SafReader native module not linked'));
-  return SafReaderNative.getDocumentInfo(contentUri);
+export async function getDocumentInfo(contentUri: string): Promise<NativeDocumentInfo> {
+  if (!isSafXLinked) throw new Error('SafX native module not linked');
+  const detail = await SAF.stat(contentUri);
+  return {
+    name: detail.name,
+    size: detail.size,
+    modTime: detail.lastModified,
+    mimeType: detail.mime,
+  };
 }
 
 /**
- * Generate a JPEG video thumbnail using Android's hardware-accelerated
- * MediaMetadataRetriever. Writes atomically to destPath.
- * videoPath may be a file:// path or a content:// URI.
- * timeMs: frame position in milliseconds (0 = first key-frame).
+ * generateThumbnail — always rejects so thumbnail-cache.ts falls through to
+ * expo-video-thumbnails (hardware-accelerated, works on all builds).
+ * Thumbnails do not require the native SafReader Java module.
  */
 export function generateThumbnail(
-  videoPath: string,
-  destPath: string,
-  timeMs = 0,
+  _videoPath: string,
+  _destPath: string,
+  _timeMs = 0,
 ): Promise<string> {
-  if (!SafReaderNative) return Promise.reject(new Error('SafReader native module not linked'));
-  return SafReaderNative.generateThumbnail(videoPath, destPath, timeMs);
+  return Promise.reject(new Error('generateThumbnail: use expo-video-thumbnails fallback'));
 }
 
 /**
- * Pre-copy ALL video items to the local cache directory immediately after
- * scan. Uses each item's JS `id` to compute the same destPath that
- * prepareStatusForViewingFn uses, so the viewer finds files instantly.
- *
- * Call this after loadStatuses() returns with scanned items — fire and forget
- * (do not await). Returns the number of files newly copied.
+ * preCopyAll — no-op.
+ * On-demand copy in the viewer is the only path needed; background
+ * pre-copying adds I/O bus pressure without measurable user benefit.
  */
-export function preCopyAll(cacheDirPath: string, items: PreCopyItem[]): Promise<number> {
-  if (!SafReaderNative) return Promise.resolve(0);
-  return SafReaderNative.preCopyAll(cacheDirPath, items);
+export function preCopyAll(_cacheDirPath: string, _items: PreCopyItem[]): Promise<number> {
+  return Promise.resolve(0);
 }
 
-/**
- * Cancel an in-progress preCopyAll. Java stops after finishing the current
- * file. Non-blocking from the JS side.
- */
+/** cancelPreCopy — no-op (preCopyAll is never started). */
 export function cancelPreCopy(): Promise<null> {
-  if (!SafReaderNative) return Promise.resolve(null);
-  return SafReaderNative.cancelPreCopy();
+  return Promise.resolve(null);
 }
 
 /**
- * Fast Java file-stat. Returns {exists, size} without going through the
- * expo-file-system bridge. Use to check whether a pre-copy is already done.
+ * Fast file-stat for a local cached file.
+ * Uses expo-file-system getInfoAsync — reliable on all builds.
  */
-export function checkCachedFile(filePath: string): Promise<NativeCacheCheck> {
-  if (!SafReaderNative) return Promise.resolve({ exists: false, size: 0 });
-  return SafReaderNative.checkCachedFile(filePath);
+export async function checkCachedFile(filePath: string): Promise<NativeCacheCheck> {
+  try {
+    const path = filePath.startsWith('file://') ? filePath : `file://${filePath}`;
+    const info = await FileSystem.getInfoAsync(path);
+    return {
+      exists: info.exists,
+      size: info.exists ? ((info as any).size ?? 0) : 0,
+    };
+  } catch {
+    return { exists: false, size: 0 };
+  }
 }
 
 /**
- * Batch file-stat: stats ALL paths in a single Java call.
- * Collapses N × async getInfoAsync() round-trips into one promise.
- * Paths may include or omit the file:// prefix — Java strips it.
+ * Batch file-stat: stats all paths in parallel using expo-file-system.
  * Returns results in the same order as the input array.
  */
-export function batchCheckFiles(paths: string[]): Promise<NativeBatchFileEntry[]> {
-  if (!SafReaderNative) return Promise.resolve([]);
-  return (SafReaderNative as any).batchCheckFiles(paths);
+export async function batchCheckFiles(paths: string[]): Promise<NativeBatchFileEntry[]> {
+  const checks = await Promise.allSettled(
+    paths.map(async (p) => {
+      const uri = p.startsWith('file://') ? p : `file://${p}`;
+      const info = await FileSystem.getInfoAsync(uri);
+      return {
+        path: p,
+        exists: info.exists,
+        size: info.exists ? ((info as any).size ?? 0) : 0,
+      };
+    }),
+  );
+  return checks.map((c, i) =>
+    c.status === 'fulfilled'
+      ? c.value
+      : { path: paths[i], exists: false, size: 0 },
+  );
 }
 
 /**
- * Java-native cache directory cleanup. Deletes every file in dirPath whose
- * name starts with one of the given prefixes AND that is older than maxAgeMs
- * milliseconds. Returns the count of deleted files.
- * Replaces the JS loop that called getInfoAsync + deleteAsync per file.
+ * Delete all files in dirPath whose name starts with one of `prefixes`
+ * AND that are older than maxAgeMs milliseconds.
+ * Returns the number of files deleted.
  */
-export function cleanupCacheDir(
+export async function cleanupCacheDir(
   dirPath: string,
   prefixes: string[],
   maxAgeMs: number,
 ): Promise<number> {
-  if (!SafReaderNative) return Promise.resolve(0);
-  return (SafReaderNative as any).cleanupCacheDir(dirPath, prefixes, maxAgeMs);
+  try {
+    const dir = dirPath.endsWith('/') ? dirPath : `${dirPath}/`;
+    const dirUri = dir.startsWith('file://') ? dir : `file://${dir}`;
+    const info = await FileSystem.getInfoAsync(dirUri);
+    if (!info.exists) return 0;
+
+    const entries = await FileSystem.readDirectoryAsync(dirUri);
+    const now = Date.now();
+    let deleted = 0;
+
+    await Promise.allSettled(
+      entries.map(async (name) => {
+        const matchesPrefix = prefixes.some(p => name.startsWith(p));
+        if (!matchesPrefix) return;
+        const fileUri = `${dirUri}${name}`;
+        try {
+          const fi = await FileSystem.getInfoAsync(fileUri);
+          const mtime: number = (fi as any).modificationTime
+            ? (fi as any).modificationTime * 1000
+            : 0;
+          if (fi.exists && mtime > 0 && now - mtime > maxAgeMs) {
+            await FileSystem.deleteAsync(fileUri, { idempotent: true });
+            deleted += 1;
+          }
+        } catch {}
+      }),
+    );
+    return deleted;
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * Delete multiple local files in one Java call.
- * Returns the count of files successfully deleted.
+ * Delete multiple local files in one call (parallel).
  * Non-existent files are silently skipped.
+ * Returns the count of files successfully deleted.
  */
-export function batchDeleteFiles(paths: string[]): Promise<number> {
-  if (!SafReaderNative) return Promise.resolve(0);
-  return (SafReaderNative as any).batchDeleteFiles(paths);
+export async function batchDeleteFiles(paths: string[]): Promise<number> {
+  let deleted = 0;
+  await Promise.allSettled(
+    paths.map(async (p) => {
+      try {
+        const uri = p.startsWith('file://') ? p : `file://${p}`;
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+        deleted += 1;
+      } catch {}
+    }),
+  );
+  return deleted;
 }

@@ -55,18 +55,14 @@
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "minSdkVersion": 24,
-            "abiFilters": [
-              "arm64-v8a",
-              "armeabi-v7a",
-              "x86_64"
-            ]
+            "abiFilters": ["arm64-v8a", "armeabi-v7a", "x86_64"]
           }
         }
       ],
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://replit.com"
         }
       ],
       "expo-font",
@@ -86,8 +82,7 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
-      "./plugins/with-max-compat.js",
-      "./plugins/with-saf-picker.js"
+      "./plugins/with-max-compat.js"
     ],
     "experiments": {
       "typedRoutes": true,

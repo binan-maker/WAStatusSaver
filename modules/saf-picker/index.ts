@@ -1,67 +1,77 @@
 /**
- * SafPicker — JS bridge for the native SafPickerModule.
+ * SafPicker — SAF folder picker using expo-file-system's
+ * StorageAccessFramework.requestDirectoryPermissionsAsync.
  *
- * Fires ACTION_OPEN_DOCUMENT_TREE with:
- *   • intent.setPackage("com.android.documentsui") — forces Android's built-in
- *     document picker, bypassing Samsung MyFiles / MIUI / Realme file managers
- *     that intercept the intent and ignore EXTRA_INITIAL_URI.
- *   • EXTRA_INITIAL_URI in /document/ format — opens at exactly the folder
- *     specified on 100% of devices that have DocumentsUI.
+ * PLUGIN-FREE implementation — no custom Java module, no app.json plugin,
+ * no crashes from OEM-specific document picker quirks.
  *
- * Falls back to the default file manager if DocumentsUI is not present
- * (only extremely rare custom AOSP forks remove it).
+ * How auto-navigation works:
+ *   We pass DOCUMENT_URI_ANDROID_MEDIA as the initialUri to
+ *   requestDirectoryPermissionsAsync. expo-file-system forwards it as
+ *   android.provider.extra.INITIAL_URI on the ACTION_OPEN_DOCUMENT_TREE
+ *   intent. Android uses this hint to pre-scroll the system picker to
+ *   Internal Storage → Android → media so the user taps "Use this folder"
+ *   without any manual navigation.
  *
- * isAvailable() returns false in Expo Go, iOS, and web.
+ * Why /document/ format for the URI (not /tree/):
+ *   EXTRA_INITIAL_URI must be a document URI. Using the /tree/ form causes
+ *   many OEM pickers (MIUI, Samsung OneUI < 5) to silently ignore the hint.
+ *
+ * Why not react-native-saf-x for the picker:
+ *   react-native-saf-x's openDocumentTree does not accept an initialUri
+ *   parameter, so it cannot pre-navigate to Android/media. expo-file-system
+ *   does support this, is already a first-party dependency, and takes
+ *   persistent permission automatically before the promise resolves.
  */
-import { NativeModules, Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 // ── URI constants ─────────────────────────────────────────────────────────────
 //
-// IMPORTANT: EXTRA_INITIAL_URI requires the /document/ form, not /tree/.
-// Using /tree/ causes many OEM pickers to ignore or misparse the hint.
-//
 // Decoded:  content://com.android.externalstorage.documents/document/primary:Android/media
+// The picker opens HERE automatically — user just taps "Use this folder".
 export const DOCUMENT_URI_ANDROID_MEDIA =
   'content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fmedia';
 
-// Deep fallbacks — used by "Browse manually" path only
+// Deep fallbacks — used only when the user taps "Browse manually"
 export const DOCUMENT_URI_WHATSAPP =
   'content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fmedia%2Fcom.whatsapp%2FWhatsApp%2FMedia';
 
 export const DOCUMENT_URI_WHATSAPP_BUSINESS =
   'content://com.android.externalstorage.documents/document/primary%3AAndroid%2Fmedia%2Fcom.whatsapp.w4b%2FWhatsApp%20Business%2FMedia';
 
-// ── Native module binding ─────────────────────────────────────────────────────
-
-interface SafPickerNative {
-  openDocumentTree(initialUri: string): Promise<{ granted: boolean; directoryUri: string }>;
-  checkAvailable(): Promise<boolean>;
-}
-
-const SafPickerNative: SafPickerNative | null =
-  Platform.OS === 'android' ? (NativeModules.SafPickerModule ?? null) : null;
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/** True only when the native Java module is compiled in (custom dev-client / EAS). */
+/**
+ * Always true on Android — expo-file-system SAF is available in every build
+ * (Expo Go, custom dev-client, EAS). No native-module gate needed.
+ */
 export function isAvailable(): boolean {
-  return SafPickerNative !== null;
+  return Platform.OS === 'android';
 }
 
 /**
- * Open the system document-tree picker at `initialUri`.
+ * Open the system SAF document-tree picker pre-navigated to `initialUri`.
  *
- * Uses DocumentsUI (com.android.documentsui) directly so the folder hint
- * is always respected — regardless of OEM device brand.
+ * Pass DOCUMENT_URI_ANDROID_MEDIA to land the picker at Android/media so
+ * the user sees their WhatsApp folder immediately without scrolling.
  *
- * @param initialUri  A /document/ format URI (use the DOCUMENT_URI_* constants).
- * @returns           {granted, directoryUri} — directoryUri is the granted tree URI.
+ * expo-file-system calls takePersistableUriPermission automatically before
+ * the promise resolves, so the grant survives app kills and device reboots.
+ *
+ * @param initialUri  /document/ format URI (use DOCUMENT_URI_* constants).
+ * @returns           { granted, directoryUri } — directoryUri is the tree URI.
  */
 export async function openDocumentTree(
   initialUri: string,
 ): Promise<{ granted: boolean; directoryUri: string }> {
-  if (!SafPickerNative) {
+  if (Platform.OS !== 'android') return { granted: false, directoryUri: '' };
+  try {
+    const result = (await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(
+      initialUri,
+    )) as { granted: boolean; directoryUri: string };
+    return result;
+  } catch {
     return { granted: false, directoryUri: '' };
   }
-  return SafPickerNative.openDocumentTree(initialUri);
 }
