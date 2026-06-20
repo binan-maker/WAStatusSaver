@@ -256,13 +256,6 @@ export default function SettingsScreen() {
             sublabel="View supported status locations"
             onPress={() => router.push('/guide')}
           />
-          <SettingRow
-            icon="language-outline"
-            iconBg={COLORS.ACCENT_BLUE + '22'}
-            label="Select Language"
-            sublabel="Change app language"
-            onPress={() => router.push('/languages')}
-          />
         </View>
 
         <SectionHeader title="About" />
