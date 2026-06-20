@@ -2,7 +2,7 @@
   "expo": {
     "name": "Status Saver",
     "slug": "statusvault",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "statusvault",
@@ -23,7 +23,7 @@
     },
     "android": {
       "package": "com.binan.statussaver",
-      "versionCode": 40,
+      "versionCode": 60,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#0A0E1A",
