@@ -19,8 +19,8 @@
 //   so cold launch already has thumbs ready before the grid mounts.
 // - Tiny per-id pub/sub so a newly generated thumb only re-renders the ONE
 //   card that needs it — no cascade through the whole grid.
-// - Serialized queue with an idle gap between items so background work
-//   never competes with the user's scroll.
+// - Concurrent queue (CONCURRENCY workers) with a short idle gap so
+//   background work finishes faster without hogging the JS thread.
 // - For images we don't write a separate file; we just warm expo-image's
 //   own disk cache via Image.prefetch — the next render is instant.
 // - Atomic destination: we write to a .tmp file then rename, so a crash
@@ -47,13 +47,24 @@ const STORAGE_KEY = '@statusvault_thumb_cache_v1';
 // queue will simply regenerate on the next scan, so this is the right place.
 const CACHE_DIR_NAME = 'status-thumbs/';
 
+// Number of thumbnails to generate in parallel. 2 workers doubles throughput
+// on multi-core devices without overloading the hardware decoder pool.
+// Keep it at 2 — 3+ risks MediaCodec "too many decoders" errors on low-end
+// devices, and ExoPlayer needs at least one slot free for video playback.
+const CONCURRENCY = 2;
+
+// Idle gap between items PER WORKER (ms). Shorter than before (30 vs 150)
+// because we now have 2 workers — each worker yields 30 ms while the other
+// keeps making progress, so the JS thread stays responsive.
+const IDLE_GAP_MS = 30;
+
 // Module state — single instance per JS context (no React rerenders).
 let cacheDir: string | null = null;
 let memMap: Record<string, string> = {};
 const imagesPrefetched = new Set<string>();
 const subs = new Map<string, Set<(p: string | null) => void>>();
 let queue: ThumbItem[] = [];
-let processing = false;
+let activeWorkers = 0;
 let cancelToken = 0;
 let initPromise: Promise<void> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -193,23 +204,27 @@ async function generateOne(item: ThumbItem): Promise<void> {
   // JS FALLBACK (Expo Go / no native module / native timeout):
   //   expo-video-thumbnails — also hardware-accelerated but crosses the
   //   JS bridge twice (request + result) and writes to a temp dir that
-  //   we then have to move into our managed cache dir.
+  //   we then move into our managed cache dir.
+  //
+  // QUALITY: 0.25 is plenty for small grid thumbnails (card is ~120px wide).
+  // Lower quality = smaller JPEG = faster decode on scroll, faster disk write.
   const dir = await ensureCacheDir();
   if (!dir) return;
   const dest = `${dir}vid_${safeFilename(item.id)}.jpg`;
 
-  // Helper: run expo-video-thumbnails and move result into managed dest.
+  // Helper: run expo-video-thumbnails and move result directly to dest.
+  // Uses a single move (atomic rename on same FS partition) instead of the
+  // previous copy+delete+move dance — cuts 3 file-system round-trips per video.
   async function jsThumb(): Promise<void> {
-    const tmp = `${dest}.tmp`;
     const result = await VideoThumbnails.getThumbnailAsync(item.uri, {
       time: 0,
-      quality: 0.5,
+      quality: 0.25,
     });
-    try { await FileSystem.deleteAsync(tmp, { idempotent: true }); } catch {}
-    await FileSystem.copyAsync({ from: result.uri, to: tmp });
-    try { await FileSystem.deleteAsync(dest, { idempotent: true }); } catch {}
-    await FileSystem.moveAsync({ from: tmp, to: dest });
-    try { await FileSystem.deleteAsync(result.uri, { idempotent: true }); } catch {}
+    // Move directly to dest; if dest already exists moveAsync overwrites it.
+    try {
+      await FileSystem.deleteAsync(dest, { idempotent: true });
+    } catch {}
+    await FileSystem.moveAsync({ from: result.uri, to: dest });
   }
 
   // Final check immediately before the heavy decoder operation.
@@ -235,8 +250,6 @@ async function generateOne(item: ThumbItem): Promise<void> {
       }
       if (!nativeOk) {
         if (isPaused) return; // don't start JS fallback if viewer opened during native attempt
-        // JS fallback — expo-video-thumbnails handles content:// via the
-        // Expo media module which uses ContentResolver correctly.
         await jsThumb();
       }
     } else {
@@ -260,33 +273,39 @@ function enqueue(items: ThumbItem[]): void {
   // that's still relevant will be picked up again from memMap (skipped if
   // already present, generated otherwise).
   queue = items.slice();
-  processQueue();
+  // Spin up workers up to the CONCURRENCY limit.
+  spawnWorkers();
 }
 
-async function processQueue(): Promise<void> {
-  if (processing) return;
-  processing = true;
-  const myToken = ++cancelToken;
+function spawnWorkers(): void {
+  while (activeWorkers < CONCURRENCY && queue.length > 0) {
+    activeWorkers++;
+    runWorker();
+  }
+}
+
+async function runWorker(): Promise<void> {
+  const myToken = cancelToken;
   try {
     await init();
-    while (queue.length > 0 && cancelToken === myToken) {
+    while (queue.length > 0 && cancelToken === myToken && !isPaused) {
       const next = queue.shift();
       if (!next) break;
       await generateOne(next);
-      // Idle gap between items. ~150 ms keeps the JS thread fully available
-      // for touch / scroll handlers — the user's input always wins over
-      // background thumbnail work.
-      await new Promise((r) => setTimeout(r, 150));
+      if (cancelToken !== myToken) break;
+      // Short idle gap keeps the JS thread available for touch/scroll handlers.
+      // 30 ms is enough for React to flush any pending state updates without
+      // noticeably slowing down the overall throughput.
+      if (queue.length > 0) {
+        await new Promise((r) => setTimeout(r, IDLE_GAP_MS));
+      }
     }
   } finally {
-    processing = false;
-    // If items were enqueued while we were processing (e.g. after a cancel
-    // that stopped the loop early but left new items in the queue), kick
-    // off a fresh cycle now that processing is free.
-    if (queue.length > 0) {
-      // Use setTimeout(0) to yield before re-entering so the call stack
-      // never grows unboundedly and React can batch any pending state updates.
-      setTimeout(processQueue, 0);
+    activeWorkers--;
+    // If items arrived while we were running (e.g. a new scan came in),
+    // and there are free worker slots, re-enter immediately.
+    if (queue.length > 0 && activeWorkers < CONCURRENCY && !isPaused) {
+      spawnWorkers();
     }
   }
 }
@@ -294,13 +313,9 @@ async function processQueue(): Promise<void> {
 function cancel(): void {
   cancelToken++;
   queue = [];
-  // Do NOT set processing = false here. The running processQueue loop will
-  // see cancelToken !== myToken on its next iteration, exit cleanly, and
-  // set processing = false itself in its finally block.
-  // Setting processing = false here creates a race: if enqueue() is called
-  // before the old processQueue's finally runs, a second processQueue starts
-  // in parallel, and then the first finally sets processing = false again,
-  // allowing a third — duplicate runs corrupt the queue order.
+  // Do NOT reset activeWorkers here. Each running worker will detect
+  // cancelToken !== myToken on its next iteration, exit cleanly, and
+  // decrement activeWorkers itself in its finally block.
 }
 
 async function prune(currentIds: Set<string>): Promise<void> {
