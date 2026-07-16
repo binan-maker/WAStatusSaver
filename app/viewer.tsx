@@ -294,11 +294,11 @@ export default function ViewerScreen() {
         updateCellsBatchingPeriod={50}
       />
 
-      {/* Status bar scrim — always visible so battery/time/signal stay legible */}
-      <View style={[styles.statusBarScrim, { height: insets.top }]} />
-
-      {/* Back button — always visible, never hides */}
-      <View style={[styles.backBtnAbsolute, { top: insets.top + 8 }]}>
+      {/* Top bar — always visible */}
+      <Animated.View
+        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: 1, zIndex: 150 }]}
+        pointerEvents="box-none"
+      >
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
@@ -306,14 +306,6 @@ export default function ViewerScreen() {
         >
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
-      </View>
-
-      {/* Top bar counter — hides/shows with controls (same as bottom bar) */}
-      <Animated.View
-        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: controlsOpacity, zIndex: 150 }]}
-        pointerEvents={showControls ? 'box-none' : 'none'}
-      >
-        <View style={{ width: 40 }} />
         <View style={styles.topInfo}>
           <Text style={styles.topCounter}>{currentIndex + 1} / {items.length}</Text>
         </View>
