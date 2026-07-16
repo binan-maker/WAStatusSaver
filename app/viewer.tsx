@@ -20,7 +20,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as SystemUI from 'expo-system-ui';
 import { ViewerItem } from '@/components/viewer/ViewerItem';
-import { createStyles, SW } from '@/components/viewer/viewerStyles';
+import { createStyles, SW, ITEM_SPACING } from '@/components/viewer/viewerStyles';
 import { ThumbnailCache } from '@/lib/thumbnail-cache';
 
 export default function ViewerScreen() {
@@ -227,7 +227,7 @@ export default function ViewerScreen() {
   ), [currentIndex, toggleControls, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleIndexSettled = useCallback((event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / SW);
+    const index = Math.round(event.nativeEvent.contentOffset.x / (SW + ITEM_SPACING));
     if (index < 0 || index >= items.length || index === prevIndex.current) return;
     const newId = items[index]?.id;
     if (newId) setCurrentItemId(newId);
@@ -275,10 +275,10 @@ export default function ViewerScreen() {
         ref={flatListRef}
         data={items}
         horizontal
-        pagingEnabled
         initialScrollIndex={currentIndex > 0 ? currentIndex : undefined}
-        getItemLayout={(_, index) => ({ length: SW, offset: SW * index, index })}
+        getItemLayout={(_, index) => ({ length: SW + ITEM_SPACING, offset: (SW + ITEM_SPACING) * index, index })}
         onMomentumScrollEnd={handleIndexSettled}
+        snapToInterval={SW + ITEM_SPACING}
         decelerationRate="fast"
         disableIntervalMomentum
         showsHorizontalScrollIndicator={false}

@@ -4,6 +4,11 @@ import type { ThemePalette } from '@/contexts/ThemeContext';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
+// Gap between slides in the viewer pager.
+// Each item cell is SW + ITEM_SPACING wide; the image/video content
+// fills exactly SW — the extra pixels appear as a black gap between slides.
+export const ITEM_SPACING = 10;
+
 export { SW, SH };
 
 export const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
@@ -12,7 +17,9 @@ export const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     backgroundColor: '#000',
   },
   itemContainer: {
-    width: SW,
+    // Wider than the screen by ITEM_SPACING so adjacent slides have a visible
+    // black gap between them. The image/video content inside is still SW wide.
+    width: SW + ITEM_SPACING,
     height: SH,
   },
   image: {
