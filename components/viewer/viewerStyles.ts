@@ -69,6 +69,11 @@ export const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     paddingBottom: SPACING.MD,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  backBtnAbsolute: {
+    position: 'absolute',
+    left: SPACING.LG,
+    zIndex: 200,
+  },
   backBtn: {
     width: 40,
     height: 40,
