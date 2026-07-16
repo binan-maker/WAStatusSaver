@@ -294,6 +294,9 @@ export default function ViewerScreen() {
         updateCellsBatchingPeriod={50}
       />
 
+      {/* Status bar scrim — always visible so battery/time/signal stay legible */}
+      <View style={[styles.statusBarScrim, { height: insets.top }]} />
+
       {/* Back button — always visible, never hides */}
       <View style={[styles.backBtnAbsolute, { top: insets.top + 8 }]}>
         <TouchableOpacity

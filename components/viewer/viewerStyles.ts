@@ -69,6 +69,14 @@ export const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     paddingBottom: SPACING.MD,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  statusBarScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 149,
+  },
   backBtnAbsolute: {
     position: 'absolute',
     left: SPACING.LG,
