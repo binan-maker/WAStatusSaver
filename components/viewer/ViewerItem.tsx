@@ -324,10 +324,32 @@ export const ViewerItem = React.memo(function ViewerItem({
 
   const pinchGesture = Gesture.Pinch()
     .onUpdate((e) => {
-      imageScale.value = Math.min(Math.max(savedScale.value * e.scale, 1), 6);
+      // No lower clamp — allow pinching below 1× (gallery-style); onEnd springs back.
+      const newScale = Math.min(savedScale.value * e.scale, 6);
+      imageScale.value = newScale;
+
+      // Focal-point zoom: keep the midpoint between the user's two fingers
+      // anchored in image space as the scale changes, so zoom always feels
+      // centred on where the fingers actually are (not on the image centre).
+      //
+      // Transform order is [scale, translateX, translateY], so a point (px, py)
+      // relative to the view centre maps to screen at:
+      //   screenX = px * scale + translateX
+      //   screenY = py * scale + translateY
+      //
+      // Solving for newTranslate so the focal point stays at the same screen
+      // position before and after scaling:
+      //   newTranslateX = fx * (1 - ratio) + savedTranslateX * ratio
+      //   newTranslateY = fy * (1 - ratio) + savedTranslateY * ratio
+      const fx = e.focalX - SW / 2;
+      const fy = e.focalY - SH / 2;
+      const ratio = newScale / (savedScale.value || 1);
+      translateX.value = fx * (1 - ratio) + savedTranslateX.value * ratio;
+      translateY.value = fy * (1 - ratio) + savedTranslateY.value * ratio;
     })
     .onEnd(() => {
-      if (imageScale.value < 1.15) {
+      if (imageScale.value < 1) {
+        // Pinched below natural size — spring back to fit.
         imageScale.value = withSpring(1);
         translateX.value = withSpring(0);
         translateY.value = withSpring(0);
@@ -336,18 +358,16 @@ export const ViewerItem = React.memo(function ViewerItem({
         savedTranslateY.value = 0;
       } else {
         savedScale.value = imageScale.value;
+        // Clamp to pan bounds. Use SH (not SW) for the vertical axis so
+        // a tall image cannot be dragged beyond its actual height.
         const maxX = ((imageScale.value - 1) * SW) / 2;
-        const maxY = ((imageScale.value - 1) * SW) / 2;
-        if (Math.abs(translateX.value) > maxX) {
-          const cx = translateX.value > 0 ? maxX : -maxX;
-          translateX.value = withSpring(cx);
-          savedTranslateX.value = cx;
-        }
-        if (Math.abs(translateY.value) > maxY) {
-          const cy = translateY.value > 0 ? maxY : -maxY;
-          translateY.value = withSpring(cy);
-          savedTranslateY.value = cy;
-        }
+        const maxY = ((imageScale.value - 1) * SH) / 2;
+        const cx = Math.max(-maxX, Math.min(maxX, translateX.value));
+        const cy = Math.max(-maxY, Math.min(maxY, translateY.value));
+        translateX.value = withSpring(cx);
+        translateY.value = withSpring(cy);
+        savedTranslateX.value = cx;
+        savedTranslateY.value = cy;
       }
     });
 
