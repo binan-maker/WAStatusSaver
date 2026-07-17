@@ -74,12 +74,11 @@ const StatusHeader = React.memo(function StatusHeader({ onInfoPress }: { onInfoP
     <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 6 }]}>
       <View style={styles.headerInner}>
         <View style={styles.logoRow}>
-          <LinearGradient
-            colors={[COLORS.PRIMARY_DARK, COLORS.PRIMARY]}
+          <ExpoImage
+            source={require('@/assets/images/icon.png')}
             style={styles.logoIcon}
-          >
-            <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
-          </LinearGradient>
+            contentFit="cover"
+          />
           <View>
             <Text style={styles.logoText}>Status Saver</Text>
             <Text style={styles.logoSub}>WhatsApp Status Saver</Text>
