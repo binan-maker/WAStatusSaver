@@ -70,9 +70,9 @@ export default function SavedScreen() {
 
     router.push({
       pathname: '/viewer',
-      params: { id: item.id, isSaved: '1' },
+      params: { id: item.id, isSaved: '1', savedFilter: filter },
     });
-  }, []);
+  }, [filter]);
 
   const handleDelete = useCallback((item: SavedItem) => {
     Alert.alert(

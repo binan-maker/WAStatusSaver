@@ -40,8 +40,8 @@ export default function ViewerScreen() {
     prepareStatusForViewing,
   } = useMedia();
 
-  const params = useLocalSearchParams<{ id: string; isSaved?: string }>();
-  const { id, isSaved: isSavedParam } = params;
+  const params = useLocalSearchParams<{ id: string; isSaved?: string; savedFilter?: string }>();
+  const { id, isSaved: isSavedParam, savedFilter } = params;
   const isSavedView = isSavedParam === '1';
   const prevIdRef = useRef<string | null>(null);
 
@@ -170,14 +170,15 @@ export default function ViewerScreen() {
 
   const items = useMemo(() => {
     if (isSavedView) {
-      const start = savedItems.find(s => s.id === id || decodeURIComponent(s.id) === id);
-      if (!start) return savedItems;
-      return savedItems.filter(s => s.type === start.type);
+      if (savedFilter === 'images') return savedItems.filter(s => s.type === 'image');
+      if (savedFilter === 'videos') return savedItems.filter(s => s.type === 'video');
+      // 'all' (or no filter) — preserve original saved order, no type split
+      return savedItems;
     }
     const start = statuses.find(s => s.id === id || decodeURIComponent(s.id) === id);
     if (!start) return [];
     return statuses.filter(s => s.type === start.type);
-  }, [isSavedView, savedItems, statuses, id]);
+  }, [isSavedView, savedItems, statuses, id, savedFilter]);
 
   // ── Active-item tracking ────────────────────────────────────────────────
   // We track the active item by ID (not by index) so that background calls to
