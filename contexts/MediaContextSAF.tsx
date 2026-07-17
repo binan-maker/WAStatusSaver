@@ -950,6 +950,27 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
         await enqueueCopy(() => FileSystem.copyAsync({ from: item.uri, to: destUri }));
       }
 
+      // ── Gallery save ────────────────────────────────────────────────────────
+      // createAssetAsync copies the file into shared MediaStore storage so it
+      // appears in the device gallery app under a "Status Saver" album.
+      // Our internal copy at destUri is left untouched for in-app display.
+      // On Android 10+ no WRITE_EXTERNAL_STORAGE permission is required to
+      // insert a new asset — only modifying another app's existing assets
+      // triggers the "Allow to modify" dialog, which we never do here.
+      try {
+        const asset = await MediaLibrary.createAssetAsync(destUri);
+        const album = await MediaLibrary.getAlbumAsync('Status Saver');
+        if (album == null) {
+          await MediaLibrary.createAlbumAsync('Status Saver', asset, false);
+        } else {
+          await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+        }
+      } catch (galleryErr) {
+        // Gallery write failed (e.g. permission denied on older Android) —
+        // the file is still saved in app storage, so continue silently.
+        console.warn('[Media] gallery write skipped:', galleryErr);
+      }
+
       const newSaved: SavedItem = { ...item, localUri: destUri, savedAt: Date.now() };
       const updated = [newSaved, ...savedItemsRef.current.filter(s => s.id !== item.id)];
       setSavedItems(updated);
