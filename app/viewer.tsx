@@ -3,6 +3,7 @@ import {
   View,
   Text,
   Animated,
+  Easing,
   TouchableOpacity,
   FlatList,
   Platform,
@@ -59,6 +60,63 @@ export default function ViewerScreen() {
     themeRestoreRef.current = { resolved, bg: COLORS.BACKGROUND };
   }, [resolved, COLORS.BACKGROUND]);
 
+  // ── Enter / exit transition ──────────────────────────────────────────────
+  // The Stack is set to animation:'none' so these Animated values own the
+  // full enter and exit motion — no double-animation.
+  const viewerOpacity    = useRef(new Animated.Value(0)).current;
+  const viewerTranslateY = useRef(new Animated.Value(28)).current;
+
+  // Enter: fade in + slide up (230 ms ease-out).
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(viewerOpacity, {
+        toValue: 1,
+        duration: 230,
+        easing: Easing.out(Easing.poly(3)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(viewerTranslateY, {
+        toValue: 0,
+        duration: 230,
+        easing: Easing.out(Easing.poly(3)),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Exit: fade out + slide down (190 ms ease-in), then restore bars and pop.
+  // All exit paths (back button, hardware back, delete) funnel through here
+  // so the animation always plays and bars are restored at the right moment.
+  const handleBack = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(viewerOpacity, {
+        toValue: 0,
+        duration: 190,
+        easing: Easing.in(Easing.poly(2)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(viewerTranslateY, {
+        toValue: 32,
+        duration: 190,
+        easing: Easing.in(Easing.poly(2)),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      if (Platform.OS === 'android') {
+        const { resolved: r, bg } = themeRestoreRef.current;
+        const isDark = r === 'dark';
+        StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+        StatusBar.setBackgroundColor(bg, true);
+        NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+        SystemUI.setBackgroundColorAsync(bg).catch(() => {});
+      }
+      router.back();
+    });
+  // viewerOpacity / viewerTranslateY are stable Animated refs; themeRestoreRef is a ref.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     StatusBar.setHidden(false, 'none');
@@ -74,32 +132,40 @@ export default function ViewerScreen() {
   // pause() sets isPaused so any in-flight thumbnail decoder op bails at
   // its next await boundary instead of competing with ExoPlayer.
   // resume() clears isPaused so the queue can run again after the viewer closes.
+  // Bar restoration is handled inside handleBack's animation callback so it
+  // fires AFTER the exit animation — not during it (which caused a color flash).
+  // The delayed fallback here covers any non-handleBack exit path (rare).
   useFocusEffect(
     useCallback(() => {
       ThumbnailCache.pause();
       return () => {
         ThumbnailCache.resume();
         if (Platform.OS !== 'android') return;
-        const { resolved: r } = themeRestoreRef.current;
+        const { resolved: r, bg } = themeRestoreRef.current;
         const isDark = r === 'dark';
-        StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
-        StatusBar.setBackgroundColor(isDark ? '#05070A' : '#FFFFFF', true);
-        NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
-        SystemUI.setBackgroundColorAsync(isDark ? '#05070A' : '#FFFFFF').catch(() => {});
+        // Delay matches the exit animation duration so bars don't flash mid-fade.
+        setTimeout(() => {
+          StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+          StatusBar.setBackgroundColor(bg, true);
+          NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+          SystemUI.setBackgroundColorAsync(bg).catch(() => {});
+        }, 200);
       };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
-  // Hardware back button
+  // Hardware back button — play exit animation then pop.
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-        router.back();
+        handleBack();
         return true;
       });
       return () => sub.remove();
-    }, [])
+    // handleBack is stable ([] deps).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleBack])
   );
 
   const items = useMemo(() => {
@@ -260,7 +326,7 @@ export default function ViewerScreen() {
           const saved = savedItems.find(s => s.id === currentItem.id);
           if (saved) {
             await deleteFromSaved(saved);
-            if (items.length <= 1) router.back();
+            if (items.length <= 1) handleBack();
           }
         },
       },
@@ -271,7 +337,7 @@ export default function ViewerScreen() {
   const isVideoItem = currentItem.type === 'video';
 
   return (
-    <View style={styles.root}>
+    <Animated.View style={[styles.root, { opacity: viewerOpacity, transform: [{ translateY: viewerTranslateY }] }]}>
       <FlatList
         ref={flatListRef}
         data={items}
@@ -301,7 +367,7 @@ export default function ViewerScreen() {
         pointerEvents="box-none"
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={styles.backBtn}
           hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
         >
@@ -393,6 +459,6 @@ export default function ViewerScreen() {
           )}
         </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }

@@ -71,7 +71,9 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         name="viewer"
         options={{
           headerShown: false,
-          animation: 'fade',
+          // animation:'none' — the viewer handles its own enter/exit
+          // transition via Animated values so the Stack doesn't double-up.
+          animation: 'none',
           // DO NOT use presentation:'fullScreenModal' on Android 11+.
           // fullScreenModal registers a native-layer dismiss handler that
           // intercepts the first back press at the Activity level BEFORE
