@@ -55,7 +55,6 @@ import { VideoControls } from './VideoControls';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusItem, SavedItem } from '@/contexts/MediaContext';
 import { useThemeColors } from '@/contexts/ThemeContext';
-import { useThumbnail } from '@/hooks/media/useThumbnail';
 import { createStyles, SW, SH } from './viewerStyles';
 
 const VIEWER_PLACEHOLDER = { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' };
@@ -81,8 +80,6 @@ export const ViewerItem = React.memo(function ViewerItem({
 }: ViewerItemProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-
-  const cachedThumb = useThumbnail(item.id);
 
   const [displayUri, setDisplayUri] = useState<string | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -505,25 +502,18 @@ export const ViewerItem = React.memo(function ViewerItem({
                 onLoad={handleLoad}
               />
             )}
-            {/* Only render the thumbnail overlay when a cached frame exists.
-                When cachedThumb is null, rendering source={null} causes
-                expo-image to show the blurhash placeholder at full opacity,
-                creating the white flash over the video surface. */}
-            {!!cachedThumb && (
-              <Animated.View
-                style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
-                pointerEvents="none"
-              >
-                <Image
-                  source={{ uri: cachedThumb }}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="contain"
-                  cachePolicy="memory-disk"
-                  transition={0}
-                  recyclingKey={item.id}
-                />
-              </Animated.View>
-            )}
+            {/* Black cover — always present while the video surface initialises.
+                Fades from opacity 1 → 0 (via thumbnailOpacity) the moment
+                onReadyForDisplay fires and isVideoReady becomes true.
+                • Covers ExoPlayer / TextureView's white init flash when there
+                  is no cached thumbnail to show.
+                • Eliminates the full-screen thumbnail blink on swipe: instead
+                  of flashing a thumbnail image that immediately disappears,
+                  the user just sees a black hold → seamless video start. */}
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity, backgroundColor: '#000' }]}
+              pointerEvents="none"
+            />
           </View>
 
           {/* Layer 2 — tap detector.
