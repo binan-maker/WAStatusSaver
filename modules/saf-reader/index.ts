@@ -99,7 +99,11 @@ const KNOWN_INTERMEDIATE = new Set([
   'whatsapp', 'whatsapp business',
 ]);
 const BFS_MAX_DEPTH = 7;
-const BFS_TIMEOUT_MS = 5000;
+// 30 s gives slow/congested devices enough time to finish the traversal.
+// The BFS only calls readDirectoryAsync on a handful of intermediate folders
+// (android → media → com.whatsapp → .Statuses), so this is never reached on
+// a healthy device — it only prevents a premature cut-off on slow ones.
+const BFS_TIMEOUT_MS = 30_000;
 
 async function bfsFindAndCollect(
   uri: string,
@@ -121,7 +125,10 @@ async function bfsFindAndCollect(
     const name = safUriToFileName(entry);
 
     if (name === '.Statuses') {
-      // Found a .Statuses folder — collect all valid media files inside it.
+      // Found a .Statuses folder — collect ALL valid media files inside it.
+      // Deliberately do NOT check the deadline here: once we have located the
+      // folder we must read every file in it. Bailing mid-loop is exactly what
+      // causes users to see only half their statuses.
       // entry is already a tree-qualified URI.
       let files: string[];
       try {
