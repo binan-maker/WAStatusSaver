@@ -219,6 +219,7 @@ export default function ViewerScreen() {
       isNearActive={Math.abs(index - currentIndex) <= 1}
       onToggleControls={toggleControls}
       prepareStatusForViewing={prepareStatusForViewing}
+      bottomInset={insets.bottom}
     />
   // showControls / controlsOpacity intentionally excluded — they are not used
   // inside ViewerItem and were causing every tap-to-toggle-controls event to

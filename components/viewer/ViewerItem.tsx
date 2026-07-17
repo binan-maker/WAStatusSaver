@@ -67,6 +67,8 @@ export interface ViewerItemProps {
   isNearActive: boolean;
   onToggleControls: () => void;
   prepareStatusForViewing: (item: StatusItem, options: { forPlayback: boolean }) => Promise<string | null>;
+  /** Safe-area bottom inset so VideoControls clears the device navigation bar. */
+  bottomInset?: number;
 }
 
 export const ViewerItem = React.memo(function ViewerItem({
@@ -75,6 +77,7 @@ export const ViewerItem = React.memo(function ViewerItem({
   isNearActive,
   onToggleControls,
   prepareStatusForViewing,
+  bottomInset = 0,
 }: ViewerItemProps) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
@@ -539,6 +542,7 @@ export const ViewerItem = React.memo(function ViewerItem({
               onMuteToggle={handleMuteToggle}
               onSeek={handleSeek}
               onControlTouch={handleControlTouch}
+              bottomInset={bottomInset}
             />
           )}
 

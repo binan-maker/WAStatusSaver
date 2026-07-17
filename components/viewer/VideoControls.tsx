@@ -42,6 +42,8 @@ export interface VideoControlsProps {
   onMuteToggle: () => void;
   onSeek: (time: number) => void;
   onControlTouch: () => void;
+  /** Safe-area bottom inset (device nav bar height). Pass insets.bottom from the screen. */
+  bottomInset?: number;
 }
 
 export function VideoControls({
@@ -54,6 +56,7 @@ export function VideoControls({
   onMuteToggle,
   onSeek,
   onControlTouch,
+  bottomInset = 0,
 }: VideoControlsProps) {
   const [barWidth, setBarWidth] = useState(0);
   const progress = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
@@ -88,7 +91,7 @@ export function VideoControls({
       {/* ── Center play / pause ─────────────────────────────────────────
            box-none so taps on the empty area around the circle fall
            through to the video layer (which toggles controls visibility). */}
-      <View style={[StyleSheet.absoluteFill, styles.centerArea]} pointerEvents="box-none">
+      <View style={[StyleSheet.absoluteFill, styles.centerArea, { paddingBottom: 80 + bottomInset }]} pointerEvents="box-none">
         <TouchableOpacity
           style={styles.centerBtn}
           onPress={() => { onPlayPause(); onControlTouch(); }}
@@ -108,7 +111,7 @@ export function VideoControls({
       {/* ── Bottom gradient + controls ──────────────────────────────────── */}
       <LinearGradient
         colors={['transparent', 'rgba(0,0,0,0.92)']}
-        style={styles.bottomGradient}
+        style={[styles.bottomGradient, { paddingBottom: 18 + bottomInset }]}
         pointerEvents="box-none"
       >
         {/* Progress / seek bar
@@ -170,8 +173,8 @@ const styles = StyleSheet.create({
   centerArea: {
     alignItems: 'center',
     justifyContent: 'center',
-    // Pull it up slightly so it sits above the bottom controls bar
-    paddingBottom: 80,
+    // Base offset — bottomInset is added inline so the play button always sits
+    // above the bottom controls regardless of nav bar height.
   },
   centerBtn: {
     padding: 8,
@@ -195,7 +198,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 18,
-    paddingBottom: 18,
+    // paddingBottom is set inline (18 + bottomInset) so it clears the device nav bar.
     paddingTop: 50,
   },
   progressArea: {
