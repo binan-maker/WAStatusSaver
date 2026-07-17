@@ -89,6 +89,10 @@ export const ViewerItem = React.memo(function ViewerItem({
 
   // ── Video playback state ─────────────────────────────────────────────────
   const [paused, setPaused] = useState(false);
+  // Keeps the player paused until the first frame is decoded and ready to show.
+  // Prevents the video from running hidden behind the thumbnail fade (which
+  // caused the apparent 100 ms jump at the start of every video).
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const [muted, setMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -142,6 +146,7 @@ export const ViewerItem = React.memo(function ViewerItem({
     // Reset video controls state for the new item.
     pausedRef.current = false;
     setPaused(false);
+    setIsVideoReady(false);
     setMuted(false);
     setCurrentTime(0);
     setDuration(0);
@@ -160,6 +165,7 @@ export const ViewerItem = React.memo(function ViewerItem({
       hasPreparedRef.current = false;
       pausedRef.current = false;
       setPaused(false);
+      setIsVideoReady(false);
       setCurrentTime(0);
       setDuration(0);
       showVideoControlsRef.current = true;
@@ -220,9 +226,13 @@ export const ViewerItem = React.memo(function ViewerItem({
   // ── Video callbacks (all stable — [] deps, use only stable setters/refs) ─
   const handlePlaying = useCallback(() => {
     isVideoPlayingRef.current = true;
+    // Ungate playback — video was held at frame 0 until this fires.
+    setIsVideoReady(true);
+    // Fade the thumbnail out quickly now that the first frame is ready.
+    // 80 ms is fast enough to be imperceptible while still avoiding a hard cut.
     Animated.timing(thumbnailOpacity, {
       toValue: 0,
-      duration: 180,
+      duration: 80,
       useNativeDriver: true,
     }).start();
     // Show controls briefly when video first starts, then auto-hide.
@@ -487,7 +497,7 @@ export const ViewerItem = React.memo(function ViewerItem({
                 ref={videoRef}
                 key={displayUri}
                 fileUri={displayUri}
-                paused={paused}
+                paused={paused || !isVideoReady}
                 muted={muted}
                 onPlaying={handlePlaying}
                 onError={handleError}
@@ -495,21 +505,25 @@ export const ViewerItem = React.memo(function ViewerItem({
                 onLoad={handleLoad}
               />
             )}
-            <Animated.View
-              style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
-              pointerEvents="none"
-            >
-              <Image
-                source={cachedThumb ? { uri: cachedThumb } : null}
-                style={StyleSheet.absoluteFill}
-                contentFit="contain"
-                cachePolicy="memory-disk"
-                transition={0}
-                recyclingKey={item.id}
-                placeholder={VIEWER_PLACEHOLDER}
-                placeholderContentFit="cover"
-              />
-            </Animated.View>
+            {/* Only render the thumbnail overlay when a cached frame exists.
+                When cachedThumb is null, rendering source={null} causes
+                expo-image to show the blurhash placeholder at full opacity,
+                creating the white flash over the video surface. */}
+            {!!cachedThumb && (
+              <Animated.View
+                style={[StyleSheet.absoluteFill, { opacity: thumbnailOpacity }]}
+                pointerEvents="none"
+              >
+                <Image
+                  source={{ uri: cachedThumb }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  cachePolicy="memory-disk"
+                  transition={0}
+                  recyclingKey={item.id}
+                />
+              </Animated.View>
+            )}
           </View>
 
           {/* Layer 2 — tap detector.
