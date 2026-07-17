@@ -926,24 +926,6 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
   // ── Save ──────────────────────────────────────────────────────────────────
   const saveStatus = useCallback(async (item: StatusItem): Promise<boolean> => {
     try {
-      // ── Permission gate ───────────────────────────────────────────────────
-      // Check gallery/media permission before doing anything. If not granted,
-      // request it now (shows the native Android "Allow / Don't allow" dialog).
-      // If the user denies, abort — nothing is saved anywhere.
-      const permCheck = await MediaLibrary.getPermissionsAsync(true);
-      if (permCheck.status !== 'granted') {
-        const permRequest = await MediaLibrary.requestPermissionsAsync(true);
-        if (permRequest.status !== 'granted') {
-          // User denied — update state so UI reflects it, then bail out
-          setHasPermission(false);
-          setPermissionStatus(permRequest.status);
-          return false;
-        }
-        // Permission just granted — update state
-        setHasPermission(true);
-        setPermissionStatus('granted');
-      }
-
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       const savedDir = `${FileSystem.documentDirectory}saved/`;
       const dirInfo = await FileSystem.getInfoAsync(savedDir);
@@ -972,12 +954,6 @@ export function MediaProviderSAF({ children }: { children: ReactNode }) {
       const updated = [newSaved, ...savedItemsRef.current.filter(s => s.id !== item.id)];
       setSavedItems(updated);
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ITEMS, JSON.stringify(updated));
-
-      InteractionManager.runAfterInteractions(() => {
-        MediaLibrary.createAssetAsync(destUri)
-          .then(asset => MediaLibrary.createAlbumAsync('Status Saver', asset, false))
-          .catch(() => {});
-      });
 
       maybeShowRatingPrompt();
       return true;
