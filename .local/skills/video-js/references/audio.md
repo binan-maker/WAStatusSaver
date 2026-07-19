@@ -180,6 +180,10 @@ const sfx = await generateSoundEffect({
 console.log(sfx.filePath);
 ```
 
+## Prohibited uses
+
+The audio callbacks run on ElevenLabs, and every call is subject to the ElevenLabs Prohibited Use Policy. Read `.local/skills/media-generation/elevenlabs-prohibited-uses.md` and refuse audio it prohibits.
+
 ## Multi-layer export parity
 
 If the mix includes voiceover or SFX, pre-mix all layers into one `public/audio/composite_audio.mp3` with `ffmpeg` before wiring playback. Per-scene `<audio src>` swaps can drift in recorded exports.
@@ -226,6 +230,7 @@ Critical details:
 ## Checklist
 
 - [ ] Default audio is exactly one instrumental background music file unless the user requested more.
+- [ ] No audio layer violates the ElevenLabs prohibited-use policy.
 - [ ] Music duration matches `SCENE_DURATIONS` total runtime.
 - [ ] Audio files live in `public/audio/`.
 - [ ] Public audio paths use `${import.meta.env.BASE_URL}audio/...`.

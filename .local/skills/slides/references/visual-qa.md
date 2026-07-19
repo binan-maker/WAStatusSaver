@@ -1,5 +1,5 @@
 <visual_qa>
-Final read-through before you tell the user the deck is done. The export view (`/allslides`) and the deployed viewer (`/`) render slides into a fixed 1920x1080 16:9 frame, so the deck must look correct at that size — not at whatever your dev preview happens to be. These are code-level checks done by reading slide JSX; screenshotting is optional.
+Final read-through before you tell the user the deck is done. The export view (`/allslides`) and the deployed viewer (`/`) render slides into a fixed 1920x1080 16:9 frame, so the deck must look correct at that size — not at whatever your dev preview happens to be. These are code-level checks done by reading slide JSX; do not screenshot-iterate through them. The one screenshot every deck does need is the `/slide1` cover shot from the build sequence (step 9 in SKILL.md) — it becomes the deck's cover image on the home screen and on saved templates.
 
 ## /allSlides invariants
 
@@ -97,6 +97,7 @@ Before telling the user the deck is ready, verify `src/App.tsx` still matches th
 - `.slide` wrapper dimensions are not `1920×1080`.
 - The router was swapped from `wouter` to `react-router-dom` or anything else.
 - Either `DO NOT edit` useEffect in `App` has been modified or removed.
+- The module-scope `PARENT_OWNS_NAVIGATION` constant has been removed, inlined into a component, or no longer checks the `replitNav=parent` query param.
 
 #### Remediation
 
@@ -110,6 +111,15 @@ If `App.tsx` (or its siblings) was hand-edited away from the contract, repair it
   - (a) The unknown-route redirect: for any path that isn't `/`, `/allslides`, or a valid `/slideN`, call `navigate(\`/slide${slides[0].position}\`, { replace: true })` — but only when `slides.length > 0`. The empty-manifest guard is required;`SlidesManifestSchema` accepts an empty array, and a literal `slides[0].position` access without it will throw on first load.
   - (b) The `message` listener: when it receives `{ type: "navigateToSlide", position }` and `slides.some((s) => s.position === event.data.position)`, call `navigate(\`/slide${event.data.position}\`)`.
 - **`src/slideLoader.ts` rewritten** (lazy-loaded, dynamic-imported, fetched at runtime) → restore the original module-level slide-loading pattern so `slides` is populated synchronously on import.
+- **`PARENT_OWNS_NAVIGATION` removed, inlined, or missing the query check** → restore the module-scope constant in `App.tsx`:
+
+  ```tsx
+  const PARENT_OWNS_NAVIGATION =
+    new URLSearchParams(window.location.search).get("replitNav") === "parent" ||
+    window.parent !== window.parent.parent;
+  ```
+
+  and `SlideEditor`'s `navigationDisabledRef = useRef(PARENT_OWNS_NAVIGATION)`. It must stay at module scope — wouter navigation drops the query string, so reading it inside a component that mounts later misses the param.
 
 After repairing, re-run `pnpm run --filter @workspace/<slug> validate-slides` and walk the rest of this checklist again.
 

@@ -179,13 +179,16 @@ When building a new slide deck for the first time, follow this exact sequence. S
    - Each slide `.tsx` file in `src/pages/slides/`
    - `slides-manifest.json` with all entries
 7. **Run validation**: `pnpm run --filter @workspace/<slug> validate-slides`
-8. **Restart workflow** -- done.
+8. **Restart workflow**.
+9. **Take the cover screenshot** -- one `screenshot` call with `source: { "type": "appPreview", "artifactDirName": "<deck dir>", "path": "/slide1" }`. This screenshot becomes the deck's cover image on the home screen and on saved templates -- without it the deck shows a generic placeholder icon -- and it confirms the deck actually renders (no blank screen, no error overlay). Do not screenshot the other slides. Take this shot after validation and the visual QA pass are complete; if slide 1 or the deck-wide theme changes afterward for any reason (a defect the shot itself reveals, a late repair), retake it after the fix -- the stored cover is always the newest screenshot.
 
 Do NOT restart workflow until all slides are written. Do NOT read files you just scaffolded -- they are already in your context.
 A quick seamless build is what you are aiming for. If the user gave you an exact slide count (in their prompt or the "Exact number of slides" box on the `deckLength` question), use that exact number. If they picked a length range, pick a slide count that feels right inside that range. If the length question was skipped (opt-out, edit, or import), default to around 6 -- don't go longer unless the user asked for it.
-Avoid screenshotting in the first build. You have two priorities: speed and design.
+Do not screenshot-iterate during the build -- `validate-slides` is your layout QA loop, and you have two priorities: speed and design. The only screenshots a first build needs are the slide 1 template-fidelity check (when a template reference image exists) and the cover screenshot in step 9.
 </first_build>
 
 ## Building and editing decks
 
 The build-time rules -- the artifact and manifest contract, the workspace export contract, planning, layout, typography, and the hard constraints every slide must follow -- live in `./references/building.md`. It is injected into your context automatically when the slides artifact is created; do not re-read it then. When editing an existing deck in a later session (or whenever it is genuinely not in your context), read `./references/building.md` before writing any slide files.
+
+After an edit session that changed slide 1 or the deck-wide theme, retake the cover screenshot (step 9 of `<first_build>`) so the deck's cover stays current. If you are unsure the deck ever had a cover (older decks), take one.

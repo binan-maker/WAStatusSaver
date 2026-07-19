@@ -23,6 +23,8 @@ Use this skill when:
 
 ## When NOT to Use
 
+For any request involving payments, billing, checkout, subscriptions, paywalls, ecommerce, or monetization, read the `monetization` skill before searching for or proposing integrations. The `monetization` skill is the source of truth for provider selection and which providers may appear in a shortlist. Do not build a payment-provider shortlist from generic `searchIntegrations` results or add other payment connectors that happen to match a broad search.
+
 As a web search (use web-search skill if available), searching files within the project, media generation (use media-generation skill, including image generation APIs), fetching data to respond to a user's question (use query-integration-data skill).
 
 ---

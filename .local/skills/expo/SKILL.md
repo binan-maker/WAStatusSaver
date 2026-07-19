@@ -255,7 +255,7 @@ if (Platform.OS !== 'web') {
 
 ## Payments
 
-If prompted to add payments (i.e. subscriptions, in-app purchases, etc.), always use RevenueCat. Do not use Stripe unless the user explicitly requests it.
+For payments, billing, subscriptions, or in-app purchases, read the `monetization` skill before searching integrations or calling `ProposeIntegration`.
 
 ## Testing
 

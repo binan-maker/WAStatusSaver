@@ -23,15 +23,15 @@ function getSlideIndex(pathname: string): number {
   return slides.findIndex((s) => s.position === position);
 }
 
+const PARENT_OWNS_NAVIGATION =
+  new URLSearchParams(window.location.search).get('replitNav') === 'parent' ||
+  window.parent !== window.parent.parent;
+
 function SlideEditor() {
   const [location, navigate] = useLocation();
   const currentIndex = getSlideIndex(location);
 
-  // In the workspace, the slide iframe is nested inside another iframe,
-  // so window.parent !== window.parent.parent. In the deployed SlideViewer,
-  // the parent is the top-level window, so they're equal. Disable local
-  // navigation only in the workspace — the parent owns it there.
-  const navigationDisabledRef = useRef(window.parent !== window.parent.parent);
+  const navigationDisabledRef = useRef(PARENT_OWNS_NAVIGATION);
   const touchHandledRefStable = useRef(false);
 
   useEffect(() => {
