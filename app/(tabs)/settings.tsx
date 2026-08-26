@@ -15,7 +15,6 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
 import { useMedia } from "@/contexts/MediaContext";
 import { useAds } from "@/contexts/AdsContext";
 import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
@@ -145,7 +144,7 @@ function PremiumCard() {
     setPurchaseActionLoading(true);
     const result = await restorePurchases();
     setPurchaseActionLoading(false);
-    if (result.success && isPremium) {
+    if (result.success) {
       Alert.alert("Purchase restored", "Premium is active on this device.");
     } else if (!result.success) {
       Alert.alert("Restore failed", result.message);

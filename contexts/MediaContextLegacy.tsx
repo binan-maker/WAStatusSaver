@@ -454,8 +454,9 @@ export function MediaProviderLegacy({ children }: { children: ReactNode }) {
         const fileUri = `${cacheDir}${file}`;
         try {
           const info = await FileSystem.getInfoAsync(fileUri);
-          const fileAge = info.modificationTime
-            ? now - info.modificationTime * 1000
+          const modificationTime = info.exists ? info.modificationTime : undefined;
+          const fileAge = modificationTime
+            ? now - modificationTime * 1000
             : now - 1000000;
           if (fileAge > maxAgeMs) await FileSystem.deleteAsync(fileUri, { idempotent: true });
         } catch {}

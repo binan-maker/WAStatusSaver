@@ -7,7 +7,6 @@ import {
   Modal,
   Animated,
   Linking,
-  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -31,7 +30,13 @@ export function MilestoneRatingCard({ visible, type, count, onRate, onLater, onN
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const slideAnim = useRef(new Animated.Value(300)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const starScales = [1, 2, 3, 4, 5].map(() => useRef(new Animated.Value(1)).current);
+  const starScales = useRef([
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+    new Animated.Value(1),
+  ]).current;
 
   useEffect(() => {
     if (visible) {
@@ -101,7 +106,7 @@ export function MilestoneRatingCard({ visible, type, count, onRate, onLater, onN
             {/* Headline */}
             <Text style={styles.emoji}>{emoji}</Text>
             <Text style={styles.title}>
-              You've {actionWord}{'\n'}{count} statuses!
+              You&apos;ve {actionWord}{'\n'}{count} statuses!
             </Text>
             <Text style={styles.subtitle}>
               Enjoying Status Saver? A quick rating helps us grow and keeps the app free.

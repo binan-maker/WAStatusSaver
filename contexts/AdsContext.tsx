@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -125,6 +126,7 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const [purchaseLoading, setPurchaseLoading] = useState(true);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [premiumPrice, setPremiumPrice] = useState<string | null>(null);
+  const adFreeRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -164,7 +166,8 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
         setPurchaseReady(
           isRevenueCatSupported() &&
             Boolean(
-              revenueCat.snapshot.customerInfo || revenueCat.snapshot.offering,
+              revenueCat.snapshot.offering &&
+                getOfferingPackage(revenueCat.snapshot.offering),
             ),
         );
         const verifiedPremium = hasPremiumEntitlement(
@@ -209,7 +212,18 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
       } else {
         setPurchaseReady(false);
         setPurchaseError(revenueCat.error);
-        setState(normalizeStoredState(parseStoredState(stored)));
+        const localState = normalizeStoredState(parseStoredState(stored));
+        setState({
+          ...localState,
+          isPremium:
+            __DEV__ &&
+            localState.isPremium &&
+            localState.premiumSource === "development",
+          premiumSource:
+            __DEV__ && localState.premiumSource === "development"
+              ? "development"
+              : undefined,
+        });
       }
 
       setPurchaseLoading(false);
@@ -243,6 +257,9 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
 
   const isRewardedAccessActive = state.rewardedAccessExpiresAt > Date.now();
   const isAdFree = state.isPremium || isRewardedAccessActive;
+  useEffect(() => {
+    adFreeRef.current = isAdFree;
+  }, [isAdFree]);
 
   const watchRewardedAd = useCallback(async (): Promise<AdResult> => {
     if (
@@ -357,6 +374,7 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     // Let the save interaction settle before interrupting it with an ad.
     if (shouldShowInterstitial) {
       await new Promise<void>((resolve) => setTimeout(resolve, 250));
+      if (adFreeRef.current) return;
       const result = await showInterstitialAd();
       if (!result.success) setAdsError(result.message);
     }

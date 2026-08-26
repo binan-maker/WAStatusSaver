@@ -6,10 +6,9 @@ import Purchases, {
 } from "react-native-purchases";
 
 export const REVENUECAT_ENTITLEMENT_IDENTIFIER =
-  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID ||
-  "whatsapp_status_saver_pro";
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || "";
 export const REVENUECAT_LIFETIME_PRODUCT_IDENTIFIER =
-  process.env.EXPO_PUBLIC_REVENUECAT_LIFETIME_PRODUCT_ID || "premium_lifetime";
+  process.env.EXPO_PUBLIC_REVENUECAT_LIFETIME_PRODUCT_ID?.trim() || "";
 
 let configured = false;
 
@@ -32,6 +31,12 @@ export function isRevenueCatSupported(): boolean {
 
 export function getRevenueCatConfigurationError(): string | null {
   if (!isRevenueCatSupported()) return null;
+  if (!REVENUECAT_ENTITLEMENT_IDENTIFIER) {
+    return "RevenueCat entitlement is not configured. Add EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID.";
+  }
+  if (!REVENUECAT_LIFETIME_PRODUCT_IDENTIFIER) {
+    return "RevenueCat Premium product is not configured. Add EXPO_PUBLIC_REVENUECAT_LIFETIME_PRODUCT_ID.";
+  }
   if (Platform.OS === "android" && !process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY) {
     return "Google Play purchases are not configured yet. Add the RevenueCat Android public API key.";
   }
@@ -113,7 +118,7 @@ export async function purchasePremium(): Promise<PurchaseResult> {
         success: false,
         kind: "unavailable",
         message:
-          "The ₹49 Premium product is not available from Google Play yet. Confirm the product ID is premium_lifetime and that it is added to the current RevenueCat offering.",
+          "Premium is not available from the current RevenueCat offering. Confirm the configured product is attached to the active offering.",
       };
     }
 

@@ -397,9 +397,11 @@ announce each row correctly.
 
 ## To Publish
 
-1. Replace the AdMob test app IDs in `app.json` and unit IDs in `lib/ads.ts`
-2. Update `app.json` with your actual bundle ID
-3. Build with `eas build --platform android`
+1. Add real AdMob app/unit IDs and the Android RevenueCat public key using
+   `.env.example` as the checklist.
+2. Confirm the RevenueCat entitlement and `premium_lifetime` product are active
+   in the current offering.
+3. Build with `eas build --platform android`.
 
 ## Workflows
 
@@ -415,12 +417,21 @@ The app uses Google Mobile Ads with a low-frequency, free-user journey:
 - One native ad slot is inserted after the tenth status in the active list.
 - A verified premium entitlement hides all rewarded, interstitial, and native ads.
 
-The app currently uses Google test app and unit IDs. Replace the test IDs in
-`app.json` and `lib/ads.ts` before a production build. Unit IDs can also be
-provided through `EXPO_PUBLIC_ADMOB_INTERSTITIAL_UNIT_ID`,
-`EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID`, and `EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID`.
-The AdMob package is a native module, so ads require a custom native build;
-the Replit web preview intentionally renders without ads. Real ₹49 premium
-purchases still need a verified Google Play Billing entitlement wired to the
-existing premium state before release. Development builds expose a local
-premium preview from Settings for testing the ad-free journey.
+AdMob configuration is environment-driven. Real app IDs are supplied through
+`EXPO_PUBLIC_ADMOB_ANDROID_APP_ID` / `EXPO_PUBLIC_ADMOB_IOS_APP_ID`, and real
+unit IDs through `EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID`,
+`EXPO_PUBLIC_ADMOB_INTERSTITIAL_UNIT_ID`,
+`EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID`, and
+`EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID`. Google test IDs are rejected at runtime and
+by the dynamic Expo config; missing IDs fail closed without showing an ad.
+The AdMob package is a native module, so ads require a custom native build; the
+Replit web preview intentionally renders without ads.
+
+RevenueCat production access uses the active entitlement
+`whatsapp_status_saver_pro` and the Android `premium_lifetime` non-consumable
+product. Only a verified active RevenueCat entitlement grants permanent
+Premium/no-ads access; local storage is never trusted as a purchase
+verification fallback. Configure the public SDK keys and identifiers in `.env`
+using `.env.example`. The connected RevenueCat project currently has Android
+production configuration; iOS needs its own RevenueCat app and public key before
+an iOS release.

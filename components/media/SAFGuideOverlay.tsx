@@ -1,18 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
   Animated,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
-import { FONT_SIZE } from '@/constants/theme';
-
-const { height } = Dimensions.get('window');
 
 interface SAFGuideOverlayProps {
   visible: boolean;
@@ -56,7 +52,7 @@ export function SAFGuideOverlay({ visible }: SAFGuideOverlayProps) {
       <View style={styles.container}>
         <View style={styles.overlay} />
         <View style={styles.content}>
-          <Text style={styles.title}>We're Opening Folders</Text>
+          <Text style={styles.title}>We&apos;re Opening Folders</Text>
           <Text style={styles.mainText}>
             The system opened the folder automatically.{'\n'}Look for the button below:
           </Text>

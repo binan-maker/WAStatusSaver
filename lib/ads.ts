@@ -14,24 +14,14 @@ import mobileAds, {
   RewardedAdEventType,
 } from "react-native-google-mobile-ads";
 
-/**
- * Google test IDs are used only in development. A production build fails
- * explicitly when a real unit ID has not been configured, so test inventory
- * can never silently ship.
- */
-export const ADMOB_TEST_APP_IDS = {
-  android: "ca-app-pub-3940256099942544~3347511713",
-  ios: "ca-app-pub-3940256099942544~1458002511",
-} as const;
+const GOOGLE_TEST_AD_UNIT_IDS = new Set([
+  "ca-app-pub-3940256099942544/6300978111",
+  "ca-app-pub-3940256099942544/1033173712",
+  "ca-app-pub-3940256099942544/5224354917",
+  "ca-app-pub-3940256099942544/2247696110",
+]);
 
-export const ADMOB_TEST_UNIT_IDS = {
-  banner: "ca-app-pub-3940256099942544/6300978111",
-  interstitial: "ca-app-pub-3940256099942544/1033173712",
-  rewarded: "ca-app-pub-3940256099942544/5224354917",
-  native: "ca-app-pub-3940256099942544/2247696110",
-} as const;
-
-export type AdUnitType = keyof typeof ADMOB_TEST_UNIT_IDS;
+export type AdUnitType = "banner" | "interstitial" | "rewarded" | "native";
 
 export type AdResult =
   | { success: true; kind: "earned" | "shown" }
@@ -86,10 +76,14 @@ export function getAdUnitId(type: AdUnitType): string {
   const configuredId = (process.env as Record<string, string | undefined>)[
     envKey
   ]?.trim();
+  if (configuredId && GOOGLE_TEST_AD_UNIT_IDS.has(configuredId)) {
+    throw new Error(
+      `Google test AdMob ${type} unit ID is not allowed. Replace ${envKey} with a real AdMob unit ID.`,
+    );
+  }
   if (configuredId) return configuredId;
-  if (__DEV__) return ADMOB_TEST_UNIT_IDS[type];
   throw new Error(
-    `AdMob ${type} ad unit is not configured. Add ${envKey} before building production.`,
+    `AdMob ${type} ad unit is not configured. Add a real ${envKey} before building.`,
   );
 }
 

@@ -8,7 +8,7 @@ import { SPACING } from "@/constants/theme";
 export function BannerAdSlot() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { isPremium } = useAds();
+  const { isAdFree } = useAds();
   const [loaded, setLoaded] = useState(false);
   const ads = getGoogleMobileAdsModule();
   const BannerAd = ads?.BannerAd;
@@ -16,7 +16,7 @@ export function BannerAdSlot() {
 
   if (
     Platform.OS === "web" ||
-    isPremium ||
+    isAdFree ||
     !BannerAd ||
     !BannerAdSize
   ) {

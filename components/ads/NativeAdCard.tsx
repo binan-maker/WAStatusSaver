@@ -3,12 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 import { getAdUnitId, getGoogleMobileAdsModule } from "@/lib/ads";
 import { useAds } from "@/contexts/AdsContext";
 import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
-import { CARD_SIZE, RADIUS, SPACING } from "@/constants/theme";
+import { CARD_SIZE, RADIUS } from "@/constants/theme";
 
 export function NativeAdCard() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const { isPremium, nativeAdEligible, markNativeAdShown } = useAds();
+  const { isAdFree, nativeAdEligible, markNativeAdShown } = useAds();
   const [loaded, setLoaded] = useState(false);
   const [adAttempted, setAdAttempted] = useState(false);
   const ads = getGoogleMobileAdsModule();
@@ -19,7 +19,7 @@ export function NativeAdCard() {
   const [nativeAd, setNativeAd] = useState<any>(null);
 
   useEffect(() => {
-    if (isPremium || !nativeAdEligible || adAttempted || !ads?.NativeAd) return;
+    if (isAdFree || !nativeAdEligible || adAttempted || !ads?.NativeAd) return;
     setAdAttempted(true);
     let active = true;
     let loadedAd: any = null;
@@ -46,9 +46,9 @@ export function NativeAdCard() {
       active = false;
       loadedAd?.destroy?.();
     };
-  }, [adAttempted, ads, isPremium, markNativeAdShown, nativeAdEligible]);
+  }, [adAttempted, ads, isAdFree, markNativeAdShown, nativeAdEligible]);
 
-  if (isPremium || !nativeAd || !NativeAdView || !loaded) return null;
+  if (isAdFree || !nativeAd || !NativeAdView || !loaded) return null;
 
   return (
     <View style={styles.tile}>

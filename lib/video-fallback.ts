@@ -139,8 +139,9 @@ export async function cleanupDocumentCache(maxAgeMs: number = 7 * 24 * 60 * 60 *
       const fileUri = `${vcacheDir}${file}`;
       try {
         const info = await FileSystem.getInfoAsync(fileUri);
-        const age = info.modificationTime
-          ? now - info.modificationTime * 1000
+        const modificationTime = info.exists ? info.modificationTime : undefined;
+        const age = modificationTime
+          ? now - modificationTime * 1000
           : now;
         if (age > maxAgeMs) {
           await FileSystem.deleteAsync(fileUri, { idempotent: true });
