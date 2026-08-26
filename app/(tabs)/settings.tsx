@@ -16,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMedia } from "@/contexts/MediaContext";
-import { useAds } from "@/contexts/AdsContext";
 import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { SPACING, FONT_SIZE, RADIUS } from "@/constants/theme";
 import { BannerAdSlot } from "@/components/ads/BannerAd";
@@ -87,125 +86,6 @@ function SectionHeader({ title }: { title: string }) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return <Text style={styles.sectionHeader}>{title}</Text>;
-}
-
-function PremiumCard() {
-  const COLORS = useThemeColors();
-  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const {
-    isPremium,
-    isAdFree,
-    rewardedAccessExpiresAt,
-    premiumPrice,
-    purchaseReady,
-    purchaseLoading,
-    purchaseError,
-    purchasePremium,
-    restorePurchases,
-  } = useAds();
-  const [purchaseActionLoading, setPurchaseActionLoading] = useState(false);
-  const temporaryAccess =
-    !isPremium && isAdFree && rewardedAccessExpiresAt > Date.now();
-
-  const handlePremiumAction = async () => {
-    if (purchaseActionLoading || isPremium) return;
-    if (purchaseLoading || !purchaseReady) {
-      Alert.alert(
-        "Premium unavailable",
-        purchaseError ||
-          "Google Play purchases are still loading. Check your connection and try again.",
-      );
-      return;
-    }
-
-    setPurchaseActionLoading(true);
-    const result = await purchasePremium();
-    setPurchaseActionLoading(false);
-    if (result.success) {
-      Alert.alert(
-        "Premium is active",
-        "Your verified Google Play purchase is active. Ads are now removed.",
-      );
-    } else if (result.kind !== "cancelled") {
-      Alert.alert("Purchase failed", result.message);
-    }
-  };
-
-  const handleRestore = async () => {
-    if (purchaseActionLoading || purchaseLoading || !purchaseReady) {
-      Alert.alert(
-        "Restore unavailable",
-        purchaseError ||
-          "Google Play purchases are still loading. Check your connection and try again.",
-      );
-      return;
-    }
-
-    setPurchaseActionLoading(true);
-    const result = await restorePurchases();
-    setPurchaseActionLoading(false);
-    if (result.success) {
-      Alert.alert("Purchase restored", "Premium is active on this device.");
-    } else if (!result.success) {
-      Alert.alert("Restore failed", result.message);
-    }
-  };
-
-  return (
-    <View style={styles.premiumCard}>
-      <View style={styles.premiumIcon}>
-        <Ionicons
-          name={isAdFree ? "shield-checkmark" : "diamond"}
-          size={22}
-          color={COLORS.ACCENT_GOLD}
-        />
-      </View>
-      <View style={styles.premiumCopy}>
-        <Text style={styles.premiumTitle}>
-          {isPremium
-            ? "Premium is active"
-            : temporaryAccess
-              ? "Ad-free access is active"
-              : "Remove Ads"}
-        </Text>
-        <Text style={styles.premiumSub}>
-          {isPremium
-            ? "Unlimited saving, HD downloads and priority support"
-            : temporaryAccess
-              ? "Unlocked by today’s optional rewarded ad"
-              : `${premiumPrice || "One-time purchase"} · No ads, HD downloads and priority support`}
-        </Text>
-        {!!purchaseError && !purchaseActionLoading && (
-          <Text style={styles.premiumError}>{purchaseError}</Text>
-        )}
-        {!isPremium && !temporaryAccess && (
-          <TouchableOpacity
-            onPress={handleRestore}
-            disabled={purchaseActionLoading}
-            style={styles.restoreButton}
-            accessibilityRole="button"
-            accessibilityLabel="Restore Google Play purchase"
-          >
-            <Text style={styles.restoreButtonText}>Restore purchase</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <TouchableOpacity
-        style={styles.premiumButton}
-        onPress={handlePremiumAction}
-        disabled={purchaseActionLoading || isPremium}
-        activeOpacity={0.82}
-        accessibilityRole="button"
-        accessibilityLabel={
-          isPremium ? "Premium is active" : "Purchase Premium"
-        }
-      >
-        <Text style={styles.premiumButtonText}>
-          {purchaseActionLoading ? "..." : isPremium ? "Active" : "Upgrade"}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
 }
 
 export default function SettingsScreen() {
@@ -319,8 +199,6 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <SectionHeader title="Premium" />
-        <PremiumCard />
         <BannerAdSlot />
 
         <SectionHeader title="Storage & Permissions" />
@@ -639,65 +517,6 @@ const createStyles = (COLORS: ThemePalette) =>
       fontFamily: "Nunito_400Regular",
       maxWidth: 120,
       textAlign: "right",
-    },
-    premiumCard: {
-      marginBottom: SPACING.LG,
-      padding: SPACING.MD,
-      borderRadius: RADIUS.MD,
-      borderWidth: 1,
-      borderColor: COLORS.ACCENT_GOLD + "55",
-      backgroundColor: COLORS.SURFACE,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: SPACING.SM,
-    },
-    premiumIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: COLORS.ACCENT_GOLD + "1A",
-    },
-    premiumCopy: {
-      flex: 1,
-      gap: 2,
-    },
-    premiumTitle: {
-      color: COLORS.TEXT,
-      fontSize: FONT_SIZE.MD,
-      fontWeight: "800",
-      fontFamily: "Nunito_800ExtraBold",
-    },
-    premiumSub: {
-      color: COLORS.TEXT_SECONDARY,
-      fontSize: FONT_SIZE.XS,
-      lineHeight: 15,
-    },
-    premiumButton: {
-      paddingHorizontal: 11,
-      paddingVertical: 8,
-      borderRadius: RADIUS.SM,
-      backgroundColor: COLORS.ACCENT_GOLD,
-    },
-    premiumButtonText: {
-      color: COLORS.BACKGROUND,
-      fontSize: FONT_SIZE.XS,
-      fontWeight: "800",
-    },
-    premiumError: {
-      color: COLORS.ERROR,
-      fontSize: FONT_SIZE.XS,
-      lineHeight: 15,
-    },
-    restoreButton: {
-      alignSelf: "flex-start",
-      paddingVertical: 2,
-    },
-    restoreButtonText: {
-      color: COLORS.PRIMARY,
-      fontSize: FONT_SIZE.XS,
-      fontWeight: "700",
     },
     footer: {
       alignItems: "center",

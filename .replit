@@ -24,7 +24,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN npx expo start --port 5000 --localhost --web"
+args = "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_DEV_DOMAIN REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN ./node_modules/.bin/expo start --port 5000 --localhost --web"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -36,13 +36,4 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["npx", "expo", "start", "--port", "5000", "--localhost", "--web", "--no-dev"]
-
-[userenv]
-
-[userenv.shared]
-EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_cCDPnztqjNGYWJrzTsRaNIzeJpG"
-EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID = "whatsapp_status_saver_pro"
-EXPO_PUBLIC_REVENUECAT_LIFETIME_PRODUCT_ID = "premium_lifetime"
-REVENUECAT_GOOGLE_PLAY_STORE_APP_ID = "app578009e3bf"
-REVENUECAT_PROJECT_ID = "projfac93f11"
+run = ["./node_modules/.bin/expo", "start", "--port", "5000", "--localhost", "--web", "--no-dev"]

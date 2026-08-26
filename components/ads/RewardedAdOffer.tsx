@@ -15,7 +15,6 @@ export function RewardedAdOffer() {
   const COLORS = useThemeColors();
   const styles = createStyles(COLORS);
   const {
-    isPremium,
     isAdsReady,
     adsError,
     canWatchRewarded,
@@ -32,7 +31,7 @@ export function RewardedAdOffer() {
     }
   }, [adsError]);
 
-  if (isPremium || !canWatchRewarded) return null;
+  if (!canWatchRewarded) return null;
 
   const handleWatch = async () => {
     if (loading) return;
@@ -51,7 +50,7 @@ export function RewardedAdOffer() {
     setLoading(false);
     setMessage(
       result.success
-        ? "Premium unlocked for 24 hours"
+        ? "Ad-free access unlocked for 24 hours"
         : result.message || "Ad unavailable right now",
     );
     setMessageIsError(!result.success);
@@ -64,11 +63,11 @@ export function RewardedAdOffer() {
       </View>
       <View style={styles.copy}>
         <Text style={styles.title}>
-          Watch an ad, unlock Premium for 24 hours
+          Watch an ad for ad-free access for 24 hours
         </Text>
         <Text style={styles.subtitle}>
           {isAdsReady
-            ? "Optional. Enjoy ad-free saving for the rest of today."
+            ? "Optional. Ads pause for the rest of today after you finish watching."
             : "Ad service is still loading. We’ll show the reason if it cannot connect."}
         </Text>
         {!!message && (
@@ -83,7 +82,7 @@ export function RewardedAdOffer() {
         disabled={loading || !isAdsReady}
         activeOpacity={0.82}
         accessibilityRole="button"
-        accessibilityLabel="Watch an ad to unlock premium for 24 hours"
+        accessibilityLabel="Watch an ad for ad-free access for 24 hours"
       >
         {loading ? (
           <ActivityIndicator size="small" color={COLORS.BACKGROUND} />

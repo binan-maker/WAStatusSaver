@@ -9,11 +9,10 @@ Status Saver is a production-grade, fully offline WhatsApp Status Saver app for 
 ### Stack
 
 - **Frontend**: Expo React Native (Expo Router file-based routing)
-- **Backend**: Express.js (serves landing page + API scaffolding)
-- **Storage**: AsyncStorage for local app state, Firebase Firestore for verified paid subscriptions
+- **Storage**: AsyncStorage for local app state
 - **Fonts**: Nunito (Google Fonts via @expo-google-fonts/nunito)
 - **Media**: expo-media-library, expo-sharing, expo-file-system/legacy
-- **Payments**: Dual-store architecture — Razorpay (Indus/other stores) OR Google Play Billing (Play Store). Completely separate folders. Switch by changing 2 lines in `payment-providers/index.ts` + `payment-providers/server.ts`, then deleting the unused folder before uploading.
+- **Monetization**: Google Mobile Ads only; there are no in-app purchases or subscriptions.
 
 ### Color Palette (Dark Navy + Emerald)
 
@@ -53,12 +52,10 @@ Status Saver is a production-grade, fully offline WhatsApp Status Saver app for 
    - Interstitial ads: `AdInterstitial` component (every 3 video views)
    - Replace `AD_UNIT_IDS` in `constants/admob.ts`
 
-4. **Paid Ad Removal**:
-   - Plans: ₹30 monthly, ₹199 yearly, ₹499 lifetime
-   - Settings page includes an ad-free banner and subscription plan sheet
-   - Backend creates Razorpay orders and verifies Razorpay signatures before activation
-   - Firestore stores payment orders, user payment history, and subscription status
-   - Ads are hidden only when the backend-confirmed subscription is active or local rewarded ad access is active
+4. **Ad-only monetization**:
+   - Banner, interstitial, native, and rewarded ads are supported through Google Mobile Ads
+   - The optional rewarded ad can unlock ad-free access for 24 hours
+   - There are no purchase or subscription flows
 
 5. **Media Operations**:
    - View images and videos
@@ -72,7 +69,6 @@ Status Saver is a production-grade, fully offline WhatsApp Status Saver app for 
 app/                        # Expo Router screens
   (tabs)/                   # Tab bar screens (index, saved, settings)
   _layout.tsx               # Root layout (fonts, providers)
-  subscription.tsx          # Subscription / upgrade screen
   viewer.tsx                # Full-screen media viewer
   permissions.tsx           # Storage permission setup
   guide.tsx / privacy.tsx / terms.tsx / contact.tsx ...
@@ -80,14 +76,12 @@ app/                        # Expo Router screens
 components/                 # Domain-grouped React Native components
   ads/                      # AdBanner, AdInterstitial, AdReward, AdAppOpen, RewardAdButton, SupportDeveloperAd
   media/                    # MediaCard, EmptyState, LoadingShimmer, SAFGuideOverlay
-  subscription/             # SubscriptionPlansCard, PaymentSuccessModal
   auth/                     # GoogleSignInModal
   feedback/                 # MilestoneRatingCard
   common/                   # AppLoadingScreen, ErrorBoundary, ErrorFallback, KeyboardAwareScrollViewCompat
 
 hooks/                      # Domain-grouped custom hooks
   ads/                      # useAppOpenAd, useFreeAdsState
-  subscription/             # useSubscriptionStatus
   feedback/                 # useMilestoneRating
   media/                    # useStatusReminder
 
@@ -113,58 +107,13 @@ server/                     # Express backend
   storage.ts                # File storage helpers
   templates/                # HTML templates (landing page, privacy, terms, pricing)
 
-payment-providers/          # Store-specific payment logic (delete unused before build)
-  razorpay/                 # Indus App Store / Razorpay
-    client/                 # React Native hooks + plan config
-    server/                 # Express routes (orders, verify, status)
-    index.ts                # Razorpay client-side provider export
-  google-play/              # Google Play Billing / react-native-iap
-    client/                 # React Native hooks + plan config
-    server/                 # Express routes (verify, status)
-    index.ts                # Google Play client-side provider export
-  shared/                   # Shared types, server-utils (getAuthenticatedUser, normalizeDeviceId)
-  index.ts                  # Active client-side provider switch
-  server.ts                 # Active server-side provider switch
-
-shared/                     # isomorphic (client + server) code
-  subscription-plans.ts     # Canonical plan definitions (id, label, amount, duration)
-  schema.ts                 # Drizzle/DB schema
-
 scripts/                    # Utility scripts
 ```
 
-## Payment Configuration
+## Monetization Configuration
 
-### Dual-Store Build Switch
-
-The payment system is fully separated into two self-contained folders with zero runtime if/else:
-
-| Store                   | Provider            | Active folder                    | Delete before upload             |
-| ----------------------- | ------------------- | -------------------------------- | -------------------------------- |
-| Indus App Store / Other | Razorpay            | `payment-providers/razorpay/`    | `payment-providers/google-play/` |
-| Google Play Store       | Google Play Billing | `payment-providers/google-play/` | `payment-providers/razorpay/`    |
-
-**Current default: Google Play Store (Play Store build active).** To switch to Indus/Razorpay: edit 2 lines in `payment-providers/index.ts` + 2 lines in `payment-providers/server.ts`.
-
-### Env Vars — Razorpay build
-
-- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
-- `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID` (optional)
-
-### Env Vars — Google Play build
-
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_PACKAGE_NAME`
-- `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID` (optional)
-
-### Firestore Collections
-
-- `subscriptions` — active Pro status per user UID
-- `paymentOrders` — Razorpay order records
-- `googlePlayOrders` — Google Play purchase records
-- `users/{uid}/payments` — full payment history
-- `influencer_campaigns/{CODE}` — admin-created referral codes (limit, usedCount, status, vipDuration, influencerUid, redeemDurationDays)
-- `referral_redemptions/{uid}_{CODE}` — idempotency ledger; one doc per user+code
-- `referral_devices/{deviceId}` — device fingerprint anti-spoof: which deviceId already claimed a referral
+The app uses Google Mobile Ads only. Configure real app and unit IDs through
+the environment variables listed in `.env.example`.
 
 ## Influencer Referral System
 
@@ -230,7 +179,7 @@ Every shared status (and the Settings "Share App" button) now carries the user's
 - `app/(tabs)/settings.tsx::handleShareApp` — uses the cached short link instead of the hardcoded long Play Store URL.
 
 **Native module note (auto-caption sharing — April 27, 2026)**
-The auto-caption flow uses `react-native-share`, a native module that does NOT run in Expo Go. The project already depends on `react-native-iap`, `react-native-google-mobile-ads`, and `@react-native-google-signin/google-signin` — also native-only — so we were already on a custom dev-client build. The Metro dev server in this repl bundles JS as before; the native module loads at runtime in the user's APK. NEXT APK BUILD (EAS or local prebuild) autolinks `react-native-share` automatically — no manual linking, no `eas.json` changes, no breaking config edits. If auto-caption ever degrades, the silent clipboard copy + expo-sharing fallback both still work.
+Google Mobile Ads is a native module that does NOT run in Expo Go. The Metro dev server in this repl bundles JS as before; the native module loads at runtime in the user's APK. The Replit web preview intentionally renders without native ads.
 
 ## Documentation Sync (April 22, 2026)
 
@@ -397,11 +346,8 @@ announce each row correctly.
 
 ## To Publish
 
-1. Add real AdMob app/unit IDs and the Android RevenueCat public key using
-   `.env.example` as the checklist.
-2. Confirm the RevenueCat entitlement and `premium_lifetime` product are active
-   in the current offering.
-3. Build with `eas build --platform android`.
+1. Add real AdMob app/unit IDs using `.env.example` as the checklist.
+2. Build with `eas build --platform android`.
 
 ## Workflows
 
@@ -415,7 +361,7 @@ The app uses Google Mobile Ads with a low-frequency, free-user journey:
 - Optional rewarded ad once per local day unlocks ad-free access for 24 hours.
 - One interstitial is eligible after every 10 successful saves, with all ad formats capped at two impressions per day.
 - One native ad slot is inserted after the tenth status in the active list.
-- A verified premium entitlement hides all rewarded, interstitial, and native ads.
+- Rewarded access temporarily hides the other ad formats for 24 hours.
 
 AdMob configuration is environment-driven. Real app IDs are supplied through
 `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID` / `EXPO_PUBLIC_ADMOB_IOS_APP_ID`, and real
@@ -426,12 +372,3 @@ unit IDs through `EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID`,
 by the dynamic Expo config; missing IDs fail closed without showing an ad.
 The AdMob package is a native module, so ads require a custom native build; the
 Replit web preview intentionally renders without ads.
-
-RevenueCat production access uses the active entitlement
-`whatsapp_status_saver_pro` and the Android `premium_lifetime` non-consumable
-product. Only a verified active RevenueCat entitlement grants permanent
-Premium/no-ads access; local storage is never trusted as a purchase
-verification fallback. Configure the public SDK keys and identifiers in `.env`
-using `.env.example`. The connected RevenueCat project currently has Android
-production configuration; iOS needs its own RevenueCat app and public key before
-an iOS release.

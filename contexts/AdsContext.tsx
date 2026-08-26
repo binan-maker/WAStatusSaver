@@ -16,16 +16,6 @@ import {
   showInterstitialAd,
   showRewardedAd,
 } from "@/lib/ads";
-import {
-  getOfferingPackage,
-  hasPremiumEntitlement,
-  isRevenueCatSupported,
-  loadRevenueCatSnapshot,
-  purchasePremium as purchasePremiumFromStore,
-  restorePremium as restorePremiumFromStore,
-  subscribeToCustomerInfo,
-  type PurchaseResult,
-} from "@/lib/revenuecat";
 
 const STORAGE_KEY = "@statusvault_ads_state";
 const DOWNLOADS_PER_INTERSTITIAL = 10;
@@ -42,32 +32,21 @@ type DailyState = {
 };
 
 type StoredAdsState = {
-  isPremium: boolean;
-  premiumSource?: "purchase" | "development";
   rewardedAccessExpiresAt: number;
   daily: DailyState;
 };
 
 type AdsContextValue = {
-  isPremium: boolean;
   isAdFree: boolean;
   isAdsReady: boolean;
   adsError: string | null;
-  purchaseReady: boolean;
-  purchaseLoading: boolean;
-  purchaseError: string | null;
-  premiumPrice: string | null;
   dailyDownloads: number;
   rewardedAccessExpiresAt: number;
   canWatchRewarded: boolean;
   nativeAdEligible: boolean;
   watchRewardedAd: () => Promise<AdResult>;
-  purchasePremium: () => Promise<PurchaseResult>;
-  restorePurchases: () => Promise<PurchaseResult>;
   trackDownload: () => Promise<void>;
   markNativeAdShown: () => Promise<void>;
-  enablePremiumForDevelopment: () => Promise<void>;
-  disablePremiumForDevelopment: () => Promise<void>;
 };
 
 const AdsContext = createContext<AdsContextValue | null>(null);
@@ -105,8 +84,6 @@ function normalizeStoredState(
   const daily = value?.daily?.date === dayKey() ? value.daily : emptyDaily();
 
   return {
-    isPremium: value?.isPremium === true,
-    premiumSource: value?.premiumSource,
     rewardedAccessExpiresAt: Number(value?.rewardedAccessExpiresAt || 0),
     daily: {
       ...emptyDaily(),
@@ -122,18 +99,13 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [adsReady, setAdsReady] = useState(false);
   const [adsError, setAdsError] = useState<string | null>(null);
-  const [purchaseReady, setPurchaseReady] = useState(false);
-  const [purchaseLoading, setPurchaseLoading] = useState(true);
-  const [purchaseError, setPurchaseError] = useState<string | null>(null);
-  const [premiumPrice, setPremiumPrice] = useState<string | null>(null);
   const adFreeRef = useRef(false);
 
   useEffect(() => {
     let active = true;
-    let unsubscribeCustomerInfo = () => {};
 
     const hydrate = async () => {
-      const [stored, adInitialization, revenueCat] = await Promise.all([
+      const [stored, adInitialization] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEY).catch(() => null),
         initializeGoogleMobileAds()
           .then((error) => ({ error, snapshot: null }))
@@ -142,15 +114,6 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
               error instanceof Error
                 ? error.message
                 : "Google Mobile Ads could not initialize.",
-            snapshot: null,
-          })),
-        loadRevenueCatSnapshot()
-          .then((snapshot) => ({ error: null, snapshot }))
-          .catch((error: unknown) => ({
-            error:
-              error instanceof Error
-                ? error.message
-                : "RevenueCat could not initialize.",
             snapshot: null,
           })),
       ]);
@@ -162,71 +125,7 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
         Boolean(getGoogleMobileAdsModule()) && !adInitialization.error,
       );
 
-      if (revenueCat.snapshot) {
-        setPurchaseReady(
-          isRevenueCatSupported() &&
-            Boolean(
-              revenueCat.snapshot.offering &&
-                getOfferingPackage(revenueCat.snapshot.offering),
-            ),
-        );
-        const verifiedPremium = hasPremiumEntitlement(
-          revenueCat.snapshot.customerInfo,
-        );
-        const packageToPurchase = getOfferingPackage(
-          revenueCat.snapshot.offering,
-        );
-        setPremiumPrice(packageToPurchase?.product.priceString || null);
-
-        const localState = normalizeStoredState(parseStoredState(stored));
-        setState({
-          ...localState,
-          isPremium:
-            verifiedPremium ||
-            (__DEV__ &&
-              localState.isPremium &&
-              localState.premiumSource === "development"),
-          premiumSource: verifiedPremium
-            ? "purchase"
-            : __DEV__ &&
-                localState.isPremium &&
-                localState.premiumSource === "development"
-              ? "development"
-              : undefined,
-        });
-        unsubscribeCustomerInfo = subscribeToCustomerInfo((customerInfo) => {
-          if (!active) return;
-          const hasPremium = hasPremiumEntitlement(customerInfo);
-          setState((previous) => ({
-            ...previous,
-            isPremium:
-              hasPremium ||
-              (__DEV__ && previous.premiumSource === "development"),
-            premiumSource: hasPremium
-              ? "purchase"
-              : __DEV__ && previous.premiumSource === "development"
-                ? "development"
-                : undefined,
-          }));
-        });
-      } else {
-        setPurchaseReady(false);
-        setPurchaseError(revenueCat.error);
-        const localState = normalizeStoredState(parseStoredState(stored));
-        setState({
-          ...localState,
-          isPremium:
-            __DEV__ &&
-            localState.isPremium &&
-            localState.premiumSource === "development",
-          premiumSource:
-            __DEV__ && localState.premiumSource === "development"
-              ? "development"
-              : undefined,
-        });
-      }
-
-      setPurchaseLoading(false);
+      setState(normalizeStoredState(parseStoredState(stored)));
       setHydrated(true);
     };
 
@@ -238,15 +137,12 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
           ? error.message
           : "Ads could not initialize. Try again when you have a connection.",
       );
-      setPurchaseReady(false);
-      setPurchaseLoading(false);
       setState(normalizeStoredState(null));
       setHydrated(true);
     });
 
     return () => {
       active = false;
-      unsubscribeCustomerInfo();
     };
   }, []);
 
@@ -256,7 +152,7 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   }, [state, hydrated]);
 
   const isRewardedAccessActive = state.rewardedAccessExpiresAt > Date.now();
-  const isAdFree = state.isPremium || isRewardedAccessActive;
+  const isAdFree = isRewardedAccessActive;
   useEffect(() => {
     adFreeRef.current = isAdFree;
   }, [isAdFree]);
@@ -264,7 +160,6 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const watchRewardedAd = useCallback(async (): Promise<AdResult> => {
     if (
       !hydrated ||
-      state.isPremium ||
       state.daily.rewardedShown ||
       state.daily.totalAds >= 2 ||
       isRewardedAccessActive
@@ -309,43 +204,7 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     isRewardedAccessActive,
     state.daily.rewardedShown,
     state.daily.totalAds,
-    state.isPremium,
   ]);
-
-  const purchasePremium = useCallback(async (): Promise<PurchaseResult> => {
-    setPurchaseError(null);
-    const result = await purchasePremiumFromStore();
-    if (result.success) {
-      setState((previous) => ({
-        ...previous,
-        isPremium: true,
-        premiumSource: "purchase",
-      }));
-      setPurchaseError(null);
-    } else {
-      setPurchaseError(result.message);
-    }
-    return result;
-  }, []);
-
-  const restorePurchases = useCallback(async (): Promise<PurchaseResult> => {
-    setPurchaseError(null);
-    const result = await restorePremiumFromStore();
-    if (result.success) {
-      const restoredPremium = hasPremiumEntitlement(result.customerInfo);
-      setState((previous) => ({
-        ...previous,
-        isPremium: restoredPremium,
-        premiumSource: restoredPremium ? "purchase" : undefined,
-      }));
-      if (!restoredPremium) {
-        setPurchaseError("No active Premium purchase was found for this Google Play account.");
-      }
-    } else {
-      setPurchaseError(result.message);
-    }
-    return result;
-  }, []);
 
   const trackDownload = useCallback(async () => {
     if (!hydrated || isAdFree) return;
@@ -403,39 +262,15 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, [hydrated, isAdFree, state.daily.nativeShown]);
 
-  const enablePremiumForDevelopment = useCallback(async () => {
-    if (!__DEV__) return;
-    setState((previous) => ({
-      ...previous,
-      isPremium: true,
-      premiumSource: "development",
-    }));
-  }, []);
-
-  const disablePremiumForDevelopment = useCallback(async () => {
-    if (!__DEV__) return;
-    setState((previous) => ({
-      ...previous,
-      isPremium: false,
-      premiumSource: undefined,
-    }));
-  }, []);
-
   const value = useMemo<AdsContextValue>(
     () => ({
-      isPremium: state.isPremium,
       isAdFree,
       isAdsReady: adsReady && isNativeAdsAvailable(),
       adsError,
-      purchaseReady,
-      purchaseLoading,
-      purchaseError,
-      premiumPrice,
       dailyDownloads: state.daily.downloads,
       rewardedAccessExpiresAt: state.rewardedAccessExpiresAt,
       canWatchRewarded:
         hydrated &&
-        !state.isPremium &&
         !isRewardedAccessActive &&
         !state.daily.rewardedShown &&
         state.daily.totalAds < 2,
@@ -447,28 +282,16 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
         !state.daily.nativeShown &&
         state.daily.totalAds < 2,
       watchRewardedAd,
-      purchasePremium,
-      restorePurchases,
       trackDownload,
       markNativeAdShown,
-      enablePremiumForDevelopment,
-      disablePremiumForDevelopment,
     }),
     [
       adsReady,
       adsError,
-      disablePremiumForDevelopment,
-      enablePremiumForDevelopment,
       hydrated,
       isAdFree,
       isRewardedAccessActive,
       markNativeAdShown,
-      premiumPrice,
-      purchaseError,
-      purchaseLoading,
-      purchasePremium,
-      purchaseReady,
-      restorePurchases,
       state,
       trackDownload,
       watchRewardedAd,
