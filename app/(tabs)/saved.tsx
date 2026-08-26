@@ -20,6 +20,7 @@ import { MediaCard } from '@/components/media/MediaCard';
 import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
 import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
 import { EmptyState } from '@/components/media/EmptyState';
+import { BannerAdSlot } from '@/components/ads/BannerAd';
 import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
 import { SPACING, FONT_SIZE, GRID_COLUMNS, CARD_SIZE } from '@/constants/theme';
 // Per-screen error boundary: a crash on this tab shows a recovery UI
@@ -169,6 +170,8 @@ export default function SavedScreen() {
           })}
         </View>
       </View>
+
+      <BannerAdSlot />
 
       {filtered.length === 0 ? (
         <>

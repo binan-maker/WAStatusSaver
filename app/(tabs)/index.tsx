@@ -35,6 +35,7 @@ import { LoadingShimmer } from "@/components/media/LoadingShimmer";
 import { SAFGuideOverlay } from "@/components/media/SAFGuideOverlay";
 import { NativeAdCard } from "@/components/ads/NativeAdCard";
 import { RewardedAdOffer } from "@/components/ads/RewardedAdOffer";
+import { BannerAdSlot } from "@/components/ads/BannerAd";
 import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { useAds } from "@/contexts/AdsContext";
 import {
@@ -800,6 +801,7 @@ export default function StatusesScreen() {
         onSelectSource={setSelectedSource}
       />
       <RewardedAdOffer />
+      <BannerAdSlot />
       <SAFGuideOverlay visible={isRequestingSAF} />
 
       <SubTabBar

@@ -1,8 +1,12 @@
 import { Platform } from "react-native";
 import mobileAds, {
   AdEventType,
+  BannerAd,
+  BannerAdSize,
   InterstitialAd,
   NativeAd,
+  NativeAsset,
+  NativeAssetType,
   NativeAdEventType,
   NativeAdView,
   NativeMediaView,
@@ -44,25 +48,31 @@ export type AdResult =
       code?: string;
     };
 
+const googleMobileAdsModule =
+  Platform.OS === "web"
+    ? null
+    : {
+        mobileAds,
+        BannerAd,
+        BannerAdSize,
+        InterstitialAd,
+        RewardedAd,
+        AdEventType,
+        RewardedAdEventType,
+        NativeAd,
+        NativeAdEventType,
+        NativeAdView,
+        NativeMediaView,
+        NativeAsset,
+        NativeAssetType,
+      };
+
 /**
  * This is an optional bridge. Expo web does not ship
  * the native Google Mobile Ads module, so the app must remain usable there.
  */
-export function getGoogleMobileAdsModule(): any | null {
-  if (Platform.OS === "web") return null;
-  
-  // Return the statically imported components packaged safely
-  return {
-    mobileAds,
-    InterstitialAd,
-    RewardedAd,
-    AdEventType,
-    RewardedAdEventType,
-    NativeAd,
-    NativeAdEventType,
-    NativeAdView,
-    NativeMediaView,
-  };
+export function getGoogleMobileAdsModule(): typeof googleMobileAdsModule {
+  return googleMobileAdsModule;
 }
 
 export function isNativeAdsAvailable(): boolean {
@@ -75,7 +85,7 @@ export function getAdUnitId(type: AdUnitType): string {
   const envKey = `EXPO_PUBLIC_ADMOB_${type.toUpperCase()}_UNIT_ID`;
   const configuredId = (process.env as Record<string, string | undefined>)[
     envKey
-  ];
+  ]?.trim();
   if (configuredId) return configuredId;
   if (__DEV__) return ADMOB_TEST_UNIT_IDS[type];
   throw new Error(
@@ -108,15 +118,32 @@ export async function showInterstitialAd(): Promise<AdResult> {
   return new Promise((resolve) => {
     let completed = false;
     let loaded = false;
-    const interstitial = ads.InterstitialAd.createForAdRequest(
-      getAdUnitId("interstitial"),
-      { requestNonPersonalizedAdsOnly: true },
-    );
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let interstitial: ReturnType<
+      typeof ads.InterstitialAd.createForAdRequest
+    >;
+    try {
+      interstitial = ads.InterstitialAd.createForAdRequest(
+        getAdUnitId("interstitial"),
+        { requestNonPersonalizedAdsOnly: true },
+      );
+    } catch (error) {
+      resolve({
+        success: false,
+        kind: "not_configured",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The interstitial ad is not configured.",
+      });
+      return;
+    }
     const subscriptions: Array<() => void> = [];
 
     const finish = (result: AdResult) => {
       if (completed) return;
       completed = true;
+      if (timeout) clearTimeout(timeout);
       subscriptions.forEach((unsubscribe) => unsubscribe());
       resolve(result);
     };
@@ -175,7 +202,7 @@ export async function showInterstitialAd(): Promise<AdResult> {
         message: "The interstitial ad could not start loading.",
       });
     }
-    setTimeout(
+    timeout = setTimeout(
       () =>
         finish({
           success: false,
@@ -201,6 +228,7 @@ export async function showRewardedAd(): Promise<AdResult> {
     let completed = false;
     let earnedReward = false;
     let rewarded: any;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       rewarded = ads.RewardedAd.createForAdRequest(getAdUnitId("rewarded"), {
         requestNonPersonalizedAdsOnly: true,
@@ -221,11 +249,16 @@ export async function showRewardedAd(): Promise<AdResult> {
     const finish = (result: AdResult) => {
       if (completed) return;
       completed = true;
+      if (timeout) clearTimeout(timeout);
       subscriptions.forEach((unsubscribe) => unsubscribe());
       resolve(result);
     };
 
-    const eventTypes = ads.RewardedAdEventType;
+    const eventTypes = {
+      ...ads.RewardedAdEventType,
+      CLOSED: ads.AdEventType.CLOSED,
+      ERROR: ads.AdEventType.ERROR,
+    };
     if (eventTypes.LOADED) {
       subscriptions.push(
         rewarded.addAdEventListener(eventTypes.LOADED, () => {
@@ -283,7 +316,7 @@ export async function showRewardedAd(): Promise<AdResult> {
         message: "The rewarded ad could not start loading.",
       });
     }
-    setTimeout(
+    timeout = setTimeout(
       () =>
         finish({
           success: false,

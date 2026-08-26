@@ -125,9 +125,7 @@ export default function TabLayout() {
       // Default lazy=true mounts screens on first visit, causing a full
       // component-tree mount (hooks, FlashList, effects) mid-tap — that is
       // the "page opens very late" delay users see on Saved and Settings.
-      // With lazy=false all three tab screens are rendered before the user
-      // taps anything, so navigation is a frame-swap, not a mount cycle.
-      lazy={false}
+      // Tabs are mounted on demand by the current Expo Router navigator.
     >
       <Tabs.Screen
         name="index"

@@ -296,7 +296,7 @@ export async function cleanupCacheDir(
     let deleted = 0;
 
     await Promise.allSettled(
-      entries.map(async (name) => {
+      entries.map(async (name: string) => {
         const matchesPrefix = prefixes.some(p => name.startsWith(p));
         if (!matchesPrefix) return;
         const fileUri = `${dirUri}${name}`;

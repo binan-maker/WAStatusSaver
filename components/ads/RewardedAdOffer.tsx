@@ -136,6 +136,9 @@ const createStyles = (COLORS: ThemePalette) =>
       fontSize: 11,
       fontWeight: "700",
     },
+    errorMessage: {
+      color: COLORS.ERROR,
+    },
     button: {
       width: 36,
       height: 36,

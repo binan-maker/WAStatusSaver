@@ -89,6 +89,15 @@ function emptyDaily(): DailyState {
   };
 }
 
+function parseStoredState(value: string | null): Partial<StoredAdsState> | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as Partial<StoredAdsState>;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeStoredState(
   value: Partial<StoredAdsState> | null,
 ): StoredAdsState {
@@ -121,39 +130,52 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     let unsubscribeCustomerInfo = () => {};
 
-    Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
-      initializeGoogleMobileAds(),
-      loadRevenueCatSnapshot(),
-    ])
-      .then(([stored, adInitializationError, revenueCatSnapshot]) => {
-        if (!active) return;
-        setAdsError(adInitializationError);
-        setAdsReady(Boolean(getGoogleMobileAdsModule()) && !adInitializationError);
+    const hydrate = async () => {
+      const [stored, adInitialization, revenueCat] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEY).catch(() => null),
+        initializeGoogleMobileAds()
+          .then((error) => ({ error, snapshot: null }))
+          .catch((error: unknown) => ({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Google Mobile Ads could not initialize.",
+            snapshot: null,
+          })),
+        loadRevenueCatSnapshot()
+          .then((snapshot) => ({ error: null, snapshot }))
+          .catch((error: unknown) => ({
+            error:
+              error instanceof Error
+                ? error.message
+                : "RevenueCat could not initialize.",
+            snapshot: null,
+          })),
+      ]);
+
+      if (!active) return;
+
+      setAdsError(adInitialization.error);
+      setAdsReady(
+        Boolean(getGoogleMobileAdsModule()) && !adInitialization.error,
+      );
+
+      if (revenueCat.snapshot) {
         setPurchaseReady(
           isRevenueCatSupported() &&
             Boolean(
-              revenueCatSnapshot.customerInfo || revenueCatSnapshot.offering,
+              revenueCat.snapshot.customerInfo || revenueCat.snapshot.offering,
             ),
         );
-        setPurchaseLoading(false);
         const verifiedPremium = hasPremiumEntitlement(
-          revenueCatSnapshot.customerInfo,
+          revenueCat.snapshot.customerInfo,
         );
         const packageToPurchase = getOfferingPackage(
-          revenueCatSnapshot.offering,
+          revenueCat.snapshot.offering,
         );
         setPremiumPrice(packageToPurchase?.product.priceString || null);
 
-        let storedState: Partial<StoredAdsState> | null = null;
-        try {
-          storedState = stored
-            ? (JSON.parse(stored) as Partial<StoredAdsState>)
-            : null;
-        } catch {
-          storedState = null;
-      }
-        const localState = normalizeStoredState(storedState);
+        const localState = normalizeStoredState(parseStoredState(stored));
         setState({
           ...localState,
           isPremium:
@@ -169,7 +191,6 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
               ? "development"
               : undefined,
         });
-        setHydrated(true);
         unsubscribeCustomerInfo = subscribeToCustomerInfo((customerInfo) => {
           if (!active) return;
           const hasPremium = hasPremiumEntitlement(customerInfo);
@@ -185,19 +206,29 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
                 : undefined,
           }));
         });
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setAdsReady(false);
-        setAdsError(
-          error instanceof Error
-            ? error.message
-            : "Ads could not initialize. Try again when you have a connection.",
-        );
+      } else {
         setPurchaseReady(false);
-        setPurchaseLoading(false);
-        setHydrated(true);
-      });
+        setPurchaseError(revenueCat.error);
+        setState(normalizeStoredState(parseStoredState(stored)));
+      }
+
+      setPurchaseLoading(false);
+      setHydrated(true);
+    };
+
+    hydrate().catch((error: unknown) => {
+      if (!active) return;
+      setAdsReady(false);
+      setAdsError(
+        error instanceof Error
+          ? error.message
+          : "Ads could not initialize. Try again when you have a connection.",
+      );
+      setPurchaseReady(false);
+      setPurchaseLoading(false);
+      setState(normalizeStoredState(null));
+      setHydrated(true);
+    });
 
     return () => {
       active = false;

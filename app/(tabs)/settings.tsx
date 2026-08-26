@@ -20,6 +20,7 @@ import { useMedia } from "@/contexts/MediaContext";
 import { useAds } from "@/contexts/AdsContext";
 import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
 import { SPACING, FONT_SIZE, RADIUS } from "@/constants/theme";
+import { BannerAdSlot } from "@/components/ads/BannerAd";
 
 export { ScreenErrorFallback as ErrorBoundary } from "@/components/common/ScreenErrorFallback";
 
@@ -249,7 +250,8 @@ export default function SettingsScreen() {
   };
 
   const deviceName =
-    (Platform.constants as Record<string, string>).Model || "Unknown Device";
+    (Platform.constants as unknown as Record<string, string>).Model ||
+    "Unknown Device";
   const osVersion =
     Platform.OS === "android"
       ? `Android ${androidVersion}`
@@ -320,6 +322,7 @@ export default function SettingsScreen() {
 
         <SectionHeader title="Premium" />
         <PremiumCard />
+        <BannerAdSlot />
 
         <SectionHeader title="Storage & Permissions" />
         <View style={styles.section}>

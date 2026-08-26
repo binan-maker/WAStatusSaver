@@ -13,42 +13,40 @@ export function NativeAdCard() {
   const [adAttempted, setAdAttempted] = useState(false);
   const ads = getGoogleMobileAdsModule();
   const NativeAdView = ads?.NativeAdView;
-  const HeadlineView = ads?.HeadlineView;
-  const TaglineView = ads?.TaglineView;
-  const CallToActionView = ads?.CallToActionView;
-  const MediaView = ads?.MediaView;
-  const nativeAd = useMemo(() => {
-    if (isPremium || !ads?.NativeAd || (!nativeAdEligible && !adAttempted))
-      return null;
-    return ads.NativeAd.createForAdRequest(getAdUnitId("native"), {
-      requestNonPersonalizedAdsOnly: true,
-    });
-  }, [adAttempted, ads, isPremium, nativeAdEligible]);
+  const NativeMediaView = ads?.NativeMediaView;
+  const NativeAsset = ads?.NativeAsset;
+  const NativeAssetType = ads?.NativeAssetType;
+  const [nativeAd, setNativeAd] = useState<any>(null);
 
   useEffect(() => {
-    if (!nativeAd || adAttempted) return;
+    if (isPremium || !nativeAdEligible || adAttempted || !ads?.NativeAd) return;
     setAdAttempted(true);
-    const loadedEvent = ads.NativeAdEventType?.LOADED;
-    const errorEvent = ads.NativeAdEventType?.ERROR;
-    const subscriptions: Array<() => void> = [];
+    let active = true;
+    let loadedAd: any = null;
 
-    if (loadedEvent) {
-      subscriptions.push(
-        nativeAd.addAdEventListener(loadedEvent, () => {
-          setLoaded(true);
-          markNativeAdShown();
-        }),
-      );
-    }
-    if (errorEvent) {
-      subscriptions.push(
-        nativeAd.addAdEventListener(errorEvent, () => setLoaded(false)),
-      );
-    }
-    nativeAd.load();
+    const loadNativeAd = async () => {
+      try {
+        loadedAd = await ads.NativeAd.createForAdRequest(getAdUnitId("native"), {
+          requestNonPersonalizedAdsOnly: true,
+        });
+        if (!active) {
+          loadedAd.destroy();
+          return;
+        }
+        setNativeAd(loadedAd);
+        setLoaded(true);
+        await markNativeAdShown();
+      } catch {
+        if (active) setLoaded(false);
+      }
+    };
 
-    return () => subscriptions.forEach((unsubscribe) => unsubscribe());
-  }, [adAttempted, ads, markNativeAdShown, nativeAd]);
+    loadNativeAd();
+    return () => {
+      active = false;
+      loadedAd?.destroy?.();
+    };
+  }, [adAttempted, ads, isPremium, markNativeAdShown, nativeAdEligible]);
 
   if (isPremium || !nativeAd || !NativeAdView || !loaded) return null;
 
@@ -58,10 +56,24 @@ export function NativeAdCard() {
         <View style={styles.sponsored}>
           <Text style={styles.sponsoredText}>Sponsored</Text>
         </View>
-        {MediaView && <MediaView style={styles.media} />}
-        {HeadlineView && <HeadlineView style={styles.headline} />}
-        {TaglineView && <TaglineView style={styles.tagline} />}
-        {CallToActionView && <CallToActionView style={styles.cta} />}
+        {NativeMediaView && (
+          <NativeMediaView style={styles.media} resizeMode="cover" />
+        )}
+        {NativeAsset && NativeAssetType && (
+          <NativeAsset assetType={NativeAssetType.HEADLINE}>
+            <Text style={styles.headline}>{nativeAd.headline}</Text>
+          </NativeAsset>
+        )}
+        {NativeAsset && NativeAssetType && (
+          <NativeAsset assetType={NativeAssetType.BODY}>
+            <Text style={styles.tagline}>{nativeAd.body}</Text>
+          </NativeAsset>
+        )}
+        {NativeAsset && NativeAssetType && (
+          <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
+            <Text style={styles.cta}>{nativeAd.callToAction}</Text>
+          </NativeAsset>
+        )}
       </NativeAdView>
     </View>
   );
