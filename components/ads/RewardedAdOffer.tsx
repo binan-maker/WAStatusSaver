@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -14,21 +14,47 @@ import { RADIUS, SPACING } from "@/constants/theme";
 export function RewardedAdOffer() {
   const COLORS = useThemeColors();
   const styles = createStyles(COLORS);
-  const { isPremium, isAdsReady, canWatchRewarded, watchRewardedAd } = useAds();
+  const {
+    isPremium,
+    isAdsReady,
+    adsError,
+    canWatchRewarded,
+    watchRewardedAd,
+  } = useAds();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageIsError, setMessageIsError] = useState(false);
 
-  if (isPremium || !isAdsReady || !canWatchRewarded) return null;
+  useEffect(() => {
+    if (adsError) {
+      setMessage(adsError);
+      setMessageIsError(true);
+    }
+  }, [adsError]);
+
+  if (isPremium || !canWatchRewarded) return null;
 
   const handleWatch = async () => {
     if (loading) return;
+    if (!isAdsReady) {
+      setMessage(
+        adsError ||
+          "Rewarded ads are still loading. Check your connection and try again.",
+      );
+      setMessageIsError(true);
+      return;
+    }
     setLoading(true);
     setMessage("");
-    const success = await watchRewardedAd();
+    setMessageIsError(false);
+    const result = await watchRewardedAd();
     setLoading(false);
     setMessage(
-      success ? "Premium unlocked for 24 hours" : "Ad unavailable right now",
+      result.success
+        ? "Premium unlocked for 24 hours"
+        : result.message || "Ad unavailable right now",
     );
+    setMessageIsError(!result.success);
   };
 
   return (
@@ -41,14 +67,20 @@ export function RewardedAdOffer() {
           Watch an ad, unlock Premium for 24 hours
         </Text>
         <Text style={styles.subtitle}>
-          Optional. Enjoy ad-free saving for the rest of today.
+          {isAdsReady
+            ? "Optional. Enjoy ad-free saving for the rest of today."
+            : "Ad service is still loading. We’ll show the reason if it cannot connect."}
         </Text>
-        {!!message && <Text style={styles.message}>{message}</Text>}
+        {!!message && (
+          <Text style={[styles.message, messageIsError && styles.errorMessage]}>
+            {message}
+          </Text>
+        )}
       </View>
       <TouchableOpacity
         style={styles.button}
         onPress={handleWatch}
-        disabled={loading}
+        disabled={loading || !isAdsReady}
         activeOpacity={0.82}
         accessibilityRole="button"
         accessibilityLabel="Watch an ad to unlock premium for 24 hours"

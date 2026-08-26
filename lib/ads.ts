@@ -1,10 +1,19 @@
 import { Platform } from "react-native";
-import mobileAds, { InterstitialAd, RewardedAd, AdEventType, RewardedAdEventType } from 'react-native-google-mobile-ads';
+import mobileAds, {
+  AdEventType,
+  InterstitialAd,
+  NativeAd,
+  NativeAdEventType,
+  NativeAdView,
+  NativeMediaView,
+  RewardedAd,
+  RewardedAdEventType,
+} from "react-native-google-mobile-ads";
 
 /**
- * Google test IDs are intentionally used until the app's AdMob account IDs
- * are supplied. They are safe for development and must be replaced before
- * publishing a production build.
+ * Google test IDs are used only in development. A production build fails
+ * explicitly when a real unit ID has not been configured, so test inventory
+ * can never silently ship.
  */
 export const ADMOB_TEST_APP_IDS = {
   android: "ca-app-pub-3940256099942544~3347511713",
@@ -20,6 +29,21 @@ export const ADMOB_TEST_UNIT_IDS = {
 
 export type AdUnitType = keyof typeof ADMOB_TEST_UNIT_IDS;
 
+export type AdResult =
+  | { success: true; kind: "earned" | "shown" }
+  | {
+      success: false;
+      kind:
+        | "unsupported"
+        | "not_configured"
+        | "load_failed"
+        | "show_failed"
+        | "dismissed"
+        | "timeout";
+      message: string;
+      code?: string;
+    };
+
 /**
  * This is an optional bridge. Expo web does not ship
  * the native Google Mobile Ads module, so the app must remain usable there.
@@ -33,7 +57,11 @@ export function getGoogleMobileAdsModule(): any | null {
     InterstitialAd,
     RewardedAd,
     AdEventType,
-    RewardedAdEventType
+    RewardedAdEventType,
+    NativeAd,
+    NativeAdEventType,
+    NativeAdView,
+    NativeMediaView,
   };
 }
 
@@ -48,23 +76,34 @@ export function getAdUnitId(type: AdUnitType): string {
   const configuredId = (process.env as Record<string, string | undefined>)[
     envKey
   ];
-  return configuredId || ADMOB_TEST_UNIT_IDS[type];
+  if (configuredId) return configuredId;
+  if (__DEV__) return ADMOB_TEST_UNIT_IDS[type];
+  throw new Error(
+    `AdMob ${type} ad unit is not configured. Add ${envKey} before building production.`,
+  );
 }
 
-export async function initializeGoogleMobileAds(): Promise<void> {
+export async function initializeGoogleMobileAds(): Promise<string | null> {
   const ads = getGoogleMobileAdsModule();
-  if (!ads?.mobileAds) return;
+  if (!ads?.mobileAds) return null;
 
   try {
     await ads.mobileAds().initialize();
+    return null;
   } catch {
-    // Ad initialization must never block media access or app startup.
+    return "Google Mobile Ads could not initialize. Check the native AdMob app ID and network connection.";
   }
 }
 
-export async function showInterstitialAd(): Promise<boolean> {
+export async function showInterstitialAd(): Promise<AdResult> {
   const ads = getGoogleMobileAdsModule();
-  if (!ads?.InterstitialAd || !ads?.AdEventType) return false;
+  if (!ads?.InterstitialAd || !ads?.AdEventType) {
+    return {
+      success: false,
+      kind: "unsupported",
+      message: "Interstitial ads are only available in the native app.",
+    };
+  }
 
   return new Promise((resolve) => {
     let completed = false;
@@ -75,11 +114,11 @@ export async function showInterstitialAd(): Promise<boolean> {
     );
     const subscriptions: Array<() => void> = [];
 
-    const finish = (shown: boolean) => {
+    const finish = (result: AdResult) => {
       if (completed) return;
       completed = true;
       subscriptions.forEach((unsubscribe) => unsubscribe());
-      resolve(shown);
+      resolve(result);
     };
 
     const eventTypes = ads.AdEventType;
@@ -87,53 +126,116 @@ export async function showInterstitialAd(): Promise<boolean> {
       subscriptions.push(
         interstitial.addAdEventListener(eventTypes.LOADED, () => {
           loaded = true;
-          interstitial.show().catch(() => finish(false));
+          interstitial
+            .show()
+            .catch(() =>
+              finish({
+                success: false,
+                kind: "show_failed",
+                message: "The interstitial ad could not be shown.",
+              }),
+            );
         }),
       );
     }
     if (eventTypes.CLOSED) {
       subscriptions.push(
         interstitial.addAdEventListener(eventTypes.CLOSED, () =>
-          finish(loaded),
+          finish(
+            loaded
+              ? { success: true, kind: "shown" }
+              : {
+                  success: false,
+                  kind: "load_failed",
+                  message: "The interstitial ad closed before it loaded.",
+                },
+          ),
         ),
       );
     }
     if (eventTypes.ERROR) {
       subscriptions.push(
-        interstitial.addAdEventListener(eventTypes.ERROR, () => finish(false)),
+        interstitial.addAdEventListener(eventTypes.ERROR, (error: unknown) =>
+          finish({
+            success: false,
+            kind: "load_failed",
+            message: "No interstitial ad is available right now.",
+            code: getAdErrorCode(error),
+          }),
+        ),
       );
     }
 
-    interstitial.load();
-    setTimeout(() => finish(false), 20000);
+    try {
+      interstitial.load();
+    } catch {
+      finish({
+        success: false,
+        kind: "load_failed",
+        message: "The interstitial ad could not start loading.",
+      });
+    }
+    setTimeout(
+      () =>
+        finish({
+          success: false,
+          kind: "timeout",
+          message: "The interstitial ad took too long to load.",
+        }),
+      20000,
+    );
   });
 }
 
-export async function showRewardedAd(): Promise<boolean> {
+export async function showRewardedAd(): Promise<AdResult> {
   const ads = getGoogleMobileAdsModule();
-  if (!ads?.RewardedAd || !ads?.RewardedAdEventType) return false;
+  if (!ads?.RewardedAd || !ads?.RewardedAdEventType) {
+    return {
+      success: false,
+      kind: "unsupported",
+      message: "Rewarded ads are only available in the native app.",
+    };
+  }
 
   return new Promise((resolve) => {
     let completed = false;
     let earnedReward = false;
-    const rewarded = ads.RewardedAd.createForAdRequest(
-      getAdUnitId("rewarded"),
-      { requestNonPersonalizedAdsOnly: true },
-    );
+    let rewarded: any;
+    try {
+      rewarded = ads.RewardedAd.createForAdRequest(getAdUnitId("rewarded"), {
+        requestNonPersonalizedAdsOnly: true,
+      });
+    } catch (error) {
+      resolve({
+        success: false,
+        kind: "not_configured",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The rewarded ad is not configured.",
+      });
+      return;
+    }
     const subscriptions: Array<() => void> = [];
 
-    const finish = (rewardedSuccessfully: boolean) => {
+    const finish = (result: AdResult) => {
       if (completed) return;
       completed = true;
       subscriptions.forEach((unsubscribe) => unsubscribe());
-      resolve(rewardedSuccessfully);
+      resolve(result);
     };
 
     const eventTypes = ads.RewardedAdEventType;
     if (eventTypes.LOADED) {
       subscriptions.push(
         rewarded.addAdEventListener(eventTypes.LOADED, () => {
-          rewarded.show().catch(() => finish(false));
+          rewarded.show().catch(() =>
+            finish({
+              success: false,
+              kind: "show_failed",
+              message: "The rewarded ad could not be shown.",
+            }),
+          );
         }),
       );
     }
@@ -147,17 +249,54 @@ export async function showRewardedAd(): Promise<boolean> {
     if (eventTypes.CLOSED) {
       subscriptions.push(
         rewarded.addAdEventListener(eventTypes.CLOSED, () =>
-          finish(earnedReward),
+          finish(
+            earnedReward
+              ? { success: true, kind: "earned" }
+              : {
+                  success: false,
+                  kind: "dismissed",
+                  message: "The ad was closed before the reward was earned.",
+                },
+          ),
         ),
       );
     }
     if (eventTypes.ERROR) {
       subscriptions.push(
-        rewarded.addAdEventListener(eventTypes.ERROR, () => finish(false)),
+        rewarded.addAdEventListener(eventTypes.ERROR, (error: unknown) =>
+          finish({
+            success: false,
+            kind: "load_failed",
+            message: "No rewarded ad is available right now.",
+            code: getAdErrorCode(error),
+          }),
+        ),
       );
     }
 
-    rewarded.load();
-    setTimeout(() => finish(false), 30000);
+    try {
+      rewarded.load();
+    } catch {
+      finish({
+        success: false,
+        kind: "load_failed",
+        message: "The rewarded ad could not start loading.",
+      });
+    }
+    setTimeout(
+      () =>
+        finish({
+          success: false,
+          kind: "timeout",
+          message: "The rewarded ad took too long to load.",
+        }),
+      30000,
+    );
   });
+}
+
+function getAdErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }

@@ -96,29 +96,59 @@ function PremiumCard() {
     isPremium,
     isAdFree,
     rewardedAccessExpiresAt,
-    enablePremiumForDevelopment,
-    disablePremiumForDevelopment,
+    premiumPrice,
+    purchaseReady,
+    purchaseLoading,
+    purchaseError,
+    purchasePremium,
+    restorePurchases,
   } = useAds();
+  const [purchaseActionLoading, setPurchaseActionLoading] = useState(false);
   const temporaryAccess =
     !isPremium && isAdFree && rewardedAccessExpiresAt > Date.now();
 
   const handlePremiumAction = async () => {
-    if (__DEV__ && !isPremium) {
-      await enablePremiumForDevelopment();
+    if (purchaseActionLoading || isPremium) return;
+    if (purchaseLoading || !purchaseReady) {
       Alert.alert(
-        "Premium preview enabled",
-        "Ads are now hidden so you can test the premium journey.",
+        "Premium unavailable",
+        purchaseError ||
+          "Google Play purchases are still loading. Check your connection and try again.",
       );
       return;
     }
-    if (__DEV__ && isPremium) {
-      await disablePremiumForDevelopment();
+
+    setPurchaseActionLoading(true);
+    const result = await purchasePremium();
+    setPurchaseActionLoading(false);
+    if (result.success) {
+      Alert.alert(
+        "Premium is active",
+        "Your verified Google Play purchase is active. Ads are now removed.",
+      );
+    } else if (result.kind !== "cancelled") {
+      Alert.alert("Purchase failed", result.message);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (purchaseActionLoading || purchaseLoading || !purchaseReady) {
+      Alert.alert(
+        "Restore unavailable",
+        purchaseError ||
+          "Google Play purchases are still loading. Check your connection and try again.",
+      );
       return;
     }
-    Alert.alert(
-      "Premium purchase",
-      "Google Play Billing still needs to be connected for real ₹49 purchases. The ad-free entitlement is ready to receive that verified purchase.",
-    );
+
+    setPurchaseActionLoading(true);
+    const result = await restorePurchases();
+    setPurchaseActionLoading(false);
+    if (result.success && isPremium) {
+      Alert.alert("Purchase restored", "Premium is active on this device.");
+    } else if (!result.success) {
+      Alert.alert("Restore failed", result.message);
+    }
   };
 
   return (
@@ -143,20 +173,35 @@ function PremiumCard() {
             ? "Unlimited saving, HD downloads and priority support"
             : temporaryAccess
               ? "Unlocked by today’s optional rewarded ad"
-              : "₹49 one-time · No ads, HD downloads and priority support"}
+              : `${premiumPrice || "One-time purchase"} · No ads, HD downloads and priority support`}
         </Text>
+        {!!purchaseError && !purchaseActionLoading && (
+          <Text style={styles.premiumError}>{purchaseError}</Text>
+        )}
+        {!isPremium && !temporaryAccess && (
+          <TouchableOpacity
+            onPress={handleRestore}
+            disabled={purchaseActionLoading}
+            style={styles.restoreButton}
+            accessibilityRole="button"
+            accessibilityLabel="Restore Google Play purchase"
+          >
+            <Text style={styles.restoreButtonText}>Restore purchase</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <TouchableOpacity
         style={styles.premiumButton}
         onPress={handlePremiumAction}
+        disabled={purchaseActionLoading || isPremium}
         activeOpacity={0.82}
         accessibilityRole="button"
         accessibilityLabel={
-          isPremium ? "Turn off premium preview" : "Remove ads for 49 rupees"
+          isPremium ? "Premium is active" : "Purchase Premium"
         }
       >
         <Text style={styles.premiumButtonText}>
-          {__DEV__ ? (isPremium ? "Turn off" : "Preview") : "Upgrade"}
+          {purchaseActionLoading ? "..." : isPremium ? "Active" : "Upgrade"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -637,6 +682,20 @@ const createStyles = (COLORS: ThemePalette) =>
       color: COLORS.BACKGROUND,
       fontSize: FONT_SIZE.XS,
       fontWeight: "800",
+    },
+    premiumError: {
+      color: COLORS.ERROR,
+      fontSize: FONT_SIZE.XS,
+      lineHeight: 15,
+    },
+    restoreButton: {
+      alignSelf: "flex-start",
+      paddingVertical: 2,
+    },
+    restoreButtonText: {
+      color: COLORS.PRIMARY,
+      fontSize: FONT_SIZE.XS,
+      fontWeight: "700",
     },
     footer: {
       alignItems: "center",
