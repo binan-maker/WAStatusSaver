@@ -31,7 +31,7 @@ export function BannerAdSlot() {
   }
 
   return (
-    <View style={[styles.container, loaded && styles.visible]}>
+    <View style={[styles.container, loaded ? styles.visible : styles.hidden]}>
       <BannerAd
         unitId={unitId}
         size={BannerAdSize.BANNER}
@@ -46,13 +46,16 @@ export function BannerAdSlot() {
 const createStyles = (COLORS: ThemePalette) =>
   StyleSheet.create({
     container: {
-      minHeight: 0,
+      height: 0,
       alignItems: "center",
       overflow: "hidden",
       backgroundColor: COLORS.BACKGROUND,
     },
+    hidden: {
+      height: 0,
+    },
     visible: {
-      minHeight: 50,
+      height: 50 + SPACING.XS * 2,
       paddingVertical: SPACING.XS,
     },
   });
