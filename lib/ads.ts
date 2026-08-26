@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import mobileAds, { InterstitialAd, RewardedAd, AdEventType, RewardedAdEventType } from 'react-native-google-mobile-ads';
 
 /**
  * Google test IDs are intentionally used until the app's AdMob account IDs
@@ -20,29 +21,26 @@ export const ADMOB_TEST_UNIT_IDS = {
 export type AdUnitType = keyof typeof ADMOB_TEST_UNIT_IDS;
 
 /**
- * This is a deliberately optional bridge. Expo web and Expo Go do not ship
+ * This is an optional bridge. Expo web does not ship
  * the native Google Mobile Ads module, so the app must remain usable there.
- * A production/custom native build resolves the same module name normally.
  */
 export function getGoogleMobileAdsModule(): any | null {
   if (Platform.OS === "web") return null;
-
-  try {
-    const moduleName = ["react-native-google-mobile-ads"].join("");
-    return require(moduleName);
-  } catch {
-    return null;
-  }
+  
+  // Return the statically imported components packaged safely
+  return {
+    mobileAds,
+    InterstitialAd,
+    RewardedAd,
+    AdEventType,
+    RewardedAdEventType
+  };
 }
 
 export function isNativeAdsAvailable(): boolean {
+  if (Platform.OS === "web") return false;
   const ads = getGoogleMobileAdsModule();
-  return Boolean(
-    ads?.mobileAds &&
-      ads?.InterstitialAd &&
-      ads?.RewardedAd &&
-      ads?.NativeAdView,
-  );
+  return Boolean(ads && ads.mobileAds);
 }
 
 export function getAdUnitId(type: AdUnitType): string {
@@ -66,7 +64,7 @@ export async function initializeGoogleMobileAds(): Promise<void> {
 
 export async function showInterstitialAd(): Promise<boolean> {
   const ads = getGoogleMobileAdsModule();
-  if (!ads?.InterstitialAd) return false;
+  if (!ads?.InterstitialAd || !ads?.AdEventType) return false;
 
   return new Promise((resolve) => {
     let completed = false;
@@ -84,7 +82,7 @@ export async function showInterstitialAd(): Promise<boolean> {
       resolve(shown);
     };
 
-    const eventTypes = ads.AdEventType || {};
+    const eventTypes = ads.AdEventType;
     if (eventTypes.LOADED) {
       subscriptions.push(
         interstitial.addAdEventListener(eventTypes.LOADED, () => {
@@ -113,7 +111,7 @@ export async function showInterstitialAd(): Promise<boolean> {
 
 export async function showRewardedAd(): Promise<boolean> {
   const ads = getGoogleMobileAdsModule();
-  if (!ads?.RewardedAd) return false;
+  if (!ads?.RewardedAd || !ads?.RewardedAdEventType) return false;
 
   return new Promise((resolve) => {
     let completed = false;
@@ -131,7 +129,7 @@ export async function showRewardedAd(): Promise<boolean> {
       resolve(rewardedSuccessfully);
     };
 
-    const eventTypes = ads.RewardedAdEventType || {};
+    const eventTypes = ads.RewardedAdEventType;
     if (eventTypes.LOADED) {
       subscriptions.push(
         rewarded.addAdEventListener(eventTypes.LOADED, () => {

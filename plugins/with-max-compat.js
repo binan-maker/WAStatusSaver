@@ -150,3 +150,25 @@ function withMaxCompat(config) {
 }
 
 module.exports = withMaxCompat;
+
+const { withProjectBuildGradle } = require('@expo/config-plugins');
+
+module.exports = function withMaxCompat(config) {
+  return withProjectBuildGradle(config, (config) => {
+    if (config.modResults.language === 'groovy') {
+      let content = config.modResults.contents;
+      
+      const forcePlayServicesAds = `
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            force 'com.google.android.gms:play-services-ads:25.1.0'
+        }
+    }
+}
+`;
+      config.modResults.contents = content + forcePlayServicesAds;
+    }
+    return config;
+  });
+};
