@@ -29,9 +29,7 @@
         "backgroundColor": "#0A0E1A",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "permissions": [
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ],
+      "permissions": ["android.permission.WRITE_EXTERNAL_STORAGE"],
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
@@ -80,6 +78,13 @@
           "photosPermission": "Allow Status Saver to save photos to your gallery",
           "savePhotosPermission": "Allow Status Saver to save photos and videos",
           "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
       ],
       "./plugins/with-max-compat.js"

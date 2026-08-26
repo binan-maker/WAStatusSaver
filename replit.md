@@ -1,11 +1,13 @@
 # Status Saver — WhatsApp Status Saver App
 
 ## Overview
+
 Status Saver is a production-grade, fully offline WhatsApp Status Saver app for Android. Built with Expo React Native and Expo Router.
 
 ## App Architecture
 
 ### Stack
+
 - **Frontend**: Expo React Native (Expo Router file-based routing)
 - **Backend**: Express.js (serves landing page + API scaffolding)
 - **Storage**: AsyncStorage for local app state, Firebase Firestore for verified paid subscriptions
@@ -14,6 +16,7 @@ Status Saver is a production-grade, fully offline WhatsApp Status Saver app for 
 - **Payments**: Dual-store architecture — Razorpay (Indus/other stores) OR Google Play Billing (Play Store). Completely separate folders. Switch by changing 2 lines in `payment-providers/index.ts` + `payment-providers/server.ts`, then deleting the unused folder before uploading.
 
 ### Color Palette (Dark Navy + Emerald)
+
 - Background: #0A0E1A (deep dark navy)
 - Surface: #111827
 - Primary: #00C48C (emerald green)
@@ -22,15 +25,15 @@ Status Saver is a production-grade, fully offline WhatsApp Status Saver app for 
 
 ## Pages / Screens
 
-| Route | Description |
-|-------|-------------|
-| `/(tabs)/index` | Home — WhatsApp statuses (Images + Videos tabs) |
-| `/(tabs)/saved` | Saved statuses gallery |
-| `/(tabs)/settings` | Settings, device info, links |
-| `/viewer` | Full-screen image/video viewer with save/share |
-| `/permissions` | Storage permission setup flow |
-| `/guide` | Complete accordion setup guide |
-| `/privacy` | Privacy policy (GDPR, Play Store, Indus compliant) |
+| Route              | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `/(tabs)/index`    | Home — WhatsApp statuses (Images + Videos tabs)    |
+| `/(tabs)/saved`    | Saved statuses gallery                             |
+| `/(tabs)/settings` | Settings, device info, links                       |
+| `/viewer`          | Full-screen image/video viewer with save/share     |
+| `/permissions`     | Storage permission setup flow                      |
+| `/guide`           | Complete accordion setup guide                     |
+| `/privacy`         | Privacy policy (GDPR, Play Store, Indus compliant) |
 
 ## Key Features
 
@@ -64,6 +67,7 @@ Status Saver is a production-grade, fully offline WhatsApp Status Saver app for 
    - Video viewer uses prepared file URIs, a URI-based hard reset key, ready-state playback gating, and explicit decoder release when videos leave the nearby swipe window to reduce Android black-screen-with-audio issues.
 
 ## Project Structure
+
 ```
 app/                        # Expo Router screens
   (tabs)/                   # Tab bar screens (index, saved, settings)
@@ -132,24 +136,28 @@ scripts/                    # Utility scripts
 ## Payment Configuration
 
 ### Dual-Store Build Switch
+
 The payment system is fully separated into two self-contained folders with zero runtime if/else:
 
-| Store | Provider | Active folder | Delete before upload |
-|-------|----------|---------------|----------------------|
-| Indus App Store / Other | Razorpay | `payment-providers/razorpay/` | `payment-providers/google-play/` |
-| Google Play Store | Google Play Billing | `payment-providers/google-play/` | `payment-providers/razorpay/` |
+| Store                   | Provider            | Active folder                    | Delete before upload             |
+| ----------------------- | ------------------- | -------------------------------- | -------------------------------- |
+| Indus App Store / Other | Razorpay            | `payment-providers/razorpay/`    | `payment-providers/google-play/` |
+| Google Play Store       | Google Play Billing | `payment-providers/google-play/` | `payment-providers/razorpay/`    |
 
 **Current default: Google Play Store (Play Store build active).** To switch to Indus/Razorpay: edit 2 lines in `payment-providers/index.ts` + 2 lines in `payment-providers/server.ts`.
 
 ### Env Vars — Razorpay build
+
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
 - `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID` (optional)
 
 ### Env Vars — Google Play build
+
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_PACKAGE_NAME`
 - `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_PROJECT_ID` (optional)
 
 ### Firestore Collections
+
 - `subscriptions` — active Pro status per user UID
 - `paymentOrders` — Razorpay order records
 - `googlePlayOrders` — Google Play purchase records
@@ -159,6 +167,7 @@ The payment system is fully separated into two self-contained folders with zero 
 - `referral_devices/{deviceId}` — device fingerprint anti-spoof: which deviceId already claimed a referral
 
 ## Influencer Referral System
+
 - **User flow:** `app/subscription.tsx` shows a "Have a referral code?" input (`components/subscription/ReferralCodeInput.tsx`). Sign-in is enforced before submit. On success the joiner gets 90 days (configurable per code) of free Pro.
 - **Anti-spoof:** redemption is blocked if (a) user has any active subscription, (b) `users/{uid}.referralClaimed === true`, or (c) the device fingerprint already exists in `referral_devices`. All writes happen inside one Firestore transaction.
 - **Influencer VIP:** when admin creates a campaign with an `influencerUid` and `vipDuration` (`LIFETIME` or `{ type: "DAYS", days }`), the influencer's own subscription doc is set immediately. Use `applyVipNow: true` on PATCH to re-apply later.
@@ -172,42 +181,48 @@ The payment system is fully separated into two self-contained folders with zero 
   - `POST   /api/referrals/redeem` — body `{ code, deviceId }`, requires `Authorization: Bearer <idToken>`
 
 ## Personal Referral / Invite & Earn (Viral Growth Ladder)
+
 - **User flow:** every signed-in user gets a unique short code (e.g. `K3T8N2`) on first visit to `app/invite.tsx`. Sharing the code via `Share.share()` sends a Play Store URL `…?referrer=ref%3DCODE` (works as deferred deep link) plus the code in plain text and a `statusvault://invite?ref=CODE` deep link for users who already have the app.
 - **Reward ladder** (defined in `shared/referral-types.ts → REWARD_LADDER`): 3 friends → 48 hr Pro · 10 → 1 wk · 50 → 1 mo · 100 → 3 mo · 500 → 1.5 years (548 days). Rewards STACK on top of any existing `paidUntil`, never replace it. Each tier can be claimed once (tracked in `user_referrals/{uid}.rewardsClaimed`). Provider on the resulting subscription doc is `referral_ladder`.
 - **Attribution layers:**
   1. Manual: friend's code typed in the Invite screen.
   2. Deep link: `app/+native-intent.tsx` parses `?ref=CODE` from any inbound `statusvault://` URL and stashes it in AsyncStorage (`pending_referral_code`).
   3. Post-install Play Referrer: route + DB schema is ready, requires the `react-native-play-install-referrer` native module on a future custom dev build.
-  After sign-in, `hooks/referral/usePendingReferralAttribution.ts` (registered in `app/_layout.tsx`) auto-POSTs the pending code.
+     After sign-in, `hooks/referral/usePendingReferralAttribution.ts` (registered in `app/_layout.tsx`) auto-POSTs the pending code.
 - **Anti-fraud:** must be signed in with Google, one referrer per user (immutable `referredBy` aka `referrerUid`), self-referral blocked, one device-id per attribution (collection `referral_install_devices`).
 - **New endpoints:**
   - `GET  /api/referrals/me` — returns `MyReferralResponse` (lazy-creates code on first call)
-  - `POST /api/referrals/attribute-install` — body `{ code, deviceId }`, attributes the *signed-in user* as a new referee for the code's owner and triggers `applyLadderRewards()`.
+  - `POST /api/referrals/attribute-install` — body `{ code, deviceId }`, attributes the _signed-in user_ as a new referee for the code's owner and triggers `applyLadderRewards()`.
 - **New Firestore collections:**
   - `user_referrals/{uid}` — `{ myCode, referralCount, rewardsClaimed[], referredUserIds[], referredJoinedAt[], referrerUid? }`
   - `referral_codes/{CODE}` — `{ uid }` reverse-lookup
   - `referral_install_devices/{deviceId}` — anti-fraud per-device attribution lock
 
 ## Theming (System-Driven, No Picker)
+
 - The app theme **always follows the OS color scheme** — there is no in-app picker. `ThemeContext.tsx` listens to `Appearance.addChangeListener` and resolves to `LIGHT_COLORS` or `DARK_COLORS` based on `Appearance.getColorScheme()`. `setMode` exists as a no-op shim purely for backward compatibility with any leftover imports.
 - The Android navigation bar background + button-icon colors are re-applied on every theme change in `app/_layout.tsx` via `applyImmersiveMode(colors.BACKGROUND, resolved === 'dark')`. The status bar (where the battery icon lives) flips between `light` and `dark` content via `<StatusBar style={resolved === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />`. So phone chrome at the top and bottom always matches the active theme.
 - The "Ad-Free Active / Subscribe" banner (`components/subscription/SubscriptionPlansCard.tsx`) uses a theme-aware gradient: deep-green premium look in dark mode, soft tinted-surface in light mode so text and the crown icon stay readable.
 
 ## Firebase Rules (Firestore + Storage)
+
 - `firebase.json` registers `firestore.rules` and `storage.rules` so `firebase deploy --only firestore:rules,storage` ships them.
 - `firestore.rules` — default-deny everything; explicitly allow each signed-in user to READ their own `/users/{uid}`, `/subscriptions/{uid}`, `/user_referrals/{uid}`. Public READ on `/referral_codes/{code}` and `/influencer_campaigns/{code}` (only non-sensitive fields are stored). All WRITES are denied to clients — every write is performed by the Express server through the Firebase Admin SDK, which bypasses these rules.
 - `storage.rules` — default-deny all paths. The app does not currently upload to Storage (statuses live on-device); rule is in place to prevent accidental billing if a stray client SDK call ever ran.
 - To deploy from local machine: `firebase deploy --only firestore:rules,storage`.
 
 ## Viral Short-Link Sharing (April 22, 2026)
+
 Every shared status (and the Settings "Share App" button) now carries the user's personal install link, so each share doubles as a referral.
 
 **Backend** — `server/referral-routes.ts`
+
 - New `GET /s/:CODE` route → 302 to `https://play.google.com/store/apps/details?id=com.binan.statussaver&referrer=ref%3DCODE` plus an HTML+JS fallback body for in-app webviews that strip 302s. Codes are normalized to uppercase and validated against `^[A-Z0-9_-]{3,16}$`. Garbage codes still redirect, just to the bare Play Store.
 - `/api/referrals/me` now returns BOTH `shareUrl` (short, e.g. `https://svault.me/K3T8N2` once the domain is live) and `playStoreUrl` (full referrer URL, fallback). Short-link base is read from `PUBLIC_BASE_URL` env var, otherwise derived from request `Host` (handles Replit/CDN proxy headers).
 - Set `PUBLIC_BASE_URL=https://svault.me` in Replit Secrets when the short domain is registered — no app rebuild needed.
 
 **App-side**
+
 - `lib/share-link.ts` — tiny AsyncStorage cache (`@statusvault_share_link`, `@statusvault_share_code`) plus `buildShareCaption()` helper. Always returns a usable URL (falls back to bare Play Store install link).
 - `hooks/referral/usePrefetchShareLink.ts` — wired into `AuthProvider`. As soon as a Firebase user is detected, fires a one-shot fetch to `/api/referrals/me` and caches the short link. Clears the cache on sign-out so links don't leak across accounts.
 - `app/invite.tsx` — also persists `shareUrl` to the cache on every successful fetch, so the cache is always fresh.
@@ -218,16 +233,20 @@ Every shared status (and the Settings "Share App" button) now carries the user's
 The auto-caption flow uses `react-native-share`, a native module that does NOT run in Expo Go. The project already depends on `react-native-iap`, `react-native-google-mobile-ads`, and `@react-native-google-signin/google-signin` — also native-only — so we were already on a custom dev-client build. The Metro dev server in this repl bundles JS as before; the native module loads at runtime in the user's APK. NEXT APK BUILD (EAS or local prebuild) autolinks `react-native-share` automatically — no manual linking, no `eas.json` changes, no breaking config edits. If auto-caption ever degrades, the silent clipboard copy + expo-sharing fallback both still work.
 
 ## Documentation Sync (April 22, 2026)
+
 All user-facing legal/help docs updated to match the actual codebase:
-- **In-app screens** (`app/guide.tsx`, `app/privacy.tsx`, `app/terms.tsx`): app version 1.3.7, correct Reward Ladder (3/10/50/100/500 → 2d/1w/1mo/3mo/548d, stacking), new Influencer / Giveaway Codes section, SAF-only permissions list with explicit blocked READ_MEDIA_* perms, unified refund policy (Play Store vs Razorpay), system-driven theme.
+
+- **In-app screens** (`app/guide.tsx`, `app/privacy.tsx`, `app/terms.tsx`): app version 1.3.7, correct Reward Ladder (3/10/50/100/500 → 2d/1w/1mo/3mo/548d, stacking), new Influencer / Giveaway Codes section, SAF-only permissions list with explicit blocked READ*MEDIA*\* perms, unified refund policy (Play Store vs Razorpay), system-driven theme.
 - **Web templates** (`server/templates/privacy-policy.html`, `terms.html`): same content; CSS bug in `.badge` fixed; sections renumbered (privacy ends at §13, terms ends at §16). Landing & pricing pages required no doc changes.
 
 ## Recent Bug Fixes — Subscription Flow
+
 - `ReferralCodeInput.tsx`: detects HTML response bodies (`<!DOCTYPE`, `<html>`) on error and shows a clean "couldn't reach server" message instead of dumping raw HTML; clears code & banner when `hasActiveSubscription` flips true; refuses to fire the redeem request at all when user is already Pro.
 - When a giveaway code returns `CODE_EXHAUSTED`, the banner now offers a CTA pivot to `/invite` ("Invite 3 friends instead → 48 hours of Pro free").
 - `app/subscription.tsx` hero & active-Pro `LinearGradient`s are now derived from the active palette (`COLORS.PRIMARY` tint over `COLORS.SURFACE`) so they render correctly in light mode.
 
 ## SAF Latency / Freeze Fix (April 27, 2026)
+
 After grant or cold launch on Android 11+, the app used to freeze for 1-2 s
 before showing thumbnails, and the first video tap stalled for 200 ms-2 s
 on a defensive SAF→cache copy. Comprehensive fix landed across four files:
@@ -264,12 +283,14 @@ on a defensive SAF→cache copy. Comprehensive fix landed across four files:
    first-grant wait feels intentional rather than frozen.
 
 ## Production Hardening — Critical Checks (April 27, 2026)
+
 After the SAF latency fix landed, the next round addressed the seven
 production-readiness items: persisted URI lifetime, cache invalidation,
 OEM playback resilience, FD discipline, share-temp hygiene, telemetry,
 and Expo migration trajectory.
 
 ### What changed
+
 1. **Persisted URI permission — confirmed via native source.** Audited
    `node_modules/expo-file-system/android/.../FilePickerContract.kt` and
    `FileSystemLegacyModule.kt` — both call
@@ -313,16 +334,17 @@ and Expo migration trajectory.
      `content://` source.
    - `fallbackCopyTriggered` — incremented when the watchdog or the
      manual retry copies a stalled video.
-   Inspect via `getTelemetrySnapshot()` (exported from `MediaContext`).
-   The snapshot includes a derived `directPlaySuccessRate` so you can
-   see at a glance whether the 2.5 s watchdog is over- or under-tuned
-   for real-world devices.
+     Inspect via `getTelemetrySnapshot()` (exported from `MediaContext`).
+     The snapshot includes a derived `directPlaySuccessRate` so you can
+     see at a glance whether the 2.5 s watchdog is over- or under-tuned
+     for real-world devices.
 7. **Expo file-system migration trajectory.** Comment at the top of
    `MediaContext.tsx` already documents that the modern File / Directory
    / Paths API in v19 lacks SAF parity; revisit when Expo v30 lands and
    re-evaluate after each minor SDK bump. No code change needed yet.
 
 ### QA checklist (manual, on real Android devices)
+
 - Cold start on Android 11 / 12 / 13 / 14 — cached grid renders before
   fresh SAF read returns.
 - Kill app mid-swipe → relaunch → cached thumbnails appear instantly.
@@ -336,6 +358,7 @@ and Expo migration trajectory.
 ## Production-Readiness Hardening (final 5%)
 
 ### Crash resilience — per-screen ErrorBoundary (expo-router pattern)
+
 Each tab (`index`, `saved`, `settings`) exports a named `ErrorBoundary` that
 expo-router uses to isolate crashes. A JS exception on one tab shows a
 polished recovery card (`components/common/ScreenErrorFallback.tsx`) with
@@ -343,12 +366,14 @@ polished recovery card (`components/common/ScreenErrorFallback.tsx`) with
 `components/common/index.ts` barrel-exports `ScreenErrorFallback`.
 
 ### Storage hygiene — foreground cache sweep (throttled)
+
 `MediaContext` foreground AppState listener (`useEffect`, empty deps) fires
 every time the app returns from background. A `lastForegroundSweepRef` ensures
 `cleanupCacheFiles(2h)` runs at most once per 30 minutes, keeping cache bloat
 under control for power users who background/foreground hundreds of times per day.
 
 ### SAF revocation health check (Android 11+)
+
 Same foreground listener probes each stored tree URI with
 `FileSystem.StorageAccessFramework.readDirectoryAsync`. If a URI throws
 (Android revokes `takePersistableUriPermission` after WhatsApp updates or
@@ -359,20 +384,43 @@ are wrapped in `InteractionManager.runAfterInteractions` to never compete
 with the navigation-resume animation.
 
 ### Dev/prod console hygiene
+
 `app/_layout.tsx` globally silences `console.log/debug/info/warn` in release
 builds (keeps `console.error` alive for crash-reporting SDKs). `lib/logger.ts`
 provides a typed `{ log, debug, warn, error }` interface for future use.
 
 ### SettingRow accessibility
+
 `TouchableOpacity` in `SettingRow` now has `accessibilityLabel` (label +
 sublabel) and `accessibilityRole="button"` so TalkBack / screen readers
 announce each row correctly.
 
 ## To Publish
-1. Replace AdMob unit IDs in `constants/admob.ts`
+
+1. Replace the AdMob test app IDs in `app.json` and unit IDs in `lib/ads.ts`
 2. Update `app.json` with your actual bundle ID
 3. Build with `eas build --platform android`
 
 ## Workflows
+
 - **Start Frontend**: Expo dev server on port 8081
 - **Start Backend**: Express server on port 5000 (landing page)
+
+## AdMob ad strategy
+
+The app uses Google Mobile Ads with a low-frequency, free-user journey:
+
+- Optional rewarded ad once per local day unlocks ad-free access for 24 hours.
+- One interstitial is eligible after every 10 successful saves, with all ad formats capped at two impressions per day.
+- One native ad slot is inserted after the tenth status in the active list.
+- A verified premium entitlement hides all rewarded, interstitial, and native ads.
+
+The app currently uses Google test app and unit IDs. Replace the test IDs in
+`app.json` and `lib/ads.ts` before a production build. Unit IDs can also be
+provided through `EXPO_PUBLIC_ADMOB_INTERSTITIAL_UNIT_ID`,
+`EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID`, and `EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID`.
+The AdMob package is a native module, so ads require a custom native build;
+the Replit web preview intentionally renders without ads. Real ₹49 premium
+purchases still need a verified Google Play Billing entitlement wired to the
+existing premium state before release. Development builds expose a local
+premium preview from Settings for testing the ad-free journey.

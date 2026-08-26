@@ -1,40 +1,41 @@
-import { Stack, useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect, useState, useRef } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StatusBar } from 'expo-status-bar';
-import { Platform, AppState, AppStateStatus } from 'react-native';
-import { useStableStatusBar } from '@/hooks/useStableStatusBar';
-import { useFonts } from 'expo-font';
-import * as NavigationBar from 'expo-navigation-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { MediaProvider } from '@/contexts/MediaContext';
-import { AppLoadingScreen } from '@/components/common/AppLoadingScreen';
-import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { Stack, useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import React, { useEffect, useState, useRef } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { StatusBar } from "expo-status-bar";
+import { Platform, AppState, AppStateStatus } from "react-native";
+import { useStableStatusBar } from "@/hooks/useStableStatusBar";
+import { useFonts } from "expo-font";
+import * as NavigationBar from "expo-navigation-bar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import { MediaProvider } from "@/contexts/MediaContext";
+import { AdsProvider } from "@/contexts/AdsContext";
+import { AppLoadingScreen } from "@/components/common/AppLoadingScreen";
+import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 
 // ── Production console hygiene ───────────────────────────────────────────
 if (!__DEV__) {
   const noop = () => {};
-  console.log   = noop;
+  console.log = noop;
   console.debug = noop;
-  console.info  = noop;
-  console.warn  = noop;
+  console.info = noop;
+  console.warn = noop;
 }
 
 SplashScreen.preventAutoHideAsync();
 
 async function applyImmersiveMode(isDark: boolean) {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== "android") return;
   try {
     const sdkVersion = Platform.Version as number;
     if (sdkVersion < 30) {
-      await NavigationBar.setVisibilityAsync('visible');
+      await NavigationBar.setVisibilityAsync("visible");
     }
     // setBackgroundColorAsync / setBehaviorAsync are no-ops when edge-to-edge
     // is enabled (they generate WARN spam). Button style still works and is
     // the only thing that matters for icon visibility.
-    await NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+    await NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark");
   } catch {}
 }
 
@@ -46,7 +47,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
   useEffect(() => {
     if (showOnboarding && !onboardingNavigatedRef.current) {
       onboardingNavigatedRef.current = true;
-      router.replace('/onboarding');
+      router.replace("/onboarding");
     }
   }, [showOnboarding]);
 
@@ -56,13 +57,13 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         headerStyle: { backgroundColor: COLORS.SURFACE },
         headerTintColor: COLORS.TEXT,
         headerTitleStyle: {
-          fontFamily: 'Nunito_700Bold',
+          fontFamily: "Nunito_700Bold",
           fontSize: 17,
           color: COLORS.TEXT,
         },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: COLORS.BACKGROUND },
-        animation: 'slide_from_right',
+        animation: "slide_from_right",
       }}
     >
       <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -73,7 +74,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
           headerShown: false,
           // animation:'none' — the viewer handles its own enter/exit
           // transition via Animated values so the Stack doesn't double-up.
-          animation: 'none',
+          animation: "none",
           // DO NOT use presentation:'fullScreenModal' on Android 11+.
           // fullScreenModal registers a native-layer dismiss handler that
           // intercepts the first back press at the Activity level BEFORE
@@ -93,11 +94,17 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       />
       <Stack.Screen
         name="guide"
-        options={{ title: 'Setup Guide', headerStyle: { backgroundColor: COLORS.SURFACE } }}
+        options={{
+          title: "Setup Guide",
+          headerStyle: { backgroundColor: COLORS.SURFACE },
+        }}
       />
       <Stack.Screen
         name="privacy"
-        options={{ title: 'Privacy', headerStyle: { backgroundColor: COLORS.SURFACE } }}
+        options={{
+          title: "Privacy",
+          headerStyle: { backgroundColor: COLORS.SURFACE },
+        }}
       />
       <Stack.Screen name="permissions" options={{ headerShown: false }} />
       <Stack.Screen name="terms" options={{ headerShown: false }} />
@@ -109,27 +116,29 @@ function AppContentBody({ showOnboarding }: { showOnboarding: boolean }) {
   const { colors, resolved } = useTheme();
 
   useStableStatusBar({
-    backgroundColor: resolved === 'dark' ? '#05070A' : '#FFFFFF',
-    barStyle: resolved === 'dark' ? 'light-content' : 'dark-content',
+    backgroundColor: resolved === "dark" ? "#05070A" : "#FFFFFF",
+    barStyle: resolved === "dark" ? "light-content" : "dark-content",
     translucent: false,
   });
 
   useEffect(() => {
-    applyImmersiveMode(resolved === 'dark');
-  // `colors` is intentionally excluded — it's an object reference that can
-  // change identity on re-renders without the actual theme changing.
-  // Including it would re-fire NavigationBar.setButtonStyleAsync() on every
-  // render, causing Android window-focus oscillation (FOCUS→BLUR→FOCUS) that
-  // React Native translates into rapid AppState active→background→active events.
-  // `resolved` ('dark' | 'light') is the only value that actually matters here.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    applyImmersiveMode(resolved === "dark");
+    // `colors` is intentionally excluded — it's an object reference that can
+    // change identity on re-renders without the actual theme changing.
+    // Including it would re-fire NavigationBar.setButtonStyleAsync() on every
+    // render, causing Android window-focus oscillation (FOCUS→BLUR→FOCUS) that
+    // React Native translates into rapid AppState active→background→active events.
+    // `resolved` ('dark' | 'light') is the only value that actually matters here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolved]);
 
   return (
-    <MediaProvider>
-      <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
-      <AppNavigator showOnboarding={showOnboarding} />
-    </MediaProvider>
+    <AdsProvider>
+      <MediaProvider>
+        <StatusBar style={resolved === "dark" ? "light" : "dark"} />
+        <AppNavigator showOnboarding={showOnboarding} />
+      </MediaProvider>
+    </AdsProvider>
   );
 }
 
@@ -139,10 +148,10 @@ function AppContent({ showOnboarding }: { showOnboarding: boolean }) {
 
 const RootLayout = () => {
   const [fontsLoaded] = useFonts({
-    Nunito_400Regular: require('../assets/fonts/Nunito_400Regular.ttf'),
-    Nunito_600SemiBold: require('../assets/fonts/Nunito_600SemiBold.ttf'),
-    Nunito_700Bold: require('../assets/fonts/Nunito_700Bold.ttf'),
-    Nunito_800ExtraBold: require('../assets/fonts/Nunito_800ExtraBold.ttf'),
+    Nunito_400Regular: require("../assets/fonts/Nunito_400Regular.ttf"),
+    Nunito_600SemiBold: require("../assets/fonts/Nunito_600SemiBold.ttf"),
+    Nunito_700Bold: require("../assets/fonts/Nunito_700Bold.ttf"),
+    Nunito_800ExtraBold: require("../assets/fonts/Nunito_800ExtraBold.ttf"),
   });
   const [loadingDone, setLoadingDone] = useState(false);
   const [splashHidden, setSplashHidden] = useState(false);
@@ -158,7 +167,7 @@ const RootLayout = () => {
 
   useEffect(() => {
     checkOnboarding();
-    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+    const sub = AppState.addEventListener("change", (next: AppStateStatus) => {
       appState.current = next;
     });
     return () => sub.remove();
@@ -166,7 +175,7 @@ const RootLayout = () => {
 
   const checkOnboarding = async () => {
     try {
-      const completed = await AsyncStorage.getItem('onboarding_completed');
+      const completed = await AsyncStorage.getItem("onboarding_completed");
       if (completed === null) setShowOnboarding(true);
     } catch {
       setShowOnboarding(true);

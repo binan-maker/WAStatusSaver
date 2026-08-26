@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -10,17 +10,18 @@ import {
   Alert,
   Modal,
   Share,
-} from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { useMedia } from '@/contexts/MediaContext';
-import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
-import { SPACING, FONT_SIZE, RADIUS } from '@/constants/theme';
+} from "react-native";
+import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
+import { useMedia } from "@/contexts/MediaContext";
+import { useAds } from "@/contexts/AdsContext";
+import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
+import { SPACING, FONT_SIZE, RADIUS } from "@/constants/theme";
 
-export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
+export { ScreenErrorFallback as ErrorBoundary } from "@/components/common/ScreenErrorFallback";
 
 interface SettingRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -52,14 +53,25 @@ function SettingRow({
       activeOpacity={onPress ? 0.7 : 1}
       disabled={!onPress}
       accessibilityLabel={sublabel ? `${label}: ${sublabel}` : label}
-      accessibilityRole={onPress ? 'button' : 'none'}
+      accessibilityRole={onPress ? "button" : "none"}
       accessibilityState={onPress ? undefined : { disabled: true }}
     >
-      <View style={[styles.settingIcon, { backgroundColor: iconBg || COLORS.SURFACE_2 }]}>
-        <Ionicons name={icon} size={18} color={danger ? COLORS.ERROR : COLORS.TEXT} />
+      <View
+        style={[
+          styles.settingIcon,
+          { backgroundColor: iconBg || COLORS.SURFACE_2 },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={18}
+          color={danger ? COLORS.ERROR : COLORS.TEXT}
+        />
       </View>
       <View style={styles.settingInfo}>
-        <Text style={[styles.settingLabel, danger && { color: COLORS.ERROR }]}>{label}</Text>
+        <Text style={[styles.settingLabel, danger && { color: COLORS.ERROR }]}>
+          {label}
+        </Text>
         {sublabel && <Text style={styles.settingSubLabel}>{sublabel}</Text>}
       </View>
       {value ? (
@@ -77,12 +89,85 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
+function PremiumCard() {
+  const COLORS = useThemeColors();
+  const styles = useMemo(() => createStyles(COLORS), [COLORS]);
+  const {
+    isPremium,
+    isAdFree,
+    rewardedAccessExpiresAt,
+    enablePremiumForDevelopment,
+    disablePremiumForDevelopment,
+  } = useAds();
+  const temporaryAccess =
+    !isPremium && isAdFree && rewardedAccessExpiresAt > Date.now();
+
+  const handlePremiumAction = async () => {
+    if (__DEV__ && !isPremium) {
+      await enablePremiumForDevelopment();
+      Alert.alert(
+        "Premium preview enabled",
+        "Ads are now hidden so you can test the premium journey.",
+      );
+      return;
+    }
+    if (__DEV__ && isPremium) {
+      await disablePremiumForDevelopment();
+      return;
+    }
+    Alert.alert(
+      "Premium purchase",
+      "Google Play Billing still needs to be connected for real ₹49 purchases. The ad-free entitlement is ready to receive that verified purchase.",
+    );
+  };
+
+  return (
+    <View style={styles.premiumCard}>
+      <View style={styles.premiumIcon}>
+        <Ionicons
+          name={isAdFree ? "shield-checkmark" : "diamond"}
+          size={22}
+          color={COLORS.ACCENT_GOLD}
+        />
+      </View>
+      <View style={styles.premiumCopy}>
+        <Text style={styles.premiumTitle}>
+          {isPremium
+            ? "Premium is active"
+            : temporaryAccess
+              ? "Ad-free access is active"
+              : "Remove Ads"}
+        </Text>
+        <Text style={styles.premiumSub}>
+          {isPremium
+            ? "Unlimited saving, HD downloads and priority support"
+            : temporaryAccess
+              ? "Unlocked by today’s optional rewarded ad"
+              : "₹49 one-time · No ads, HD downloads and priority support"}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={styles.premiumButton}
+        onPress={handlePremiumAction}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isPremium ? "Turn off premium preview" : "Remove ads for 49 rupees"
+        }
+      >
+        <Text style={styles.premiumButtonText}>
+          {__DEV__ ? (isPremium ? "Turn off" : "Preview") : "Upgrade"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function SettingsScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const insets = useSafeAreaInsets();
-  const headerPaddingTop = Platform.OS === 'web' ? 67 : insets.top;
+  const headerPaddingTop = Platform.OS === "web" ? 67 : insets.top;
   const {
     androidVersion,
     storageMethod,
@@ -99,11 +184,11 @@ export default function SettingsScreen() {
   const handleShareApp = async () => {
     try {
       const storeUrl =
-        'https://play.google.com/store/apps/details?id=com.binan.statussaver';
+        "https://play.google.com/store/apps/details?id=com.binan.statussaver";
       await Share.share({
         message: `Check out Status Saver — save WhatsApp statuses without screenshots!\n\n${storeUrl}`,
-        title: 'Share Status Saver',
-        url: Platform.OS === 'ios' ? storeUrl : undefined,
+        title: "Share Status Saver",
+        url: Platform.OS === "ios" ? storeUrl : undefined,
       });
     } catch {}
   };
@@ -118,20 +203,29 @@ export default function SettingsScreen() {
     }
   };
 
-  const deviceName = (Platform.constants as Record<string, string>).Model || 'Unknown Device';
+  const deviceName =
+    (Platform.constants as Record<string, string>).Model || "Unknown Device";
   const osVersion =
-    Platform.OS === 'android' ? `Android ${androidVersion}` : `iOS ${Platform.Version}`;
+    Platform.OS === "android"
+      ? `Android ${androidVersion}`
+      : `iOS ${Platform.Version}`;
 
   // Memoised so the JS thread never re-filters the entire statuses array
   // on an unrelated re-render (e.g. a context update from MediaContextSAF).
-  const imageCount = useMemo(() => statuses.filter(s => s.type === 'image').length, [statuses]);
-  const videoCount = useMemo(() => statuses.filter(s => s.type === 'video').length, [statuses]);
+  const imageCount = useMemo(
+    () => statuses.filter((s) => s.type === "image").length,
+    [statuses],
+  );
+  const videoCount = useMemo(
+    () => statuses.filter((s) => s.type === "video").length,
+    [statuses],
+  );
 
   const storageMethodLabel = {
-    legacy: 'Legacy (Android < 10)',
-    scoped: 'Scoped Storage (Android 10+)',
-    saf: 'SAF (Android 11+)',
-    unknown: 'Unknown',
+    legacy: "Legacy (Android < 10)",
+    scoped: "Scoped Storage (Android 10+)",
+    saf: "SAF (Android 11+)",
+    unknown: "Unknown",
   }[storageMethod];
 
   return (
@@ -147,12 +241,19 @@ export default function SettingsScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 70 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 70 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <MaterialCommunityIcons name="image-multiple" size={26} color={COLORS.PRIMARY} />
+            <MaterialCommunityIcons
+              name="image-multiple"
+              size={26}
+              color={COLORS.PRIMARY}
+            />
             <Text style={styles.statNum}>{imageCount}</Text>
             <Text style={styles.statLabel}>Images</Text>
           </View>
@@ -172,6 +273,9 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        <SectionHeader title="Premium" />
+        <PremiumCard />
+
         <SectionHeader title="Storage & Permissions" />
         <View style={styles.section}>
           <SettingRow
@@ -182,7 +286,7 @@ export default function SettingsScreen() {
           />
           <SettingRow
             icon="logo-android"
-            iconBg={COLORS.SUCCESS + '22'}
+            iconBg={COLORS.SUCCESS + "22"}
             label="Android Version"
             value={osVersion}
             showArrow={false}
@@ -191,30 +295,32 @@ export default function SettingsScreen() {
             icon="folder-open-outline"
             label="Storage Method"
             sublabel={
-              storageMethod === 'saf'
-                ? 'SAF folder access granted'
-                : storageMethod === 'legacy'
-                ? 'Direct file access'
-                : 'Scoped storage'
+              storageMethod === "saf"
+                ? "SAF folder access granted"
+                : storageMethod === "legacy"
+                  ? "Direct file access"
+                  : "Scoped storage"
             }
             value={storageMethodLabel}
             showArrow={false}
           />
           <SettingRow
-            icon={hasPermission ? 'shield-checkmark' : 'shield-outline'}
-            iconBg={hasPermission ? COLORS.PRIMARY + '22' : COLORS.SURFACE_2}
+            icon={hasPermission ? "shield-checkmark" : "shield-outline"}
+            iconBg={hasPermission ? COLORS.PRIMARY + "22" : COLORS.SURFACE_2}
             label="Media Permission"
-            sublabel={hasPermission ? 'Access granted' : 'Tap to grant'}
+            sublabel={hasPermission ? "Access granted" : "Tap to grant"}
             onPress={!hasPermission ? () => requestPermissions() : undefined}
             showArrow={!hasPermission}
           />
-          {Platform.OS === 'android' && androidVersion >= 30 && (
+          {Platform.OS === "android" && androidVersion >= 30 && (
             <SettingRow
-              icon={safGranted ? 'checkmark-circle' : 'folder-outline'}
-              iconBg={safGranted ? COLORS.PRIMARY + '22' : COLORS.SURFACE_2}
+              icon={safGranted ? "checkmark-circle" : "folder-outline"}
+              iconBg={safGranted ? COLORS.PRIMARY + "22" : COLORS.SURFACE_2}
               label="WhatsApp Folder Access"
               sublabel={
-                safGranted ? 'Folder access granted' : 'Required for Android 11+'
+                safGranted
+                  ? "Folder access granted"
+                  : "Required for Android 11+"
               }
               onPress={!safGranted ? requestSAF : undefined}
               showArrow={!safGranted}
@@ -226,7 +332,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SettingRow
             icon="share-social-outline"
-            iconBg={COLORS.PRIMARY + '22'}
+            iconBg={COLORS.PRIMARY + "22"}
             label="Share Status Saver"
             sublabel="Tell your friends about this app"
             onPress={handleShareApp}
@@ -237,24 +343,24 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SettingRow
             icon="book-outline"
-            iconBg={COLORS.ACCENT_BLUE + '22'}
+            iconBg={COLORS.ACCENT_BLUE + "22"}
             label="Setup Guide"
             sublabel="Step-by-step setup instructions"
-            onPress={() => router.push('/guide')}
+            onPress={() => router.push("/guide")}
           />
           <SettingRow
             icon="help-circle-outline"
-            iconBg={COLORS.ACCENT_GOLD + '22'}
+            iconBg={COLORS.ACCENT_GOLD + "22"}
             label="How to Use"
             sublabel="Learn all features"
-            onPress={() => router.push('/guide')}
+            onPress={() => router.push("/guide")}
           />
           <SettingRow
             icon="folder-outline"
             iconBg={COLORS.SURFACE_2}
             label="WhatsApp Paths"
             sublabel="View supported status locations"
-            onPress={() => router.push('/guide')}
+            onPress={() => router.push("/guide")}
           />
         </View>
 
@@ -262,17 +368,17 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SettingRow
             icon="shield-outline"
-            iconBg={COLORS.PRIMARY + '22'}
+            iconBg={COLORS.PRIMARY + "22"}
             label="Privacy Policy"
             sublabel="GDPR & Google Play Store compliant"
-            onPress={() => router.push('/privacy')}
+            onPress={() => router.push("/privacy")}
           />
           <SettingRow
             icon="document-text-outline"
-            iconBg={COLORS.ACCENT_GOLD + '22'}
+            iconBg={COLORS.ACCENT_GOLD + "22"}
             label="Terms & Conditions"
             sublabel="Legal terms"
-            onPress={() => router.push('/terms')}
+            onPress={() => router.push("/terms")}
           />
           <SettingRow
             icon="information-circle-outline"
@@ -283,12 +389,12 @@ export default function SettingsScreen() {
           />
           <SettingRow
             icon="star-outline"
-            iconBg={COLORS.ACCENT_GOLD + '22'}
+            iconBg={COLORS.ACCENT_GOLD + "22"}
             label="Rate Status Saver"
             sublabel="Support us with a 5-star review"
             onPress={() =>
               Linking.openURL(
-                'https://play.google.com/store/apps/details?id=com.binan.statussaver',
+                "https://play.google.com/store/apps/details?id=com.binan.statussaver",
               ).catch(() => {})
             }
           />
@@ -303,11 +409,11 @@ export default function SettingsScreen() {
             sublabel="Remove temporary files"
             onPress={() =>
               Alert.alert(
-                'Clear Cache',
-                'This will clear temporarily cached files. Your saved statuses will not be affected.',
+                "Clear Cache",
+                "This will clear temporarily cached files. Your saved statuses will not be affected.",
                 [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Clear', onPress: () => {} },
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Clear", onPress: () => {} },
                 ],
               )
             }
@@ -315,16 +421,20 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.footer}>
-          <MaterialCommunityIcons name="shield-check" size={28} color={COLORS.PRIMARY} />
+          <MaterialCommunityIcons
+            name="shield-check"
+            size={28}
+            color={COLORS.PRIMARY}
+          />
           <Text style={styles.footerTitle}>Status Saver</Text>
           <Text style={styles.footerSub}>
-            100% Offline Processing: Your media never leaves your device.{'\n'}
+            100% Offline Processing: Your media never leaves your device.{"\n"}
             The developer has zero access to your files.
           </Text>
           <Text style={styles.footerNote}>
-            WhatsApp is a registered trademark of WhatsApp LLC.{'\n'}
-            Status Saver is not affiliated with or endorsed by WhatsApp LLC or Meta Platforms
-            Inc.{'\n'}
+            WhatsApp is a registered trademark of WhatsApp LLC.{"\n"}
+            Status Saver is not affiliated with or endorsed by WhatsApp LLC or
+            Meta Platforms Inc.{"\n"}
             This is a personal project by an individual developer.
           </Text>
         </View>
@@ -343,7 +453,9 @@ export default function SettingsScreen() {
             activeOpacity={1}
             onPress={() => setShowEasterEgg(false)}
           />
-          <View style={[styles.easterEggCard, { backgroundColor: COLORS.SURFACE }]}>
+          <View
+            style={[styles.easterEggCard, { backgroundColor: COLORS.SURFACE }]}
+          >
             <View style={styles.easterEggGradient}>
               <View style={styles.eggMonogramWrap}>
                 <Text style={styles.eggMonogram}>B</Text>
@@ -355,7 +467,7 @@ export default function SettingsScreen() {
               <Text style={styles.eggAppName}>Status Saver</Text>
               <View style={styles.eggBlessingWrap}>
                 <Text style={styles.eggBlessing}>
-                  May الله bless him, his family,{'\n'}and all who use this app.
+                  May الله bless him, his family,{"\n"}and all who use this app.
                 </Text>
               </View>
               <TouchableOpacity
@@ -369,7 +481,6 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
@@ -385,15 +496,15 @@ const createStyles = (COLORS: ThemePalette) =>
       paddingBottom: SPACING.LG,
     },
     headerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
     },
     headerTitle: {
       fontSize: 26,
-      fontWeight: '800',
+      fontWeight: "800",
       color: COLORS.TEXT,
-      fontFamily: 'Nunito_800ExtraBold',
+      fontFamily: "Nunito_800ExtraBold",
     },
     scroll: { flex: 1 },
     content: {
@@ -401,7 +512,7 @@ const createStyles = (COLORS: ThemePalette) =>
       gap: SPACING.SM,
     },
     statsRow: {
-      flexDirection: 'row',
+      flexDirection: "row",
       gap: SPACING.SM,
       marginBottom: SPACING.SM,
     },
@@ -410,29 +521,29 @@ const createStyles = (COLORS: ThemePalette) =>
       backgroundColor: COLORS.SURFACE,
       borderRadius: RADIUS.MD,
       padding: SPACING.MD,
-      alignItems: 'center',
+      alignItems: "center",
       gap: 4,
       borderWidth: 1,
       borderColor: COLORS.BORDER,
     },
     statNum: {
       fontSize: FONT_SIZE.XXL,
-      fontWeight: '800',
+      fontWeight: "800",
       color: COLORS.TEXT,
-      fontFamily: 'Nunito_800ExtraBold',
+      fontFamily: "Nunito_800ExtraBold",
     },
     statLabel: {
       fontSize: FONT_SIZE.XS,
       color: COLORS.TEXT_SECONDARY,
-      fontFamily: 'Nunito_600SemiBold',
+      fontFamily: "Nunito_600SemiBold",
     },
     sectionHeader: {
       fontSize: FONT_SIZE.SM,
-      fontWeight: '700',
+      fontWeight: "700",
       color: COLORS.TEXT_SECONDARY,
-      fontFamily: 'Nunito_700Bold',
+      fontFamily: "Nunito_700Bold",
       letterSpacing: 0.8,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       marginTop: SPACING.LG,
       marginBottom: 4,
       marginLeft: 4,
@@ -442,11 +553,11 @@ const createStyles = (COLORS: ThemePalette) =>
       borderRadius: RADIUS.MD,
       borderWidth: 1,
       borderColor: COLORS.BORDER,
-      overflow: 'hidden',
+      overflow: "hidden",
     },
     settingRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
+      flexDirection: "row",
+      alignItems: "center",
       paddingHorizontal: SPACING.MD,
       paddingVertical: SPACING.MD,
       gap: SPACING.MD,
@@ -457,8 +568,8 @@ const createStyles = (COLORS: ThemePalette) =>
       width: 34,
       height: 34,
       borderRadius: RADIUS.SM,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
     },
     settingInfo: {
       flex: 1,
@@ -466,98 +577,143 @@ const createStyles = (COLORS: ThemePalette) =>
     },
     settingLabel: {
       fontSize: FONT_SIZE.MD,
-      fontWeight: '600',
+      fontWeight: "600",
       color: COLORS.TEXT,
-      fontFamily: 'Nunito_600SemiBold',
+      fontFamily: "Nunito_600SemiBold",
     },
     settingSubLabel: {
       fontSize: FONT_SIZE.XS,
       color: COLORS.TEXT_SECONDARY,
-      fontFamily: 'Nunito_400Regular',
+      fontFamily: "Nunito_400Regular",
     },
     settingValue: {
       fontSize: FONT_SIZE.SM,
       color: COLORS.TEXT_SECONDARY,
-      fontFamily: 'Nunito_400Regular',
+      fontFamily: "Nunito_400Regular",
       maxWidth: 120,
-      textAlign: 'right',
+      textAlign: "right",
+    },
+    premiumCard: {
+      marginBottom: SPACING.LG,
+      padding: SPACING.MD,
+      borderRadius: RADIUS.MD,
+      borderWidth: 1,
+      borderColor: COLORS.ACCENT_GOLD + "55",
+      backgroundColor: COLORS.SURFACE,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.SM,
+    },
+    premiumIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: COLORS.ACCENT_GOLD + "1A",
+    },
+    premiumCopy: {
+      flex: 1,
+      gap: 2,
+    },
+    premiumTitle: {
+      color: COLORS.TEXT,
+      fontSize: FONT_SIZE.MD,
+      fontWeight: "800",
+      fontFamily: "Nunito_800ExtraBold",
+    },
+    premiumSub: {
+      color: COLORS.TEXT_SECONDARY,
+      fontSize: FONT_SIZE.XS,
+      lineHeight: 15,
+    },
+    premiumButton: {
+      paddingHorizontal: 11,
+      paddingVertical: 8,
+      borderRadius: RADIUS.SM,
+      backgroundColor: COLORS.ACCENT_GOLD,
+    },
+    premiumButtonText: {
+      color: COLORS.BACKGROUND,
+      fontSize: FONT_SIZE.XS,
+      fontWeight: "800",
     },
     footer: {
-      alignItems: 'center',
+      alignItems: "center",
       paddingVertical: SPACING.XXL,
       gap: SPACING.SM,
       marginTop: SPACING.LG,
     },
     footerTitle: {
       fontSize: FONT_SIZE.XL,
-      fontWeight: '800',
+      fontWeight: "800",
       color: COLORS.TEXT,
-      fontFamily: 'Nunito_800ExtraBold',
+      fontFamily: "Nunito_800ExtraBold",
     },
     footerSub: {
       fontSize: FONT_SIZE.SM,
       color: COLORS.TEXT_SECONDARY,
-      textAlign: 'center',
+      textAlign: "center",
       lineHeight: 20,
-      fontFamily: 'Nunito_400Regular',
+      fontFamily: "Nunito_400Regular",
     },
     footerNote: {
       fontSize: FONT_SIZE.XS,
       color: COLORS.TEXT_MUTED,
-      textAlign: 'center',
-      fontFamily: 'Nunito_400Regular',
+      textAlign: "center",
+      fontFamily: "Nunito_400Regular",
       marginTop: SPACING.SM,
     },
     centeredOverlay: {
       flex: 1,
-      justifyContent: 'center',
-      backgroundColor: 'rgba(0,0,0,0.85)',
+      justifyContent: "center",
+      backgroundColor: "rgba(0,0,0,0.85)",
     },
     easterEggCard: {
       marginHorizontal: SPACING.XL,
       borderRadius: RADIUS.LG,
-      overflow: 'hidden',
+      overflow: "hidden",
       borderWidth: 1,
       borderColor: COLORS.BORDER,
       elevation: 6,
-      shadowColor: '#000',
+      shadowColor: "#000",
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.2,
       shadowRadius: 12,
     },
     easterEggGradient: {
       padding: SPACING.XL,
-      alignItems: 'center',
+      alignItems: "center",
       gap: SPACING.MD,
     },
     eggMonogramWrap: {
       width: 76,
       height: 76,
       borderRadius: 38,
-      backgroundColor: COLORS.PRIMARY + '14',
-      alignItems: 'center',
-      justifyContent: 'center',
+      backgroundColor: COLORS.PRIMARY + "14",
+      alignItems: "center",
+      justifyContent: "center",
       borderWidth: 1.5,
-      borderColor: COLORS.PRIMARY + '55',
+      borderColor: COLORS.PRIMARY + "55",
       marginBottom: SPACING.SM,
     },
     eggMonogram: {
       fontSize: 38,
-      fontFamily: 'Nunito_800ExtraBold',
+      fontFamily: "Nunito_800ExtraBold",
       color: COLORS.PRIMARY,
       lineHeight: 44,
       letterSpacing: -1,
     },
     eggMadeBy: {
       fontSize: 11,
-      fontFamily: 'Nunito_700Bold',
+      fontFamily: "Nunito_700Bold",
       color: COLORS.TEXT_MUTED,
       letterSpacing: 2,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
     },
     eggName: {
       fontSize: 36,
-      fontFamily: 'Nunito_800ExtraBold',
+      fontFamily: "Nunito_800ExtraBold",
       color: COLORS.TEXT,
       letterSpacing: -0.5,
       lineHeight: 42,
@@ -571,14 +727,14 @@ const createStyles = (COLORS: ThemePalette) =>
     },
     eggTitle: {
       fontSize: 11,
-      fontFamily: 'Nunito_700Bold',
+      fontFamily: "Nunito_700Bold",
       color: COLORS.TEXT_SECONDARY,
-      textTransform: 'uppercase',
+      textTransform: "uppercase",
       letterSpacing: 1.5,
     },
     eggAppName: {
       fontSize: FONT_SIZE.LG,
-      fontFamily: 'Nunito_800ExtraBold',
+      fontFamily: "Nunito_800ExtraBold",
       color: COLORS.PRIMARY,
       marginTop: 2,
     },
@@ -589,9 +745,9 @@ const createStyles = (COLORS: ThemePalette) =>
     },
     eggBlessing: {
       fontSize: FONT_SIZE.SM,
-      fontFamily: 'Nunito_400Regular',
+      fontFamily: "Nunito_400Regular",
       color: COLORS.TEXT_SECONDARY,
-      textAlign: 'center',
+      textAlign: "center",
       lineHeight: 20,
     },
     closeEggBtn: {
@@ -602,8 +758,8 @@ const createStyles = (COLORS: ThemePalette) =>
       borderRadius: RADIUS.FULL,
     },
     closeEggText: {
-      color: '#04140C',
-      fontFamily: 'Nunito_800ExtraBold',
+      color: "#04140C",
+      fontFamily: "Nunito_800ExtraBold",
       fontSize: FONT_SIZE.SM,
       letterSpacing: 0.5,
     },

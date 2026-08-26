@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -13,28 +19,37 @@ import {
   ActivityIndicator,
   AppState,
   InteractionManager,
-} from 'react-native';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native";
+import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
-import { Image as ExpoImage } from 'expo-image';
-import { useMedia, StatusItem, StatusSource } from '@/contexts/MediaContext';
-import { useMilestoneRating } from '@/hooks/feedback/useMilestoneRating';
-import { MilestoneRatingCard } from '@/components/feedback/MilestoneRatingCard';
-import { MediaCard } from '@/components/media/MediaCard';
-import { EmptyState } from '@/components/media/EmptyState';
-import { LoadingShimmer } from '@/components/media/LoadingShimmer';
-import { SAFGuideOverlay } from '@/components/media/SAFGuideOverlay';
-import { useThemeColors, type ThemePalette } from '@/contexts/ThemeContext';
-import { SPACING, FONT_SIZE, CARD_SIZE, GRID_COLUMNS, RADIUS } from '@/constants/theme';
+import { Image as ExpoImage } from "expo-image";
+import { useMedia, StatusItem, StatusSource } from "@/contexts/MediaContext";
+import { useMilestoneRating } from "@/hooks/feedback/useMilestoneRating";
+import { MilestoneRatingCard } from "@/components/feedback/MilestoneRatingCard";
+import { MediaCard } from "@/components/media/MediaCard";
+import { EmptyState } from "@/components/media/EmptyState";
+import { LoadingShimmer } from "@/components/media/LoadingShimmer";
+import { SAFGuideOverlay } from "@/components/media/SAFGuideOverlay";
+import { NativeAdCard } from "@/components/ads/NativeAdCard";
+import { RewardedAdOffer } from "@/components/ads/RewardedAdOffer";
+import { useThemeColors, type ThemePalette } from "@/contexts/ThemeContext";
+import { useAds } from "@/contexts/AdsContext";
+import {
+  SPACING,
+  FONT_SIZE,
+  CARD_SIZE,
+  GRID_COLUMNS,
+  RADIUS,
+} from "@/constants/theme";
 // Per-screen error boundary: a crash on this tab shows a recovery UI
 // instead of white-screening the whole app. The user can navigate to
 // Saved or Settings while this tab recovers.
-export { ScreenErrorFallback as ErrorBoundary } from '@/components/common/ScreenErrorFallback';
+export { ScreenErrorFallback as ErrorBoundary } from "@/components/common/ScreenErrorFallback";
 
-const { width: SW } = Dimensions.get('window');
+const { width: SW } = Dimensions.get("window");
 const ROW_HEIGHT = CARD_SIZE + 2;
 // Module-level prefetch dedupe set. This is a plain Set (NOT a ref) because
 // it lives outside any component — refs only exist inside React render trees.
@@ -46,36 +61,51 @@ const prefetchedTapUris = new Set<string>();
 let lastPrefetchTime = 0;
 const PREFETCH_THROTTLE_MS = 200; // Min gap between prefetches
 
-type TabType = 'images' | 'videos';
+type TabType = "images" | "videos";
+type StatusListEntry = StatusItem | { kind: "native-ad"; id: string };
 
 const TAB_BAR_APPROX = 60;
 const BANNER_HEIGHT = 60;
 
-const STATUS_SOURCE_OPTIONS: { value: StatusSource; label: string; sublabel: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+const STATUS_SOURCE_OPTIONS: {
+  value: StatusSource;
+  label: string;
+  sublabel: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+}[] = [
   {
-    value: 'whatsapp',
-    label: 'WhatsApp',
-    sublabel: 'Android/media/com.whatsapp',
-    icon: 'whatsapp',
+    value: "whatsapp",
+    label: "WhatsApp",
+    sublabel: "Android/media/com.whatsapp",
+    icon: "whatsapp",
   },
   {
-    value: 'whatsapp_business',
-    label: 'WhatsApp Business',
-    sublabel: 'Android/media/com.whatsapp.w4b',
-    icon: 'briefcase-outline',
+    value: "whatsapp_business",
+    label: "WhatsApp Business",
+    sublabel: "Android/media/com.whatsapp.w4b",
+    icon: "briefcase-outline",
   },
 ];
 
-const StatusHeader = React.memo(function StatusHeader({ onInfoPress }: { onInfoPress: () => void }) {
+const StatusHeader = React.memo(function StatusHeader({
+  onInfoPress,
+}: {
+  onInfoPress: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   return (
-    <View style={[styles.header, { paddingTop: (Platform.OS === 'web' ? 67 : insets.top) + 6 }]}>
+    <View
+      style={[
+        styles.header,
+        { paddingTop: (Platform.OS === "web" ? 67 : insets.top) + 6 },
+      ]}
+    >
       <View style={styles.headerInner}>
         <View style={styles.logoRow}>
           <ExpoImage
-            source={require('@/assets/images/icon.png')}
+            source={require("@/assets/images/icon.png")}
             style={styles.logoIcon}
             contentFit="cover"
           />
@@ -89,7 +119,11 @@ const StatusHeader = React.memo(function StatusHeader({ onInfoPress }: { onInfoP
           style={styles.headerBtn}
           hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
         >
-          <Ionicons name="information-circle-outline" size={22} color={COLORS.TEXT_SECONDARY} />
+          <Ionicons
+            name="information-circle-outline"
+            size={22}
+            color={COLORS.TEXT_SECONDARY}
+          />
         </TouchableOpacity>
       </View>
     </View>
@@ -109,8 +143,9 @@ const SubTabBar = React.memo(function SubTabBar({
 }) {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const underlineAnim = useRef(new Animated.Value(activeTab === 'images' ? 0 : 1)).current;
-
+  const underlineAnim = useRef(
+    new Animated.Value(activeTab === "images" ? 0 : 1),
+  ).current;
 
   const translateX = underlineAnim.interpolate({
     inputRange: [0, 1],
@@ -119,7 +154,7 @@ const SubTabBar = React.memo(function SubTabBar({
 
   useEffect(() => {
     Animated.timing(underlineAnim, {
-      toValue: activeTab === 'images' ? 0 : 1,
+      toValue: activeTab === "images" ? 0 : 1,
       duration: 220,
       useNativeDriver: true,
     }).start();
@@ -127,44 +162,70 @@ const SubTabBar = React.memo(function SubTabBar({
 
   return (
     <View style={styles.subTabBar}>
-      <Animated.View style={[styles.activeIndicator, { transform: [{ translateX }] }]} />
+      <Animated.View
+        style={[styles.activeIndicator, { transform: [{ translateX }] }]}
+      />
       <TouchableOpacity
-        style={[styles.subTab, activeTab === 'images' && styles.subTabActive]}
-        onPress={() => onTabChange('images')}
+        style={[styles.subTab, activeTab === "images" && styles.subTabActive]}
+        onPress={() => onTabChange("images")}
         activeOpacity={0.75}
       >
         <Ionicons
-          name={activeTab === 'images' ? 'image' : 'image-outline'}
+          name={activeTab === "images" ? "image" : "image-outline"}
           size={16}
-          color={activeTab === 'images' ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
+          color={activeTab === "images" ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
         />
-        <Text style={[styles.subTabText, activeTab === 'images' && { color: COLORS.PRIMARY }]}>
+        <Text
+          style={[
+            styles.subTabText,
+            activeTab === "images" && { color: COLORS.PRIMARY },
+          ]}
+        >
           Images
         </Text>
         {imageCnt > 0 && (
-          <View style={[styles.badge, activeTab === 'images' && styles.badgeActive]}>
-            <Text style={[styles.badgeText, activeTab === 'images' && styles.badgeTextActive]}>
+          <View
+            style={[styles.badge, activeTab === "images" && styles.badgeActive]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                activeTab === "images" && styles.badgeTextActive,
+              ]}
+            >
               {imageCnt}
             </Text>
           </View>
         )}
       </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.subTab, activeTab === 'videos' && styles.subTabActive]}
-        onPress={() => onTabChange('videos')}
+        style={[styles.subTab, activeTab === "videos" && styles.subTabActive]}
+        onPress={() => onTabChange("videos")}
         activeOpacity={0.75}
       >
         <Ionicons
-          name={activeTab === 'videos' ? 'videocam' : 'videocam-outline'}
+          name={activeTab === "videos" ? "videocam" : "videocam-outline"}
           size={16}
-          color={activeTab === 'videos' ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
+          color={activeTab === "videos" ? COLORS.PRIMARY : COLORS.TEXT_MUTED}
         />
-        <Text style={[styles.subTabText, activeTab === 'videos' && { color: COLORS.PRIMARY }]}>
+        <Text
+          style={[
+            styles.subTabText,
+            activeTab === "videos" && { color: COLORS.PRIMARY },
+          ]}
+        >
           Videos
         </Text>
         {videoCnt > 0 && (
-          <View style={[styles.badge, activeTab === 'videos' && styles.badgeActive]}>
-            <Text style={[styles.badgeText, activeTab === 'videos' && styles.badgeTextActive]}>
+          <View
+            style={[styles.badge, activeTab === "videos" && styles.badgeActive]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                activeTab === "videos" && styles.badgeTextActive,
+              ]}
+            >
               {videoCnt}
             </Text>
           </View>
@@ -184,35 +245,48 @@ const StatusSourceSelector = React.memo(function StatusSourceSelector({
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
   const [open, setOpen] = useState(false);
-  const selected = STATUS_SOURCE_OPTIONS.find(option => option.value === selectedSource) || STATUS_SOURCE_OPTIONS[0];
+  const selected =
+    STATUS_SOURCE_OPTIONS.find((option) => option.value === selectedSource) ||
+    STATUS_SOURCE_OPTIONS[0];
 
   return (
     <View style={styles.sourceWrap}>
       <TouchableOpacity
         style={styles.sourceButton}
-        onPress={() => setOpen(current => !current)}
+        onPress={() => setOpen((current) => !current)}
         activeOpacity={0.85}
       >
         <View style={styles.sourceLeft}>
           <View style={styles.sourceIconWrap}>
-            <MaterialCommunityIcons name={selected.icon} size={18} color={COLORS.PRIMARY} />
+            <MaterialCommunityIcons
+              name={selected.icon}
+              size={18}
+              color={COLORS.PRIMARY}
+            />
           </View>
           <View>
             <Text style={styles.sourceLabel}>{selected.label}</Text>
             <Text style={styles.sourceSub}>Choose status folder</Text>
           </View>
         </View>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.TEXT_SECONDARY} />
+        <Ionicons
+          name={open ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={COLORS.TEXT_SECONDARY}
+        />
       </TouchableOpacity>
 
       {open && (
         <View style={styles.sourceMenu}>
-          {STATUS_SOURCE_OPTIONS.map(option => {
+          {STATUS_SOURCE_OPTIONS.map((option) => {
             const active = option.value === selectedSource;
             return (
               <TouchableOpacity
                 key={option.value}
-                style={[styles.sourceOption, active && styles.sourceOptionActive]}
+                style={[
+                  styles.sourceOption,
+                  active && styles.sourceOptionActive,
+                ]}
                 onPress={() => {
                   onSelectSource(option.value);
                   setOpen(false);
@@ -220,15 +294,39 @@ const StatusSourceSelector = React.memo(function StatusSourceSelector({
                 activeOpacity={0.85}
               >
                 <View style={styles.sourceLeft}>
-                  <View style={[styles.sourceIconWrap, active && styles.sourceIconWrapActive]}>
-                    <MaterialCommunityIcons name={option.icon} size={18} color={active ? '#fff' : COLORS.PRIMARY} />
+                  <View
+                    style={[
+                      styles.sourceIconWrap,
+                      active && styles.sourceIconWrapActive,
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name={option.icon}
+                      size={18}
+                      color={active ? "#fff" : COLORS.PRIMARY}
+                    />
                   </View>
                   <View>
-                    <Text style={[styles.sourceOptionLabel, active && styles.sourceOptionLabelActive]}>{option.label}</Text>
-                    <Text style={styles.sourceOptionSub}>{option.sublabel}</Text>
+                    <Text
+                      style={[
+                        styles.sourceOptionLabel,
+                        active && styles.sourceOptionLabelActive,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text style={styles.sourceOptionSub}>
+                      {option.sublabel}
+                    </Text>
                   </View>
                 </View>
-                {active && <Ionicons name="checkmark-circle" size={18} color={COLORS.PRIMARY} />}
+                {active && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={18}
+                    color={COLORS.PRIMARY}
+                  />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -241,7 +339,7 @@ const StatusSourceSelector = React.memo(function StatusSourceSelector({
 export default function StatusesScreen() {
   const COLORS = useThemeColors();
   const styles = useMemo(() => createStyles(COLORS), [COLORS]);
-  const [activeTab, setActiveTab] = useState<TabType>('images');
+  const [activeTab, setActiveTab] = useState<TabType>("images");
   // Track which tabs have been visited at least once. Once a tab is opened,
   // its FlashList stays mounted forever — switching back is instant with no
   // re-decode of thumbnails. Only the very first paint is single-grid (the
@@ -250,9 +348,11 @@ export default function StatusesScreen() {
     images: true,
     videos: false,
   });
-  const [selectedSource, setSelectedSource] = useState<StatusSource>('whatsapp');
-  const saveRating = useMilestoneRating('save');
-  const shareRating = useMilestoneRating('share');
+  const [selectedSource, setSelectedSource] =
+    useState<StatusSource>("whatsapp");
+  const [nativeSlotReserved, setNativeSlotReserved] = useState(false);
+  const saveRating = useMilestoneRating("save");
+  const shareRating = useMilestoneRating("share");
   const {
     statuses,
     isLoading,
@@ -270,6 +370,7 @@ export default function StatusesScreen() {
     saveStatus,
     shareStatus,
   } = useMedia();
+  const { isAdFree, nativeAdEligible, trackDownload } = useAds();
 
   const insets = useSafeAreaInsets();
 
@@ -282,10 +383,10 @@ export default function StatusesScreen() {
   // Triggers on mount, or whenever permissions are granted.
   useEffect(() => {
     if (isGrantingAccess) return;
-    
+
     const needsSAF = androidVersion >= 30;
     const isReady = hasPermission || (needsSAF && safGranted);
-    
+
     if (isReady) {
       loadStatuses();
     }
@@ -295,7 +396,9 @@ export default function StatusesScreen() {
   // when refresh changes identity (happens whenever loadStatuses re-creates due to
   // safUris/hasPermission changes). Re-adding mid-session causes brief listener gaps.
   const refreshRef = useRef(refresh);
-  useEffect(() => { refreshRef.current = refresh; });
+  useEffect(() => {
+    refreshRef.current = refresh;
+  });
 
   // Auto-refresh when the user returns to the app — but ONLY if it has been
   // at least 30 minutes since the last refresh. Statuses don't change often
@@ -309,8 +412,8 @@ export default function StatusesScreen() {
     // Seed the timestamp so the very first AppState→active right after
     // launch never re-triggers a refresh on top of the initial load.
     lastRefreshTime.current = Date.now();
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
         const now = Date.now();
         if (now - lastRefreshTime.current > APP_STATE_REFRESH_THROTTLE_MS) {
           lastRefreshTime.current = now;
@@ -323,23 +426,69 @@ export default function StatusesScreen() {
     return () => sub.remove();
   }, []); // stable — uses ref for refresh
 
-  const selectedSourceLabel = selectedSource === 'whatsapp_business' ? 'WhatsApp Business' : 'WhatsApp';
+  const selectedSourceLabel =
+    selectedSource === "whatsapp_business" ? "WhatsApp Business" : "WhatsApp";
   const selectedStatuses = useMemo(
-    () => statuses.filter(s => s.source === selectedSource),
-    [statuses, selectedSource]
+    () => statuses.filter((s) => s.source === selectedSource),
+    [statuses, selectedSource],
   );
 
-  const imageCnt = useMemo(() => selectedStatuses.filter(s => s.type === 'image').length, [selectedStatuses]);
-  const videoCnt = useMemo(() => selectedStatuses.filter(s => s.type === 'video').length, [selectedStatuses]);
+  const imageCnt = useMemo(
+    () => selectedStatuses.filter((s) => s.type === "image").length,
+    [selectedStatuses],
+  );
+  const videoCnt = useMemo(
+    () => selectedStatuses.filter((s) => s.type === "video").length,
+    [selectedStatuses],
+  );
 
   const filteredImages = useMemo(
-    () => selectedStatuses.filter(s => s.type === 'image'),
-    [selectedStatuses]
+    () => selectedStatuses.filter((s) => s.type === "image"),
+    [selectedStatuses],
   );
 
   const filteredVideos = useMemo(
-    () => selectedStatuses.filter(s => s.type === 'video'),
-    [selectedStatuses]
+    () => selectedStatuses.filter((s) => s.type === "video"),
+    [selectedStatuses],
+  );
+
+  // Keep one native slot in the grid after every tenth status. The slot is
+  // reserved locally once it first becomes eligible so recording the
+  // impression does not make the visible ad disappear mid-scroll.
+  useEffect(() => {
+    if (nativeAdEligible && !isAdFree && !nativeSlotReserved) {
+      setNativeSlotReserved(true);
+    }
+  }, [isAdFree, nativeAdEligible, nativeSlotReserved]);
+
+  const addNativeAdSlot = useCallback(
+    (items: StatusItem[]): StatusListEntry[] => {
+      if (
+        isAdFree ||
+        (!nativeAdEligible && !nativeSlotReserved) ||
+        items.length < 10
+      ) {
+        return items;
+      }
+      const entries: StatusListEntry[] = [];
+      items.forEach((item, index) => {
+        entries.push(item);
+        if (index === 9) {
+          entries.push({ kind: "native-ad", id: "native-ad-tenth-status" });
+        }
+      });
+      return entries;
+    },
+    [isAdFree, nativeAdEligible, nativeSlotReserved],
+  );
+
+  const imageListData = useMemo(
+    () => addNativeAdSlot(filteredImages),
+    [addNativeAdSlot, filteredImages],
+  );
+  const videoListData = useMemo(
+    () => addNativeAdSlot(filteredVideos),
+    [addNativeAdSlot, filteredVideos],
   );
 
   const handlePress = useCallback((item: StatusItem) => {
@@ -349,7 +498,7 @@ export default function StatusesScreen() {
     if (now - lastPress < 300) return;
     navigationRef.current.set(item.id, now);
 
-    if (item.type === 'image') {
+    if (item.type === "image") {
       // For images: prefetch into expo-image's memory-disk cache so the
       // viewer's <Image> resolves from cache instead of waiting for the
       // ContentResolver decode (800 ms–2 s on Android 11+).
@@ -361,7 +510,7 @@ export default function StatusesScreen() {
       ) {
         prefetchedTapUris.add(uri);
         lastPrefetchTime = t;
-        ExpoImage.prefetch(uri, 'memory-disk')
+        ExpoImage.prefetch(uri, "memory-disk")
           .catch(() => {})
           .finally(() => {
             setTimeout(() => prefetchedTapUris.delete(uri), 30000);
@@ -370,7 +519,7 @@ export default function StatusesScreen() {
     }
 
     router.push({
-      pathname: '/viewer',
+      pathname: "/viewer",
       params: { id: item.id },
     });
   }, []);
@@ -381,19 +530,37 @@ export default function StatusesScreen() {
   // MediaCard skip re-renders, so the in-flight touch event isn't dropped on
   // Android 11. (Inline `() => handlePress(item)` was the root cause of
   // "I have to tap 3-4 times to open the image".)
-  const handleSave = useCallback((item: StatusItem) => {
-    saveStatus(item);
-    saveRating.increment();
-  }, [saveStatus, saveRating.increment]);
+  const handleSave = useCallback(
+    async (item: StatusItem) => {
+      const saved = await saveStatus(item);
+      if (saved) {
+        await trackDownload();
+        saveRating.increment();
+      }
+    },
+    [saveStatus, saveRating.increment, trackDownload],
+  );
 
-  const handleShare = useCallback((item: StatusItem) => {
-    shareStatus(item);
-    shareRating.increment();
-  }, [shareStatus, shareRating.increment]);
+  const handleShare = useCallback(
+    (item: StatusItem) => {
+      shareStatus(item);
+      shareRating.increment();
+    },
+    [shareStatus, shareRating.increment],
+  );
 
-  const handlePressAny = useCallback((item: any) => handlePress(item as StatusItem), [handlePress]);
-  const handleSaveAny = useCallback((item: any) => handleSave(item as StatusItem), [handleSave]);
-  const handleShareAny = useCallback((item: any) => handleShare(item as StatusItem), [handleShare]);
+  const handlePressAny = useCallback(
+    (item: any) => handlePress(item as StatusItem),
+    [handlePress],
+  );
+  const handleSaveAny = useCallback(
+    (item: any) => handleSave(item as StatusItem),
+    [handleSave],
+  );
+  const handleShareAny = useCallback(
+    (item: any) => handleShare(item as StatusItem),
+    [handleShare],
+  );
 
   // Stable per-cell renderers. Defining these as arrow functions inline on
   // the FlashList's `renderItem` prop creates a new function identity on
@@ -403,60 +570,65 @@ export default function StatusesScreen() {
   // FlashList only re-renders the specific cells whose data actually
   // changed (handled by React.memo on MediaCard).
   const renderImageItem = useCallback(
-    ({ item }: { item: StatusItem }) => (
-      <MediaCard
-        item={item}
-        onPress={handlePressAny}
-        onSave={handleSaveAny}
-        onShare={handleShareAny}
-        showSaveButton
-      />
-    ),
+    ({ item }: { item: StatusListEntry }) =>
+      "kind" in item ? (
+        <NativeAdCard />
+      ) : (
+        <MediaCard
+          item={item}
+          onPress={handlePressAny}
+          onSave={handleSaveAny}
+          onShare={handleShareAny}
+          showSaveButton
+        />
+      ),
     [handlePressAny, handleSaveAny, handleShareAny],
   );
   const renderVideoItem = useCallback(
-    ({ item }: { item: StatusItem }) => (
-      <MediaCard
-        item={item}
-        onPress={handlePressAny}
-        onSave={handleSaveAny}
-        onShare={handleShareAny}
-        showSaveButton
-      />
-    ),
+    ({ item }: { item: StatusListEntry }) =>
+      "kind" in item ? (
+        <NativeAdCard />
+      ) : (
+        <MediaCard
+          item={item}
+          onPress={handlePressAny}
+          onSave={handleSaveAny}
+          onShare={handleShareAny}
+          showSaveButton
+        />
+      ),
     [handlePressAny, handleSaveAny, handleShareAny],
   );
 
   const getItemLayout = useCallback(
-    (_data: ArrayLike<StatusItem> | null | undefined, index: number) => ({
+    (_data: ArrayLike<StatusListEntry> | null | undefined, index: number) => ({
       length: ROW_HEIGHT,
       offset: ROW_HEIGHT * Math.floor(index / GRID_COLUMNS),
       index,
     }),
-    []
+    [],
   );
 
-  const selectedSafGranted = Platform.OS === 'android'
-    ? Boolean(safUris[selectedSource])
-    : true;
+  const selectedSafGranted =
+    Platform.OS === "android" ? Boolean(safUris[selectedSource]) : true;
 
   // ON ANDROID 11+ (API 30+): We require SAF (Folder Access) for reading statuses.
   // ON ANDROID 10 & BELOW: We only require standard Media Library permission.
-  const showPermScreen = Platform.OS === 'android' && (
-    androidVersion >= 30 ? !selectedSafGranted : !hasPermission
-  );
+  const showPermScreen =
+    Platform.OS === "android" &&
+    (androidVersion >= 30 ? !selectedSafGranted : !hasPermission);
 
   const handleGrantAccess = useCallback(() => {
     if (androidVersion >= 30) {
       requestSAF(selectedSource);
     } else {
       // For legacy versions, send them to the permissions guide
-      router.push('/permissions');
+      router.push("/permissions");
     }
   }, [requestSAF, selectedSource, androidVersion]);
 
   const markVisited = useCallback((tab: TabType) => {
-    setVisitedTabs(prev => (prev[tab] ? prev : { ...prev, [tab]: true }));
+    setVisitedTabs((prev) => (prev[tab] ? prev : { ...prev, [tab]: true }));
   }, []);
 
   // PRE-WARM the videos tab AFTER first paint of images settles.
@@ -468,41 +640,43 @@ export default function StatusesScreen() {
   // mount the videos grid offscreen. By the time the user swipes there,
   // it's fully rendered — instant, zero jank.
   useEffect(() => {
-  if (visitedTabs.videos) return;
-  if (filteredVideos.length === 0) return;
-  if (isLoading || isInitializing) return;
-  
-  // Use requestIdleCallback if available (web + modern Android)
-  const idleCallback = (callback: IdleRequestCallback) => {
-    if ('requestIdleCallback' in global) {
-      return (global as any).requestIdleCallback(callback, { timeout: 2000 });
-    }
-    // Fallback: setTimeout with longer delay
-    return setTimeout(callback, 2000);
-  };
-  
-  const handle = InteractionManager.runAfterInteractions(() => {
-    idleCallback(() => {
-      // Only mount if still unvisited
-      setVisitedTabs(prev => (prev.videos ? prev : { ...prev, videos: true }));
+    if (visitedTabs.videos) return;
+    if (filteredVideos.length === 0) return;
+    if (isLoading || isInitializing) return;
+
+    // Use requestIdleCallback if available (web + modern Android)
+    const idleCallback = (callback: IdleRequestCallback) => {
+      if ("requestIdleCallback" in global) {
+        return (global as any).requestIdleCallback(callback, { timeout: 2000 });
+      }
+      // Fallback: setTimeout with longer delay
+      return setTimeout(callback, 2000);
+    };
+
+    const handle = InteractionManager.runAfterInteractions(() => {
+      idleCallback(() => {
+        // Only mount if still unvisited
+        setVisitedTabs((prev) =>
+          prev.videos ? prev : { ...prev, videos: true },
+        );
+      });
     });
-  });
-  
-  return () => {
-    if (typeof handle === 'number') {
-      clearTimeout(handle);
-    } else {
-      handle?.cancel?.();
-    }
-  };
-}, [filteredVideos.length, isLoading, isInitializing, visitedTabs.videos]);
+
+    return () => {
+      if (typeof handle === "number") {
+        clearTimeout(handle);
+      } else {
+        handle?.cancel?.();
+      }
+    };
+  }, [filteredVideos.length, isLoading, isInitializing, visitedTabs.videos]);
 
   // The instant the user STARTS dragging the horizontal pager, mount BOTH
   // grids. This way the destination grid renders DURING the swipe
   // animation rather than at the end — eliminating the jank spike and
   // black flash users see today.
   const onScrollBeginDrag = useCallback(() => {
-    setVisitedTabs(prev => {
+    setVisitedTabs((prev) => {
       if (prev.images && prev.videos) return prev;
       return { images: true, videos: true };
     });
@@ -519,26 +693,32 @@ export default function StatusesScreen() {
     refresh(true);
   }, [refresh]);
 
-  const handleTabChange = useCallback((tab: TabType) => {
-    setActiveTab(tab);
-    markVisited(tab);
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        x: tab === 'images' ? 0 : SW,
-        animated: true,
-      });
-    }
-  }, [markVisited]);
+  const handleTabChange = useCallback(
+    (tab: TabType) => {
+      setActiveTab(tab);
+      markVisited(tab);
+      if (scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({
+          x: tab === "images" ? 0 : SW,
+          animated: true,
+        });
+      }
+    },
+    [markVisited],
+  );
 
   activeTabRef.current = activeTab;
-  const onScroll = useCallback((event: any) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const newTab = offsetX >= SW / 2 ? 'videos' : 'images';
-    if (newTab !== activeTabRef.current) {
-      setActiveTab(newTab);
-      markVisited(newTab);
-    }
-  }, [markVisited]);
+  const onScroll = useCallback(
+    (event: any) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const newTab = offsetX >= SW / 2 ? "videos" : "images";
+      if (newTab !== activeTabRef.current) {
+        setActiveTab(newTab);
+        markVisited(newTab);
+      }
+    },
+    [markVisited],
+  );
 
   const bottomPad = insets.bottom + TAB_BAR_APPROX + 4;
 
@@ -555,26 +735,35 @@ export default function StatusesScreen() {
   if (showPermScreen) {
     return (
       <View style={styles.root}>
-      <StatusHeader onInfoPress={() => router.push('/permissions')} />
-        <StatusSourceSelector selectedSource={selectedSource} onSelectSource={setSelectedSource} />
+        <StatusHeader onInfoPress={() => router.push("/permissions")} />
+        <StatusSourceSelector
+          selectedSource={selectedSource}
+          onSelectSource={setSelectedSource}
+        />
         <SAFGuideOverlay visible={isRequestingSAF} />
         <View style={styles.permScreen}>
           <LinearGradient
-            colors={[COLORS.PRIMARY + '22', 'transparent']}
+            colors={[COLORS.PRIMARY + "22", "transparent"]}
             style={styles.permGlow}
           />
           <View style={styles.permIconWrap}>
-            <MaterialCommunityIcons 
-              name={androidVersion >= 30 ? "folder-lock-open-outline" : "shield-key-outline"} 
-              size={52} 
-              color={COLORS.PRIMARY} 
+            <MaterialCommunityIcons
+              name={
+                androidVersion >= 30
+                  ? "folder-lock-open-outline"
+                  : "shield-key-outline"
+              }
+              size={52}
+              color={COLORS.PRIMARY}
             />
           </View>
           <Text style={styles.permTitle}>
-            {androidVersion >= 30 ? `${selectedSourceLabel} Setup Required` : 'Permission Required'}
+            {androidVersion >= 30
+              ? `${selectedSourceLabel} Setup Required`
+              : "Permission Required"}
           </Text>
           <Text style={styles.permSub}>
-            {androidVersion >= 30 
+            {androidVersion >= 30
               ? `Grant folder access to view ${selectedSourceLabel} statuses.\nThe picker will open directly to the ${selectedSourceLabel} Media folder.`
               : `Allow access to your device gallery to scan and save ${selectedSourceLabel} statuses.`}
           </Text>
@@ -585,10 +774,15 @@ export default function StatusesScreen() {
           >
             <Ionicons name="shield-checkmark" size={17} color="#fff" />
             <Text style={styles.permBtnText}>
-              {androidVersion >= 30 ? `Grant ${selectedSourceLabel}` : 'Grant Permission'}
+              {androidVersion >= 30
+                ? `Grant ${selectedSourceLabel}`
+                : "Grant Permission"}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.guideLink} onPress={() => router.push('/guide')}>
+          <TouchableOpacity
+            style={styles.guideLink}
+            onPress={() => router.push("/guide")}
+          >
             <Ionicons name="book-outline" size={14} color={COLORS.PRIMARY} />
             <Text style={styles.guideLinkText}>View Setup Guide</Text>
           </TouchableOpacity>
@@ -599,9 +793,13 @@ export default function StatusesScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusHeader onInfoPress={() => router.push('/permissions')} />
+      <StatusHeader onInfoPress={() => router.push("/permissions")} />
 
-      <StatusSourceSelector selectedSource={selectedSource} onSelectSource={setSelectedSource} />
+      <StatusSourceSelector
+        selectedSource={selectedSource}
+        onSelectSource={setSelectedSource}
+      />
+      <RewardedAdOffer />
       <SAFGuideOverlay visible={isRequestingSAF} />
 
       <SubTabBar
@@ -642,7 +840,7 @@ export default function StatusesScreen() {
           {(isLoading || isGrantingAccess) && filteredImages.length === 0 ? (
             <LoadingShimmer
               count={GRID_COLUMNS * 8}
-              label={isGrantingAccess ? 'Scanning statuses…' : undefined}
+              label={isGrantingAccess ? "Scanning statuses…" : undefined}
             />
           ) : filteredImages.length === 0 ? (
             <EmptyState
@@ -654,7 +852,7 @@ export default function StatusesScreen() {
             />
           ) : visitedTabs.images ? (
             <FlatList
-              data={filteredImages}
+              data={imageListData}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               getItemLayout={getItemLayout}
@@ -668,7 +866,11 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={renderImageItem}
-              contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
+              contentContainerStyle={{
+                paddingBottom: bottomPad,
+                paddingHorizontal: 1,
+                paddingTop: 1,
+              }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews
               windowSize={5}
@@ -684,7 +886,7 @@ export default function StatusesScreen() {
           {(isLoading || isGrantingAccess) && filteredVideos.length === 0 ? (
             <LoadingShimmer
               count={GRID_COLUMNS * 8}
-              label={isGrantingAccess ? 'Scanning statuses…' : undefined}
+              label={isGrantingAccess ? "Scanning statuses…" : undefined}
             />
           ) : filteredVideos.length === 0 ? (
             <EmptyState
@@ -696,7 +898,7 @@ export default function StatusesScreen() {
             />
           ) : visitedTabs.videos ? (
             <FlatList
-              data={filteredVideos}
+              data={videoListData}
               keyExtractor={(item) => item.id}
               numColumns={GRID_COLUMNS}
               getItemLayout={getItemLayout}
@@ -710,7 +912,11 @@ export default function StatusesScreen() {
                 />
               }
               renderItem={renderVideoItem}
-              contentContainerStyle={{ paddingBottom: bottomPad, paddingHorizontal: 1, paddingTop: 1 }}
+              contentContainerStyle={{
+                paddingBottom: bottomPad,
+                paddingHorizontal: 1,
+                paddingTop: 1,
+              }}
               showsVerticalScrollIndicator={false}
               removeClippedSubviews
               windowSize={5}
@@ -743,270 +949,271 @@ export default function StatusesScreen() {
   );
 }
 
-const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
-  },
-  initScreen: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  header: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: SPACING.LG,
-    paddingBottom: SPACING.MD,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.SM + 2,
-  },
-  logoIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: COLORS.TEXT,
-    fontFamily: 'Nunito_800ExtraBold',
-    letterSpacing: -0.5,
-    lineHeight: 26,
-  },
-  logoSub: {
-    fontSize: 10,
-    color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_600SemiBold',
-    lineHeight: 13,
-  },
-  headerBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.SURFACE_2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sourceWrap: {
-    paddingHorizontal: SPACING.LG,
-    paddingBottom: SPACING.SM,
-    zIndex: 10,
-  },
-  sourceButton: {
-    minHeight: 48,
-    borderRadius: RADIUS.MD,
-    backgroundColor: COLORS.SURFACE,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    paddingHorizontal: SPACING.MD,
-    paddingVertical: SPACING.SM,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sourceLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.SM,
-  },
-  sourceIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.PRIMARY + '18',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sourceIconWrapActive: {
-    backgroundColor: COLORS.PRIMARY,
-  },
-  sourceLabel: {
-    fontSize: FONT_SIZE.MD,
-    fontWeight: '800',
-    color: COLORS.TEXT,
-    fontFamily: 'Nunito_800ExtraBold',
-  },
-  sourceSub: {
-    fontSize: 10,
-    color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_600SemiBold',
-    marginTop: 1,
-  },
-  sourceMenu: {
-    marginTop: SPACING.XS,
-    borderRadius: RADIUS.MD,
-    backgroundColor: COLORS.SURFACE,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    overflow: 'hidden',
-  },
-  sourceOption: {
-    minHeight: 58,
-    paddingHorizontal: SPACING.MD,
-    paddingVertical: SPACING.SM,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
-  sourceOptionActive: {
-    backgroundColor: COLORS.PRIMARY + '10',
-  },
-  sourceOptionLabel: {
-    fontSize: FONT_SIZE.MD,
-    fontWeight: '700',
-    color: COLORS.TEXT,
-    fontFamily: 'Nunito_700Bold',
-  },
-  sourceOptionLabelActive: {
-    color: COLORS.PRIMARY,
-  },
-  sourceOptionSub: {
-    fontSize: 10,
-    color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_400Regular',
-    marginTop: 2,
-  },
-  subTabBar: {
-    flexDirection: 'row',
-    backgroundColor: 'transparent',
-    paddingHorizontal: SPACING.LG,
-    gap: SPACING.MD,
-    height: 50,
-    alignItems: 'center',
-  },
-  activeIndicator: {
-    display: 'none',
-  },
-  subTab: {
-    flex: 1,
-    height: 38,
-    borderRadius: RADIUS.MD,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.SURFACE,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  subTabText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_700Bold',
-  },
-  subTabActive: {
-    backgroundColor: COLORS.PRIMARY + '15',
-    borderColor: COLORS.PRIMARY + '40',
-    color: COLORS.PRIMARY,
-  },
-  badge: {
-    backgroundColor: COLORS.SURFACE_2,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 20,
-    alignItems: 'center',
-  },
-  badgeActive: {
-    backgroundColor: COLORS.PRIMARY + '30',
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.TEXT_MUTED,
-    fontFamily: 'Nunito_700Bold',
-  },
-  badgeTextActive: {
-    color: COLORS.PRIMARY,
-  },
-  listArea: {
-    flex: 1,
-  },
-  row: {
-    gap: 0,
-  },
-  permScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.XXL,
-    gap: SPACING.MD,
-  },
-  permGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    borderRadius: 100,
-  },
-  permIconWrap: {
-    width: 100,
-    height: 100,
-    borderRadius: 26,
-    backgroundColor: COLORS.SURFACE_2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY + '44',
-    marginBottom: SPACING.SM,
-  },
-  permTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.TEXT,
-    textAlign: 'center',
-    fontFamily: 'Nunito_800ExtraBold',
-  },
-  permSub: {
-    fontSize: FONT_SIZE.MD,
-    color: COLORS.TEXT_SECONDARY,
-    textAlign: 'center',
-    lineHeight: 22,
-    fontFamily: 'Nunito_400Regular',
-  },
-  permBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.SM,
-    marginTop: SPACING.LG,
-    backgroundColor: COLORS.PRIMARY,
-    paddingHorizontal: SPACING.XXL,
-    paddingVertical: SPACING.MD,
-    borderRadius: 30,
-  },
-  permBtnText: {
-    fontSize: FONT_SIZE.LG,
-    fontWeight: '700',
-    color: '#fff',
-    fontFamily: 'Nunito_700Bold',
-  },
-  guideLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    padding: SPACING.MD,
-  },
-  guideLinkText: {
-    fontSize: FONT_SIZE.MD,
-    color: COLORS.PRIMARY,
-    fontFamily: 'Nunito_600SemiBold',
-  },
-});
+const createStyles = (COLORS: ThemePalette) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: COLORS.BACKGROUND,
+    },
+    initScreen: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    header: {
+      backgroundColor: "transparent",
+      paddingHorizontal: SPACING.LG,
+      paddingBottom: SPACING.MD,
+    },
+    headerInner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    logoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.SM + 2,
+    },
+    logoIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: COLORS.PRIMARY,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    logoText: {
+      fontSize: 22,
+      fontWeight: "900",
+      color: COLORS.TEXT,
+      fontFamily: "Nunito_800ExtraBold",
+      letterSpacing: -0.5,
+      lineHeight: 26,
+    },
+    logoSub: {
+      fontSize: 10,
+      color: COLORS.TEXT_MUTED,
+      fontFamily: "Nunito_600SemiBold",
+      lineHeight: 13,
+    },
+    headerBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: COLORS.SURFACE_2,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sourceWrap: {
+      paddingHorizontal: SPACING.LG,
+      paddingBottom: SPACING.SM,
+      zIndex: 10,
+    },
+    sourceButton: {
+      minHeight: 48,
+      borderRadius: RADIUS.MD,
+      backgroundColor: COLORS.SURFACE,
+      borderWidth: 1,
+      borderColor: COLORS.BORDER,
+      paddingHorizontal: SPACING.MD,
+      paddingVertical: SPACING.SM,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    sourceLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.SM,
+    },
+    sourceIconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: COLORS.PRIMARY + "18",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sourceIconWrapActive: {
+      backgroundColor: COLORS.PRIMARY,
+    },
+    sourceLabel: {
+      fontSize: FONT_SIZE.MD,
+      fontWeight: "800",
+      color: COLORS.TEXT,
+      fontFamily: "Nunito_800ExtraBold",
+    },
+    sourceSub: {
+      fontSize: 10,
+      color: COLORS.TEXT_MUTED,
+      fontFamily: "Nunito_600SemiBold",
+      marginTop: 1,
+    },
+    sourceMenu: {
+      marginTop: SPACING.XS,
+      borderRadius: RADIUS.MD,
+      backgroundColor: COLORS.SURFACE,
+      borderWidth: 1,
+      borderColor: COLORS.BORDER,
+      overflow: "hidden",
+    },
+    sourceOption: {
+      minHeight: 58,
+      paddingHorizontal: SPACING.MD,
+      paddingVertical: SPACING.SM,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.BORDER,
+    },
+    sourceOptionActive: {
+      backgroundColor: COLORS.PRIMARY + "10",
+    },
+    sourceOptionLabel: {
+      fontSize: FONT_SIZE.MD,
+      fontWeight: "700",
+      color: COLORS.TEXT,
+      fontFamily: "Nunito_700Bold",
+    },
+    sourceOptionLabelActive: {
+      color: COLORS.PRIMARY,
+    },
+    sourceOptionSub: {
+      fontSize: 10,
+      color: COLORS.TEXT_MUTED,
+      fontFamily: "Nunito_400Regular",
+      marginTop: 2,
+    },
+    subTabBar: {
+      flexDirection: "row",
+      backgroundColor: "transparent",
+      paddingHorizontal: SPACING.LG,
+      gap: SPACING.MD,
+      height: 50,
+      alignItems: "center",
+    },
+    activeIndicator: {
+      display: "none",
+    },
+    subTab: {
+      flex: 1,
+      height: 38,
+      borderRadius: RADIUS.MD,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: COLORS.SURFACE,
+      borderWidth: 1,
+      borderColor: COLORS.BORDER,
+    },
+    subTabText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: COLORS.TEXT_MUTED,
+      fontFamily: "Nunito_700Bold",
+    },
+    subTabActive: {
+      backgroundColor: COLORS.PRIMARY + "15",
+      borderColor: COLORS.PRIMARY + "40",
+      color: COLORS.PRIMARY,
+    },
+    badge: {
+      backgroundColor: COLORS.SURFACE_2,
+      borderRadius: 10,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      minWidth: 20,
+      alignItems: "center",
+    },
+    badgeActive: {
+      backgroundColor: COLORS.PRIMARY + "30",
+    },
+    badgeText: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: COLORS.TEXT_MUTED,
+      fontFamily: "Nunito_700Bold",
+    },
+    badgeTextActive: {
+      color: COLORS.PRIMARY,
+    },
+    listArea: {
+      flex: 1,
+    },
+    row: {
+      gap: 0,
+    },
+    permScreen: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: SPACING.XXL,
+      gap: SPACING.MD,
+    },
+    permGlow: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 200,
+      borderRadius: 100,
+    },
+    permIconWrap: {
+      width: 100,
+      height: 100,
+      borderRadius: 26,
+      backgroundColor: COLORS.SURFACE_2,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: COLORS.PRIMARY + "44",
+      marginBottom: SPACING.SM,
+    },
+    permTitle: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: COLORS.TEXT,
+      textAlign: "center",
+      fontFamily: "Nunito_800ExtraBold",
+    },
+    permSub: {
+      fontSize: FONT_SIZE.MD,
+      color: COLORS.TEXT_SECONDARY,
+      textAlign: "center",
+      lineHeight: 22,
+      fontFamily: "Nunito_400Regular",
+    },
+    permBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: SPACING.SM,
+      marginTop: SPACING.LG,
+      backgroundColor: COLORS.PRIMARY,
+      paddingHorizontal: SPACING.XXL,
+      paddingVertical: SPACING.MD,
+      borderRadius: 30,
+    },
+    permBtnText: {
+      fontSize: FONT_SIZE.LG,
+      fontWeight: "700",
+      color: "#fff",
+      fontFamily: "Nunito_700Bold",
+    },
+    guideLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      padding: SPACING.MD,
+    },
+    guideLinkText: {
+      fontSize: FONT_SIZE.MD,
+      color: COLORS.PRIMARY,
+      fontFamily: "Nunito_600SemiBold",
+    },
+  });

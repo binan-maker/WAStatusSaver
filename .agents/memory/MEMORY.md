@@ -1,0 +1,1 @@
+- [Expo dependency firewall](expo-dependency-firewall.md) — imported Expo checkouts may lack node_modules when the lockfile’s tar dependency is blocked by package security policy.

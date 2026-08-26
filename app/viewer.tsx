@@ -1,4 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -11,18 +17,23 @@ import {
   Alert,
   ActivityIndicator,
   BackHandler,
-} from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { useMedia, StatusItem, SavedItem } from '@/contexts/MediaContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import * as NavigationBar from 'expo-navigation-bar';
-import * as SystemUI from 'expo-system-ui';
-import { ViewerItem } from '@/components/viewer/ViewerItem';
-import { createStyles, SW, ITEM_SPACING } from '@/components/viewer/viewerStyles';
-import { ThumbnailCache } from '@/lib/thumbnail-cache';
+} from "react-native";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { useMedia, StatusItem, SavedItem } from "@/contexts/MediaContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import * as NavigationBar from "expo-navigation-bar";
+import * as SystemUI from "expo-system-ui";
+import { ViewerItem } from "@/components/viewer/ViewerItem";
+import {
+  createStyles,
+  SW,
+  ITEM_SPACING,
+} from "@/components/viewer/viewerStyles";
+import { ThumbnailCache } from "@/lib/thumbnail-cache";
+import { useAds } from "@/contexts/AdsContext";
 
 export default function ViewerScreen() {
   const { colors: COLORS, resolved } = useTheme();
@@ -39,10 +50,15 @@ export default function ViewerScreen() {
     hasPermission,
     prepareStatusForViewing,
   } = useMedia();
+  const { trackDownload } = useAds();
 
-  const params = useLocalSearchParams<{ id: string; isSaved?: string; savedFilter?: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    isSaved?: string;
+    savedFilter?: string;
+  }>();
   const { id, isSaved: isSavedParam, savedFilter } = params;
-  const isSavedView = isSavedParam === '1';
+  const isSavedView = isSavedParam === "1";
   const prevIdRef = useRef<string | null>(null);
 
   // Load statuses if empty (deep link / refresh)
@@ -63,7 +79,7 @@ export default function ViewerScreen() {
   // ── Enter / exit transition ──────────────────────────────────────────────
   // The Stack is set to animation:'none' so these Animated values own the
   // full enter and exit motion — no double-animation.
-  const viewerOpacity    = useRef(new Animated.Value(0)).current;
+  const viewerOpacity = useRef(new Animated.Value(0)).current;
   const viewerTranslateY = useRef(new Animated.Value(28)).current;
 
   // Enter: fade in + slide up (230 ms ease-out).
@@ -82,7 +98,7 @@ export default function ViewerScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Exit: fade out + slide down (190 ms ease-in), then restore bars and pop.
@@ -103,29 +119,31 @@ export default function ViewerScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      if (Platform.OS === 'android') {
+      if (Platform.OS === "android") {
         const { resolved: r, bg } = themeRestoreRef.current;
-        const isDark = r === 'dark';
-        StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+        const isDark = r === "dark";
+        StatusBar.setBarStyle(isDark ? "light-content" : "dark-content", true);
         StatusBar.setBackgroundColor(bg, true);
-        NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+        NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark").catch(
+          () => {},
+        );
         SystemUI.setBackgroundColorAsync(bg).catch(() => {});
       }
       router.back();
     });
-  // viewerOpacity / viewerTranslateY are stable Animated refs; themeRestoreRef is a ref.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // viewerOpacity / viewerTranslateY are stable Animated refs; themeRestoreRef is a ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    StatusBar.setHidden(false, 'none');
+    if (Platform.OS !== "android") return;
+    StatusBar.setHidden(false, "none");
     StatusBar.setTranslucent(false);
-    StatusBar.setBarStyle('light-content', true);
-    StatusBar.setBackgroundColor('#000000', true);
-    NavigationBar.setButtonStyleAsync('light').catch(() => {});
-    SystemUI.setBackgroundColorAsync('#000000').catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    StatusBar.setBarStyle("light-content", true);
+    StatusBar.setBackgroundColor("#000000", true);
+    NavigationBar.setButtonStyleAsync("light").catch(() => {});
+    SystemUI.setBackgroundColorAsync("#000000").catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Thumbnail I/O pause while viewer is open; restore on blur.
@@ -140,44 +158,53 @@ export default function ViewerScreen() {
       ThumbnailCache.pause();
       return () => {
         ThumbnailCache.resume();
-        if (Platform.OS !== 'android') return;
+        if (Platform.OS !== "android") return;
         const { resolved: r, bg } = themeRestoreRef.current;
-        const isDark = r === 'dark';
+        const isDark = r === "dark";
         // Delay matches the exit animation duration so bars don't flash mid-fade.
         setTimeout(() => {
-          StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content', true);
+          StatusBar.setBarStyle(
+            isDark ? "light-content" : "dark-content",
+            true,
+          );
           StatusBar.setBackgroundColor(bg, true);
-          NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark').catch(() => {});
+          NavigationBar.setButtonStyleAsync(isDark ? "light" : "dark").catch(
+            () => {},
+          );
           SystemUI.setBackgroundColorAsync(bg).catch(() => {});
         }, 200);
       };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
   );
 
   // Hardware back button — play exit animation then pop.
   useFocusEffect(
     useCallback(() => {
-      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
         handleBack();
         return true;
       });
       return () => sub.remove();
-    // handleBack is stable ([] deps).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [handleBack])
+      // handleBack is stable ([] deps).
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleBack]),
   );
 
   const items = useMemo(() => {
     if (isSavedView) {
-      if (savedFilter === 'images') return savedItems.filter(s => s.type === 'image');
-      if (savedFilter === 'videos') return savedItems.filter(s => s.type === 'video');
+      if (savedFilter === "images")
+        return savedItems.filter((s) => s.type === "image");
+      if (savedFilter === "videos")
+        return savedItems.filter((s) => s.type === "video");
       // 'all' (or no filter) — preserve original saved order, no type split
       return savedItems;
     }
-    const start = statuses.find(s => s.id === id || decodeURIComponent(s.id) === id);
+    const start = statuses.find(
+      (s) => s.id === id || decodeURIComponent(s.id) === id,
+    );
     if (!start) return [];
-    return statuses.filter(s => s.type === start.type);
+    return statuses.filter((s) => s.type === start.type);
   }, [isSavedView, savedItems, statuses, id, savedFilter]);
 
   // ── Active-item tracking ────────────────────────────────────────────────
@@ -195,7 +222,8 @@ export default function ViewerScreen() {
   // Derived synchronously — never stale across items shifts.
   const currentIndex = useMemo(() => {
     const idx = items.findIndex(
-      it => it.id === currentItemId || decodeURIComponent(it.id) === currentItemId,
+      (it) =>
+        it.id === currentItemId || decodeURIComponent(it.id) === currentItemId,
     );
     return idx !== -1 ? idx : 0;
   }, [items, currentItemId]);
@@ -211,7 +239,10 @@ export default function ViewerScreen() {
       prevIndex.current = currentIndex;
       if (currentIndex > 0) {
         setTimeout(() => {
-          flatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
+          flatListRef.current?.scrollToIndex({
+            index: currentIndex,
+            animated: false,
+          });
         }, 50);
       }
     }
@@ -225,16 +256,17 @@ export default function ViewerScreen() {
       items[currentIndex + 1],
     ].filter(Boolean);
     for (const it of slots) {
-      if (it.type === 'image') {
-        const uri = 'localUri' in it ? (it as SavedItem).localUri : it.uri;
-        Image.prefetch(uri, 'memory-disk').catch(() => {});
+      if (it.type === "image") {
+        const uri = "localUri" in it ? (it as SavedItem).localUri : it.uri;
+        Image.prefetch(uri, "memory-disk").catch(() => {});
       }
     }
     const timer = setTimeout(() => {
       const next2 = items[currentIndex + 2];
-      if (next2?.type === 'image') {
-        const uri = 'localUri' in next2 ? (next2 as SavedItem).localUri : next2.uri;
-        Image.prefetch(uri, 'memory-disk').catch(() => {});
+      if (next2?.type === "image") {
+        const uri =
+          "localUri" in next2 ? (next2 as SavedItem).localUri : next2.uri;
+        Image.prefetch(uri, "memory-disk").catch(() => {});
       }
     }, 400);
     return () => clearTimeout(timer);
@@ -269,9 +301,9 @@ export default function ViewerScreen() {
       duration: 300,
       useNativeDriver: true,
     }).start();
-  // controlsOpacity is useRef(..).current — never changes. toggleControls
-  // is now effectively stable for the full lifetime of the viewer screen.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // controlsOpacity is useRef(..).current — never changes. toggleControls
+    // is now effectively stable for the full lifetime of the viewer screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controlsOpacity]);
 
   // ── Memoized renderItem ─────────────────────────────────────────────────────
@@ -279,37 +311,49 @@ export default function ViewerScreen() {
   // every ViewerScreen render. Wrapping with useCallback keeps the reference
   // stable during steady-state playback. ViewerItem is React.memo-wrapped with
   // a prop comparator, so it only re-renders when something actually changes.
-  const renderItem = useCallback(({ item, index }: { item: StatusItem | SavedItem; index: number }) => (
-    <ViewerItem
-      item={item}
-      isActive={index === currentIndex}
-      isNearActive={Math.abs(index - currentIndex) <= 1}
-      onToggleControls={toggleControls}
-      prepareStatusForViewing={prepareStatusForViewing}
-      bottomInset={insets.bottom}
-    />
-  // showControls / controlsOpacity intentionally excluded — they are not used
-  // inside ViewerItem and were causing every tap-to-toggle-controls event to
-  // re-render all visible slides, which in turn triggered the StableVideo memo
-  // comparator and contributed to the stutter loop.
-  ), [currentIndex, toggleControls, prepareStatusForViewing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const renderItem = useCallback(
+    ({ item, index }: { item: StatusItem | SavedItem; index: number }) => (
+      <ViewerItem
+        item={item}
+        isActive={index === currentIndex}
+        isNearActive={Math.abs(index - currentIndex) <= 1}
+        onToggleControls={toggleControls}
+        prepareStatusForViewing={prepareStatusForViewing}
+        bottomInset={insets.bottom}
+      />
+      // showControls / controlsOpacity intentionally excluded — they are not used
+      // inside ViewerItem and were causing every tap-to-toggle-controls event to
+      // re-render all visible slides, which in turn triggered the StableVideo memo
+      // comparator and contributed to the stutter loop.
+    ),
+    [currentIndex, toggleControls, prepareStatusForViewing],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleIndexSettled = useCallback((event: any) => {
-    const index = Math.round(event.nativeEvent.contentOffset.x / (SW + ITEM_SPACING));
-    if (index < 0 || index >= items.length || index === prevIndex.current) return;
-    const newId = items[index]?.id;
-    if (newId) setCurrentItemId(newId);
-    setShowControls(true);
-    controlsOpacity.setValue(1);
-    prevIndex.current = index;
-  }, [items, controlsOpacity]);
+  const handleIndexSettled = useCallback(
+    (event: any) => {
+      const index = Math.round(
+        event.nativeEvent.contentOffset.x / (SW + ITEM_SPACING),
+      );
+      if (index < 0 || index >= items.length || index === prevIndex.current)
+        return;
+      const newId = items[index]?.id;
+      if (newId) setCurrentItemId(newId);
+      setShowControls(true);
+      controlsOpacity.setValue(1);
+      prevIndex.current = index;
+    },
+    [items, controlsOpacity],
+  );
 
   const handleSave = useCallback(async () => {
     if (!currentItem || isSaved || isSaving) return;
     setIsSaving(true);
-    await saveStatus(currentItem);
+    const saved = await saveStatus(currentItem);
+    if (saved) {
+      await trackDownload();
+    }
     setIsSaving(false);
-  }, [currentItem, isSaved, isSaving, saveStatus]);
+  }, [currentItem, isSaved, isSaving, saveStatus, trackDownload]);
 
   const handleShare = useCallback(async () => {
     if (!currentItem) return;
@@ -318,13 +362,13 @@ export default function ViewerScreen() {
 
   const handleDelete = useCallback(async () => {
     if (!isSavedView || !currentItem) return;
-    Alert.alert('Delete', 'Remove this status from saved?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert("Delete", "Remove this status from saved?", [
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Delete',
-        style: 'destructive',
+        text: "Delete",
+        style: "destructive",
         onPress: async () => {
-          const saved = savedItems.find(s => s.id === currentItem.id);
+          const saved = savedItems.find((s) => s.id === currentItem.id);
           if (saved) {
             await deleteFromSaved(saved);
             if (items.length <= 1) handleBack();
@@ -335,16 +379,28 @@ export default function ViewerScreen() {
   }, [isSavedView, currentItem, savedItems, deleteFromSaved, items.length]);
 
   if (!currentItem) return null;
-  const isVideoItem = currentItem.type === 'video';
+  const isVideoItem = currentItem.type === "video";
 
   return (
-    <Animated.View style={[styles.root, { opacity: viewerOpacity, transform: [{ translateY: viewerTranslateY }] }]}>
+    <Animated.View
+      style={[
+        styles.root,
+        {
+          opacity: viewerOpacity,
+          transform: [{ translateY: viewerTranslateY }],
+        },
+      ]}
+    >
       <FlatList
         ref={flatListRef}
         data={items}
         horizontal
         initialScrollIndex={currentIndex > 0 ? currentIndex : undefined}
-        getItemLayout={(_, index) => ({ length: SW + ITEM_SPACING, offset: (SW + ITEM_SPACING) * index, index })}
+        getItemLayout={(_, index) => ({
+          length: SW + ITEM_SPACING,
+          offset: (SW + ITEM_SPACING) * index,
+          index,
+        })}
         onMomentumScrollEnd={handleIndexSettled}
         snapToInterval={SW + ITEM_SPACING}
         decelerationRate="fast"
@@ -353,7 +409,10 @@ export default function ViewerScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         onScrollToIndexFailed={(info) => {
-          flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+          flatListRef.current?.scrollToIndex({
+            index: info.index,
+            animated: false,
+          });
         }}
         windowSize={3}
         initialNumToRender={1}
@@ -364,7 +423,10 @@ export default function ViewerScreen() {
 
       {/* Top bar — always visible */}
       <Animated.View
-        style={[styles.topBar, { paddingTop: insets.top + 8, opacity: 1, zIndex: 150 }]}
+        style={[
+          styles.topBar,
+          { paddingTop: insets.top + 8, opacity: 1, zIndex: 150 },
+        ]}
         pointerEvents="box-none"
       >
         <TouchableOpacity
@@ -375,22 +437,44 @@ export default function ViewerScreen() {
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={styles.topInfo}>
-          <Text style={styles.topCounter}>{currentIndex + 1} / {items.length}</Text>
+          <Text style={styles.topCounter}>
+            {currentIndex + 1} / {items.length}
+          </Text>
         </View>
         <View style={{ width: 40 }} />
       </Animated.View>
 
       {/* Video: Reels-style right sidebar */}
       {isVideoItem && (
-        <View style={[styles.reelsSidebar, { bottom: insets.bottom + 100 }]} pointerEvents="box-none">
+        <View
+          style={[styles.reelsSidebar, { bottom: insets.bottom + 100 }]}
+          pointerEvents="box-none"
+        >
           {!isSavedView && (
-            <TouchableOpacity style={styles.reelsBtn} onPress={handleSave} disabled={!!isSaved || isSaving}>
-              <View style={[styles.reelsCircle, isSaved && { backgroundColor: COLORS.PRIMARY + 'CC' }]}>
-                {isSaving
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Ionicons name={isSaved ? 'checkmark-circle' : 'download-outline'} size={26} color="#fff" />}
+            <TouchableOpacity
+              style={styles.reelsBtn}
+              onPress={handleSave}
+              disabled={!!isSaved || isSaving}
+            >
+              <View
+                style={[
+                  styles.reelsCircle,
+                  isSaved && { backgroundColor: COLORS.PRIMARY + "CC" },
+                ]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons
+                    name={isSaved ? "checkmark-circle" : "download-outline"}
+                    size={26}
+                    color="#fff"
+                  />
+                )}
               </View>
-              <Text style={styles.reelsLabel}>{isSaved ? 'Saved' : 'Save'}</Text>
+              <Text style={styles.reelsLabel}>
+                {isSaved ? "Saved" : "Save"}
+              </Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.reelsBtn} onPress={handleShare}>
@@ -407,7 +491,12 @@ export default function ViewerScreen() {
           </TouchableOpacity>
           {isSavedView && (
             <TouchableOpacity style={styles.reelsBtn} onPress={handleDelete}>
-              <View style={[styles.reelsCircle, { backgroundColor: COLORS.ERROR + 'CC' }]}>
+              <View
+                style={[
+                  styles.reelsCircle,
+                  { backgroundColor: COLORS.ERROR + "CC" },
+                ]}
+              >
                 <Ionicons name="trash-outline" size={26} color="#fff" />
               </View>
               <Text style={styles.reelsLabel}>Delete</Text>
@@ -424,21 +513,36 @@ export default function ViewerScreen() {
             {
               paddingBottom: insets.bottom + 16,
               opacity: controlsOpacity,
-              pointerEvents: showControls ? 'auto' : 'none',
+              pointerEvents: showControls ? "auto" : "none",
               zIndex: 150,
             },
           ]}
         >
           <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: isSaved ? COLORS.PRIMARY + '33' : COLORS.PRIMARY }]}
+            style={[
+              styles.actionButton,
+              {
+                backgroundColor: isSaved
+                  ? COLORS.PRIMARY + "33"
+                  : COLORS.PRIMARY,
+              },
+            ]}
             onPress={handleSave}
             disabled={!!isSaved || isSaving || isSavedView}
           >
-            {isSaving
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name={isSaved ? 'checkmark-circle' : 'download'} size={20} color={isSaved ? COLORS.PRIMARY : '#fff'} />}
-            <Text style={[styles.actionText, isSaved && { color: COLORS.PRIMARY }]}>
-              {isSaved ? 'Saved' : 'Save'}
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons
+                name={isSaved ? "checkmark-circle" : "download"}
+                size={20}
+                color={isSaved ? COLORS.PRIMARY : "#fff"}
+              />
+            )}
+            <Text
+              style={[styles.actionText, isSaved && { color: COLORS.PRIMARY }]}
+            >
+              {isSaved ? "Saved" : "Save"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
@@ -451,11 +555,16 @@ export default function ViewerScreen() {
           </TouchableOpacity>
           {isSavedView && (
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: COLORS.ERROR + '22' }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: COLORS.ERROR + "22" },
+              ]}
               onPress={handleDelete}
             >
               <Ionicons name="trash-outline" size={20} color={COLORS.ERROR} />
-              <Text style={[styles.actionText, { color: COLORS.ERROR }]}>Delete</Text>
+              <Text style={[styles.actionText, { color: COLORS.ERROR }]}>
+                Delete
+              </Text>
             </TouchableOpacity>
           )}
         </Animated.View>
