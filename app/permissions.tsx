@@ -77,9 +77,23 @@ export default function PermissionsScreen() {
   } = useMedia();
 
   const [requesting, setRequesting] = useState(false);
+  const [backMessage, setBackMessage] = useState<string | null>(null);
 
   const needsSAF = Platform.OS === 'android' && androidVersion >= 30;
   const allDone = hasPermission && (!needsSAF || safGranted);
+
+  const handleBack = () => {
+    if (!allDone) {
+      setBackMessage('You need to grant access to view statuses.');
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
 
   const handleRequestPermission = async () => {
     setRequesting(true);
@@ -95,7 +109,7 @@ export default function PermissionsScreen() {
           style={[styles.heroArea, { paddingTop: insets.top + 8 }]}
         >
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={handleBack}
             style={styles.backBtn}
             hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
           >
@@ -212,6 +226,17 @@ export default function PermissionsScreen() {
               <Text style={styles.guideLinkText}>Read Full Setup Guide</Text>
             </TouchableOpacity>
           </ScrollView><SAFGuideOverlay visible={isRequestingSAF} /></>
+      )}
+      {backMessage && (
+        <View
+          style={[
+            styles.backWarning,
+            { bottom: insets.bottom + 12, pointerEvents: 'none' },
+          ]}
+        >
+          <Ionicons name="alert-circle-outline" size={20} color={COLORS.ERROR} />
+          <Text style={styles.backWarningText}>{backMessage}</Text>
+        </View>
       )}
     </View>
   );
@@ -435,6 +460,27 @@ const createStyles = (COLORS: ThemePalette) => StyleSheet.create({
     color: COLORS.PRIMARY,
     fontFamily: 'Nunito_600SemiBold',
     textDecorationLine: 'underline',
+  },
+  backWarning: {
+    position: 'absolute',
+    left: SPACING.LG,
+    right: SPACING.LG,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.SM,
+    paddingHorizontal: SPACING.MD,
+    paddingVertical: SPACING.SM + 2,
+    backgroundColor: '#3A1118',
+    borderWidth: 1,
+    borderColor: '#E05260',
+    borderRadius: RADIUS.MD,
+  },
+  backWarningText: {
+    flex: 1,
+    fontSize: FONT_SIZE.SM,
+    lineHeight: 19,
+    color: '#FFB8BF',
+    fontFamily: 'Nunito_600SemiBold',
   },
   manualBrowseBtn: {
     flexDirection: 'row',
