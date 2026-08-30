@@ -386,7 +386,13 @@ export default function StatusesScreen() {
     if (isGrantingAccess) return;
 
     const needsSAF = androidVersion >= 30;
-    const isReady = hasPermission || (needsSAF && safGranted);
+    // Android 11+ needs both grants: Media Library permission is used for
+    // gallery/save access, while SAF is used to read WhatsApp's protected
+    // Android/media folder. Treating these as an OR lets users with only one
+    // grant fall through to the empty state instead of setup.
+    const isReady = needsSAF
+      ? hasPermission && safGranted
+      : hasPermission;
 
     if (isReady) {
       loadStatuses();
@@ -617,7 +623,18 @@ export default function StatusesScreen() {
   // ON ANDROID 10 & BELOW: We only require standard Media Library permission.
   const showPermScreen =
     Platform.OS === "android" &&
-    (androidVersion >= 30 ? !selectedSafGranted : !hasPermission);
+    (androidVersion >= 30
+      ? !hasPermission || !selectedSafGranted
+      : !hasPermission);
+
+  // New installs must go through the full permissions guide before seeing
+  // the status empty state. The inline gate below remains as a safe fallback
+  // while the route transition is being scheduled.
+  useEffect(() => {
+    if (!isInitializing && showPermScreen && !isRequestingSAF) {
+      router.replace("/permissions");
+    }
+  }, [isInitializing, isRequestingSAF, showPermScreen]);
 
   const handleGrantAccess = useCallback(() => {
     if (androidVersion >= 30) {
